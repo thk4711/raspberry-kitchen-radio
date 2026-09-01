@@ -72,6 +72,14 @@ def controller(monkeypatch):
 
     monkeypatch.setattr(dc.threading, "Thread", _InertThread)
 
+    # Pin the monotonic clock to a fixed baseline *before* constructing the
+    # controller so TransientState.last_activity (seeded from monotonic() in
+    # __init__) is host-independent. Without this the seed is the real process
+    # uptime, so idle/screensaver predicates behave differently on a fresh CI
+    # runner (small uptime) than on a long-lived dev box, making some tests
+    # flaky. Individual tests re-patch dc.monotonic to drive their own timeline.
+    monkeypatch.setattr(dc, "monotonic", lambda: 0.0)
+
     ctrl = dc.DisplayController()
     return ctrl
 
@@ -522,6 +530,12 @@ def test_crossfade_clears_after_window(controller, monkeypatch):
     import display_1_inch_69.display_control as dc
     t = {"now": 9000.0}
     monkeypatch.setattr(dc, "monotonic", lambda: t["now"])
+    # Keep the idle screensaver deterministically OFF: seed the activity
+    # baseline to "now" so _render_frame composes the now-playing frame (which
+    # clears a finished crossfade) instead of the screensaver branch, which is
+    # what this test asserts. See test_screensaver_activates_after_idle_timeout
+    # for the same explicit-baseline pattern.
+    controller._transient.last_activity = 9000.0
     controller.update_metadata("A", "", "", "md5-a", art_mode="radio")
     controller._build_art_layer()
     controller.update_metadata("B", "", "", "md5-b", art_mode="radio")
