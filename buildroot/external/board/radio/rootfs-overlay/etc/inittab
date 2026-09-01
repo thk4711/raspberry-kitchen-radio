@@ -1,0 +1,42 @@
+# /etc/inittab for the Buildroot radio appliance image.
+#
+# This file is read by BusyBox init. It does NOT switch the init system away
+# from BusyBox; it only makes the appliance image debuggable on HDMI and
+# serial console.
+
+# Startup the system
+::sysinit:/bin/mount -t proc proc /proc
+::sysinit:/bin/mount -o remount,rw /
+::sysinit:/bin/mkdir -p /dev/pts /dev/shm
+::sysinit:/bin/mount -a
+::sysinit:/bin/mkdir -p /run/lock/subsys
+::sysinit:/sbin/swapon -a
+null::sysinit:/bin/ln -sf /proc/self/fd /dev/fd
+null::sysinit:/bin/ln -sf /proc/self/fd/0 /dev/stdin
+null::sysinit:/bin/ln -sf /proc/self/fd/1 /dev/stdout
+null::sysinit:/bin/ln -sf /proc/self/fd/2 /dev/stderr
+# Paint the branded SPI boot splash as early as possible (once the rootfs is
+# writable, /tmp (tmpfs) is mounted for its log, and /dev — incl. /dev/spidev*
+# — exists). It is launched DETACHED by the wrapper, so init does NOT block on
+# the ~1s Python startup: the splash renders in parallel with provisioning/rcS
+# and adds no measurable serial boot latency. Best-effort; never blocks boot.
+# See /usr/sbin/radio-boot-splash and lib/display_1_inch_69/boot_splash.py.
+::sysinit:/usr/sbin/radio-boot-splash
+# Apply per-device settings from the SD card FAT partition (radio-config.txt)
+# BEFORE anything consumes them. This must precede the hostname line below and
+# rcS (WiFi/chrony/dropbear), so it is placed as early as possible after the
+# rootfs is writable and /tmp (tmpfs) is mounted. See /usr/sbin/provision-from-boot.
+::sysinit:/usr/sbin/provision-from-boot
+::sysinit:/bin/hostname -F /etc/hostname
+
+# Run init scripts
+::sysinit:/etc/init.d/rcS
+
+# Recovery/debug login prompts.
+# tty1 = HDMI/USB keyboard console; ttyAMA0 = serial console.
+tty1::respawn:/sbin/getty -L tty1 0 vt100
+
+# Stuff to do before rebooting
+::shutdown:/etc/init.d/rcK
+::shutdown:/sbin/swapoff -a
+::shutdown:/bin/umount -a -r

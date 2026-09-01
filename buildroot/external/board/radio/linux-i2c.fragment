@@ -1,0 +1,9 @@
+# Minimal I2C support required by the ADS1115 ADC.
+#
+# This fragment is intentionally small and positive-only. It is safe to use with
+# the current debug-friendly image because it does not disable framebuffer,
+# serial console, WiFi, audio or other recovery features.
+
+CONFIG_I2C=y
+CONFIG_I2C_CHARDEV=y
+CONFIG_I2C_BCM2835=y

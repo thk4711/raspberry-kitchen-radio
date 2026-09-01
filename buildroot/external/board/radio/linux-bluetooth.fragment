@@ -1,0 +1,22 @@
+# Bluetooth for the on-chip CYW43438 (Pi 3A+) — required by the Bluetooth A2DP
+# music source (BlueZ + bluez-alsa).
+#
+# Like linux-i2c.fragment / linux-watchdog.fragment this is intentionally small
+# and positive-only: it only ADDS options to the proven bcm2709 defconfig and
+# disables nothing, so it stays safe with the debug-friendly image. The stock
+# RPi bcm2709 config already enables most of these; listing them here makes the
+# Bluetooth requirement explicit and guarantees they survive a defconfig bump.
+#
+# CONFIG_BT              core Bluetooth subsystem
+# CONFIG_BT_BREDR        Classic (BR/EDR) — A2DP/AVRCP live here
+# CONFIG_BT_RFCOMM       serial emulation used by some profiles
+# CONFIG_BT_HCIUART*     the on-chip radio is a UART-attached HCI; the BCM
+#                        line-discipline loads the BCM43430A1.hcd firmware.
+CONFIG_BT=y
+CONFIG_BT_BREDR=y
+CONFIG_BT_RFCOMM=y
+CONFIG_BT_HCIUART=y
+CONFIG_BT_HCIUART_SERDEV=y
+CONFIG_BT_HCIUART_H4=y
+CONFIG_BT_HCIUART_BCM=y
+CONFIG_BT_HCIBTUSB=y

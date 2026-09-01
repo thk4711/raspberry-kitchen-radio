@@ -1,0 +1,109 @@
+#!/bin/sh
+# udhcpc event script for wlan0 with lease caching.
+# It keeps DHCP authoritative, but persists the last good lease so S41wlan can
+# optimistically apply it early on the next boot.
+
+CACHE=/var/lib/wlan-last-lease.env
+RESOLV_CONF=/etc/resolv.conf
+LOG=/tmp/S41wlan.log
+
+log() {
+	printf 'S41wlan-dhcp: %s\n' "$*" >> "$LOG"
+}
+
+prefix_from_netmask() {
+	# Convert dotted decimal netmask to prefix length. Keep common fast paths, then
+	# fall back to a small awk implementation if needed.
+	case "$1" in
+		255.255.255.255) echo 32 ;;
+		255.255.255.252) echo 30 ;;
+		255.255.255.248) echo 29 ;;
+		255.255.255.240) echo 28 ;;
+		255.255.255.224) echo 27 ;;
+		255.255.255.192) echo 26 ;;
+		255.255.255.128) echo 25 ;;
+		255.255.255.0)   echo 24 ;;
+		255.255.254.0)   echo 23 ;;
+		255.255.252.0)   echo 22 ;;
+		255.255.248.0)   echo 21 ;;
+		255.255.240.0)   echo 20 ;;
+		255.255.224.0)   echo 19 ;;
+		255.255.192.0)   echo 18 ;;
+		255.255.128.0)   echo 17 ;;
+		255.255.0.0)     echo 16 ;;
+		255.0.0.0)       echo 8 ;;
+		*) echo 24 ;;
+	esac
+}
+
+shell_quote() {
+	# Single-quote a value for safe .env sourcing.
+	printf "%s" "$1" | sed "s/'/'\\''/g; 1s/^/'/; \$s/\$/'/"
+}
+
+write_resolv_conf() {
+	# Remove old entries for this interface, then append current DHCP data.
+	[ -e "$RESOLV_CONF" ] || touch "$RESOLV_CONF"
+	tmp="${RESOLV_CONF}.tmp.$$"
+	grep -vE "# ${interface}\$" "$RESOLV_CONF" > "$tmp" 2>/dev/null || true
+	cat "$tmp" > "$RESOLV_CONF"
+	rm -f "$tmp"
+
+	search_list=""
+	[ -n "$search" ] && search_list="$search"
+	[ -z "$search_list" ] && [ -n "$domain" ] && search_list="$domain"
+	[ -n "$search_list" ] && echo "search $search_list # $interface" >> "$RESOLV_CONF"
+	for d in $dns; do
+		echo "nameserver $d # $interface" >> "$RESOLV_CONF"
+	done
+}
+
+configure_lease() {
+	prefix="$(prefix_from_netmask "$subnet")"
+	log "DHCP $1: ip=$ip/$prefix router=$router dns=$dns"
+
+	# Replace the optimistic cached address if present. Flush only global IPv4
+	# addresses on this interface; leave link-local/IPv6 alone.
+	ip -4 addr flush dev "$interface" scope global 2>> "$LOG" || true
+	if [ -n "$broadcast" ]; then
+		ip addr add "$ip/$prefix" broadcast "$broadcast" dev "$interface" 2>> "$LOG" || true
+	else
+		ip addr add "$ip/$prefix" dev "$interface" 2>> "$LOG" || true
+	fi
+
+	ip route del default dev "$interface" 2>/dev/null || true
+	for r in $router; do
+		ip route add default via "$r" dev "$interface" 2>> "$LOG" || true
+		break
+	done
+
+	write_resolv_conf
+
+	mkdir -p "$(dirname "$CACHE")"
+	{
+		printf 'IP=%s\n' "$(shell_quote "$ip")"
+		printf 'SUBNET=%s\n' "$(shell_quote "$subnet")"
+		printf 'PREFIX=%s\n' "$(shell_quote "$prefix")"
+		printf 'BROADCAST=%s\n' "$(shell_quote "$broadcast")"
+		printf 'ROUTER=%s\n' "$(shell_quote "$router")"
+		printf 'DNS=%s\n' "$(shell_quote "$dns")"
+		printf 'DOMAIN=%s\n' "$(shell_quote "${search:-$domain}")"
+	} > "$CACHE.tmp"
+	mv "$CACHE.tmp" "$CACHE"
+}
+
+case "$1" in
+	bound|renew)
+		configure_lease "$1"
+		;;
+	deconfig)
+		# Deliberately do not wipe an optimistic cached lease on transient DHCP
+		# startup failure. DHCP bound/renew will replace it once the server answers.
+		log "DHCP deconfig ignored; keeping any optimistic cached address"
+		;;
+	leasefail|nak)
+		log "DHCP $1"
+		;;
+esac
+
+exit 0

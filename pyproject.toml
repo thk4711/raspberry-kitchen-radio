@@ -1,0 +1,72 @@
+[project]
+name = "raspberry-kitchen-radio"
+version = "0.1.0"
+description = "Buildroot appliance that turns a Raspberry Pi into an internet radio / streaming device."
+readme = "README.md"
+license = { file = "LICENSE" }
+requires-python = ">=3.9"
+dynamic = []
+
+[tool.pytest.ini_options]
+# Run tests from the tests/ directory. The lib/ directory is added to the
+# import path so `from music_source import ...`, `from alsa_controller import
+# ...` etc. resolve exactly as they do at runtime, where radio.py does
+# `sys.path.insert(0, .../lib)`.
+testpaths = ["tests"]
+pythonpath = ["lib", "."]
+addopts = "-ra"
+
+[tool.ruff]
+# Target the oldest supported interpreter (see requires-python) so lint/format
+# never suggest syntax unavailable on the appliance image or the CI floor.
+target-version = "py39"
+line-length = 100
+# The ADS1x15 driver is vendored third-party code; do not lint/reformat it.
+extend-exclude = ["lib/ADS1x15"]
+
+[tool.ruff.lint]
+# E/W pycodestyle, F pyflakes, I import-sort, B bugbear. Kept focused to fit the
+# existing style. Pyupgrade (UP) is intentionally NOT enabled: the appliance
+# floor is Python 3.9 and several annotations are evaluated at runtime, so
+# PEP 604/585 rewrites would be unsafe there.
+select = ["E", "F", "W", "I", "B"]
+# E501 (line length) is enforced by the formatter, not the linter.
+# E402 (import not at top): several entry points intentionally manipulate
+#   sys.path before importing, and defer hardware imports; those sites already
+#   carry local noqa where needed.
+ignore = ["E501", "E402"]
+
+[tool.ruff.lint.per-file-ignores]
+# Tests import stubs and reach into internals; relax import rules there.
+"tests/*" = ["E402", "F401", "B017"]
+# The vendored-adjacent SPI/GPIO driver files (Waveshare-derived) use a
+# star-import + C-style idioms; they are out of scope for this lint pass.
+"lib/display_1_inch_69/LCD_1inch69.py" = ["F403", "F405"]
+"lib/display_1_inch_69/lcdconfig.py" = ["F403", "F405", "E711", "B008"]
+
+[tool.mypy]
+# mypy itself no longer accepts 3.9 as a target; use 3.10 for the checker while
+# the runtime floor stays 3.9 via [project] requires-python (ruff targets py39).
+python_version = "3.10"
+# The hardware/system-only libraries are stubbed at runtime and have no type
+# stubs; do not fail on their missing imports. numpy ships stubs that use newer
+# syntax than this checker target, so we do not follow into them either.
+ignore_missing_imports = true
+follow_imports = "silent"
+warn_redundant_casts = true
+# Vendored third-party driver is out of scope for typing.
+exclude = ["lib/ADS1x15/"]
+# Introduce mypy incrementally: gate CI on the fully-typed, self-contained
+# modules first (this list), then widen it as the older modules gain types.
+# Run `mypy` (no args) to check exactly this set.
+files = [
+    "radio.py",
+    "lib/_version.py",
+    "lib/bluetooth_service/bluetooth_service.py",
+    "lib/display_1_inch_69/transient_state.py",
+]
+
+[[tool.mypy.overrides]]
+module = ["numpy", "numpy.*"]
+follow_imports = "skip"
+follow_imports_for_stubs = true

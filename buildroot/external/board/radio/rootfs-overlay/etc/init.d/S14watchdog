@@ -1,0 +1,71 @@
+#!/bin/sh
+#
+# S14watchdog — arm the hardware watchdog so the appliance can never stay wedged.
+#
+# WHY: the radio is an appliance — if it ever becomes unusable it must recover
+# on its own. The BusyBox process supervisor (S90radio) restarts radio.py when
+# it *crashes*, and the freeze watcher in S90radio restarts it when it *freezes*. This
+# script is the last-resort backstop for failures those cannot recover from:
+# a kernel lockup, a stuck SD/I/O path, or a wedged WiFi driver that also takes
+# the userspace supervisors down with it.
+#
+# HOW: the BCM2835 watchdog (CONFIG_BCM2835_WDT + dtparam=watchdog=on) exposes
+# /dev/watchdog. The BusyBox `watchdog` applet opens it, sets the hardware
+# timeout, and writes to it every -t seconds. If it ever stops (because the
+# whole system is hung), the SoC hard-resets the board after -T seconds.
+#
+# The applet magic-closes /dev/watchdog on a clean SIGTERM (verified in the
+# BusyBox source), so a normal `stop` / shutdown does NOT trigger a reset.
+#
+# Started early (S14, before zram/mpd/radio) so the SoC is protected as soon as
+# possible during boot.
+#
+DAEMON=watchdog
+DEV=/dev/watchdog
+PIDFILE=/var/run/watchdog.pid
+# Hardware reboot timeout (seconds) if the device is not written to; the applet
+# writes every HTIMER/2 by default, we set the feed interval explicitly.
+HTIMER="${WATCHDOG_HTIMER:-60}"
+STIMER="${WATCHDOG_STIMER:-15}"
+
+start() {
+	printf 'Starting %s: ' "$DAEMON"
+
+	if [ ! -e "$DEV" ]; then
+		echo "SKIP (no $DEV; is CONFIG_BCM2835_WDT + dtparam=watchdog=on set?)"
+		return 0
+	fi
+
+	# start-stop-daemon -x expects the resolved busybox applet path.
+	if start-stop-daemon -S -q -p "$PIDFILE" \
+		-x /sbin/watchdog -- -T "$HTIMER" -t "$STIMER" "$DEV"; then
+		echo "OK (${STIMER}s feed / ${HTIMER}s reset)"
+	else
+		echo "FAIL"
+		return 1
+	fi
+}
+
+stop() {
+	printf 'Stopping %s: ' "$DAEMON"
+	# SIGTERM lets the applet magic-close /dev/watchdog so the board is NOT
+	# reset by a clean shutdown.
+	start-stop-daemon -K -q -p "$PIDFILE" 2>/dev/null || true
+	rm -f "$PIDFILE"
+	echo "OK"
+}
+
+case "$1" in
+	start) start ;;
+	stop) stop ;;
+	restart|reload)
+		stop
+		sleep 1
+		start
+		;;
+	*)
+		echo "Usage: $0 {start|stop|restart}"
+		exit 1
+		;;
+esac
+exit 0

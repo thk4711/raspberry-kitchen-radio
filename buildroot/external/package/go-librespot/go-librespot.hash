@@ -1,0 +1,26 @@
+# Hashes for go-librespot (item 8: restore checksum coverage).
+#
+# The archive hash pins the SHA-256 of the immutable upstream GitHub source
+# archive for tag v0.9.0 (github.com/devgianlu/go-librespot). It was captured
+# from the released tag and is byte-stable, so a clean build verifies the exact
+# upstream source before the golang infra vendors the module dependencies.
+#
+# Locally computed from the released tag archive:
+sha256  54f5edebeedf32785383b56be0c5f4c93fbbc4189e54812c9da0a0cbde607b7e  go-librespot-v0.9.0.tar.gz
+
+# Vendored-modules archive produced by Buildroot's golang download infra for the
+# pinned Buildroot 2026.05.2 + host-Go. This is the file Buildroot actually
+# places in $(BR2_DL_DIR)/go-librespot/ and verifies (the "-goN" suffix marks
+# the vendoring format version). Recorded from the deterministic vendored
+# archive for the pinned inputs (see the NOTE below on refreshing it).
+sha256  9e4e1ab1871267ba5cace600a7b3025681b5177195ce9a246e5c91e63b021328  go-librespot-v0.9.0-go2.tar.gz
+
+# NOTE (build-host verification): Buildroot's golang infra may vendor module
+# dependencies into the cached download. If a clean Linux build reports a hash
+# mismatch, the golang infra re-archived the download; in that case re-record
+# this line from the archive Buildroot placed in $(BR2_DL_DIR)/go-librespot/
+# using the SAME pinned Buildroot (2026.05.2) + host-Go, which is deterministic
+# for those pinned inputs. Do not remove the hash line — refresh it.
+
+# License file hash (verifies the GPL-3.0-or-later text has not changed).
+sha256  0f54dfc78e7aafc99567986887d738750466d96bb0af297eafba4be8e7543342  LICENSE

@@ -1,0 +1,80 @@
+#!/bin/sh
+#
+# S50dropbear — Dropbear SSH server for the Raspberry Kitchen Radio appliance.
+#
+# This is an overlay copy of Buildroot's stock dropbear init script with one
+# addition: it honours the /run/provision-disable-ssh flag written by
+# /usr/sbin/provision-from-boot when the SD-card radio-config.txt sets
+# "enable_ssh=0". provision-from-boot runs in inittab sysinit, well before this
+# rcS script, so the flag is already in place — no race.
+#
+# DROPBEAR_ARGS is sourced from /etc/default/dropbear (see board overlay).
+
+NAME="dropbear sshd"
+PIDFILE=/var/run/dropbear.pid
+SSH_DISABLE_FLAG=/run/provision-disable-ssh
+
+# Read configuration variable file if it is present.
+# shellcheck disable=SC1091 # This target-side file is supplied by the overlay.
+[ -r /etc/default/dropbear ] && . /etc/default/dropbear
+
+start() {
+	if [ -e "$SSH_DISABLE_FLAG" ]; then
+		echo "Not starting dropbear: disabled via radio-config.txt (enable_ssh=0)"
+		return 0
+	fi
+
+	# Buildroot installs /etc/dropbear as a symlink to /var/run/dropbear. On a
+	# writable rootfs replace it with a real directory so generated host keys
+	# persist. If the rootfs is read-only, create the volatile symlink target and
+	# accept that keys will be regenerated after every reboot.
+	if [ -L /etc/dropbear ] && \
+	   [ "$(readlink /etc/dropbear)" = "/var/run/dropbear" ]; then
+		if rm -f /etc/dropbear >/dev/null 2>&1; then
+			mkdir -p /etc/dropbear
+		else
+			echo "No persistent location to store SSH host keys. New keys will be"
+			echo "generated at each boot. Are you sure this is what you want to do?"
+			mkdir -p "$(readlink /etc/dropbear)"
+		fi
+	fi
+
+	printf 'Starting %s: ' "$NAME"
+	umask 077
+	# -R asks Dropbear to generate any missing host keys at first connection.
+	# shellcheck disable=SC2086 # DROPBEAR_ARGS is intentionally word-split.
+	if start-stop-daemon -S -q -p "$PIDFILE" -x /usr/sbin/dropbear -- $DROPBEAR_ARGS -R; then
+		echo "OK"
+	else
+		echo "FAIL"
+		return 1
+	fi
+}
+
+stop() {
+	printf 'Stopping %s: ' "$NAME"
+	if start-stop-daemon -K -q -p "$PIDFILE"; then
+		echo "OK"
+	else
+		echo "FAIL"
+		return 1
+	fi
+}
+
+restart() {
+	stop
+	sleep 1
+	start
+}
+
+case "$1" in
+	start) start ;;
+	stop) stop ;;
+	restart|reload) restart ;;
+	*)
+		echo "Usage: $0 {start|stop|restart|reload}"
+		exit 1
+		;;
+esac
+
+exit $?

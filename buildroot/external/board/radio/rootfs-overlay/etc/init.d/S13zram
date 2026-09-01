@@ -1,0 +1,90 @@
+#!/bin/sh
+#
+# S13zram — set up a RAM-backed, compressed swap device (zram).
+#
+# WHY: the Pi 3A+ has only 512 MB of RAM and the radio runs Python (numpy,
+# Pillow) alongside MPD, shairport-sync, nqptp and go-librespot. Under memory
+# pressure the kernel OOM-killer can kill a media backend (or radio.py) mid
+# playback. A compressed zram swap device gives the kernel headroom to page out
+# cold pages instead of killing processes, and — unlike a swap file — it lives
+# entirely in RAM, so it never touches (or wears) the SD card and vanishes on
+# reboot. This keeps the "no persistent writes" appliance policy intact.
+#
+# This script owns swap on the appliance; the generic `swapon -a` / `swapoff -a`
+# lines in /etc/inittab are no-ops (no swap in /etc/fstab) and are harmless.
+#
+# Runs before S50mpd / S90radio so swap exists before the memory-hungry
+# services start. Non-fatal: any failure here only means "no swap", never a
+# boot block.
+#
+DEV=/dev/zram0
+# Swap size (compressed data lives in RAM). 192M of *swap* on a 512M board is a
+# safe amount of extra headroom; with zstd the actual RAM used is a fraction of
+# this. Override with ZRAM_SIZE (e.g. 256M) if needed.
+ZRAM_SIZE="${ZRAM_SIZE:-192M}"
+ZRAM_ALGO="${ZRAM_ALGO:-zstd}"
+
+start() {
+	printf 'Setting up zram swap: '
+
+	# Load the module if zram is built as a module; a no-op (and harmless
+	# failure) when it is built in.
+	modprobe zram num_devices=1 2>/dev/null || true
+
+	if [ ! -e "$DEV" ]; then
+		# Some kernels need an explicit hot-add to materialise zram0.
+		if [ -e /sys/class/zram-control/hot_add ]; then
+			cat /sys/class/zram-control/hot_add >/dev/null 2>&1 || true
+		fi
+	fi
+
+	if [ ! -e "$DEV" ]; then
+		echo "SKIP (no $DEV; is CONFIG_ZRAM enabled?)"
+		return 0
+	fi
+
+	# Prefer zstd; fall back silently to whatever the kernel offers if the
+	# requested algorithm is unavailable.
+	if [ -w /sys/block/zram0/comp_algorithm ]; then
+		echo "$ZRAM_ALGO" > /sys/block/zram0/comp_algorithm 2>/dev/null || true
+	fi
+
+	if ! echo "$ZRAM_SIZE" > /sys/block/zram0/disksize 2>/dev/null; then
+		echo "FAIL (could not set disksize)"
+		return 0
+	fi
+
+	if ! mkswap "$DEV" >/dev/null 2>&1; then
+		echo "FAIL (mkswap)"
+		return 0
+	fi
+
+	# Higher priority than any (hypothetical) disk swap so zram is used first.
+	if swapon -p 100 "$DEV" >/dev/null 2>&1 || swapon "$DEV" >/dev/null 2>&1; then
+		echo "OK ($ZRAM_SIZE)"
+	else
+		echo "FAIL (swapon)"
+	fi
+}
+
+stop() {
+	printf 'Stopping zram swap: '
+	swapoff "$DEV" >/dev/null 2>&1 || true
+	# Reset the device so its RAM is freed.
+	[ -w /sys/block/zram0/reset ] && echo 1 > /sys/block/zram0/reset 2>/dev/null || true
+	echo "OK"
+}
+
+case "$1" in
+	start) start ;;
+	stop) stop ;;
+	restart|reload)
+		stop
+		start
+		;;
+	*)
+		echo "Usage: $0 {start|stop|restart}"
+		exit 1
+		;;
+esac
+exit 0

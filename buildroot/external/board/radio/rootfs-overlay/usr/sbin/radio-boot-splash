@@ -1,0 +1,44 @@
+#!/bin/sh
+# =============================================================================
+# radio-boot-splash — paint the branded SPI boot splash as early as possible.
+#
+# WHY THIS RUNS DETACHED FROM inittab sysinit:
+#   BusyBox init runs each `::sysinit:` line to completion before the next one,
+#   so a foreground splash would BLOCK boot for ~1 s (Python import + render)
+#   before provisioning / hostname / rcS / the app even start. Instead this
+#   launcher backgrounds the one-shot renderer and returns immediately (a few
+#   ms), so the splash draws IN PARALLEL with the rest of boot and adds no
+#   measurable serial boot latency. See lib/display_1_inch_69/boot_splash.py
+#   and doc/buildroot.md ("early boot splash").
+#
+#   inittab order (see rootfs-overlay/etc/inittab):
+#     mount /proc; remount,rw /; mkdir /dev/pts /dev/shm; mount -a (tmpfs /tmp)
+#     ln -sf /dev/fd ... (the /dev symlink block)
+#     /usr/sbin/radio-boot-splash   <- THIS SCRIPT (SPI + /tmp already exist)
+#     /usr/sbin/provision-from-boot
+#     hostname -F /etc/hostname
+#     /etc/init.d/rcS               <- ... S90radio starts radio.py last
+#
+# The renderer leaves the panel image + backlight on and releases SPI/GPIO, so
+# radio.py's DisplayController repaints cleanly later (same gradient look).
+#
+# Best-effort: every failure is non-fatal and this script always exits 0, so a
+# missing interpreter/module or a wiring fault can never block boot. The
+# renderer's stderr goes to a tmpfs log (never the SD card), matching the
+# appliance "no persistent logs" policy.
+# =============================================================================
+
+PYTHON=/usr/bin/python3
+APP_DIR=/opt/raspberry-kitchen-radio
+SPLASH="$APP_DIR/lib/display_1_inch_69/boot_splash.py"
+LOG=/tmp/radio-boot-splash.log
+
+# Nothing to do (and nothing to block on) if the interpreter or renderer is
+# missing — exit 0 silently.
+[ -x "$PYTHON" ] || exit 0
+[ -f "$SPLASH" ] || exit 0
+
+# Launch detached so init does not wait for the ~1 s Python startup.
+"$PYTHON" "$SPLASH" >"$LOG" 2>&1 &
+
+exit 0

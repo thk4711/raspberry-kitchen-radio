@@ -1,0 +1,23 @@
+name: CI
+on: [push, pull_request]
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ['3.9', '3.11', '3.13']
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - run: pip install -r requirements-dev.txt
+      - run: ruff check .
+      - run: mypy
+      - run: pytest -q
+      - run: python -m compileall -q lib radio.py tests
+      - run: find buildroot -type f -name '*.sh' -exec sh -n {} \;
+      - run: sudo apt-get update && sudo apt-get install -y shellcheck
+      - run: find buildroot -type f -name '*.sh' -exec shellcheck -S style {} +
+      - run: ./scripts/check-repository.sh

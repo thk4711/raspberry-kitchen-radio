@@ -1,0 +1,40 @@
+# ---------------------------------------------------------------------------
+# Raspberry Kitchen Radio — development / test dependencies
+#
+# Installs only what the unit tests import, so the suite runs on any machine
+# (macOS, Linux, CI) without a Raspberry Pi attached. Use a virtualenv:
+#
+#     python3 -m venv .venv
+#     source .venv/bin/activate
+#     pip install -r requirements-dev.txt
+#     pytest
+#
+# The hardware/system-only libraries (RPi.GPIO, alsaaudio, dbus, spidev,
+# gpiozero, smbus2, the ADS1x15 driver) are stubbed in tests/conftest.py, so
+# they are deliberately NOT installed here. The heavier runtime pins in
+# requirements.txt (numpy, Pillow, spidev, and an older pydantic) are only
+# needed on the target and some have no wheels for very new CPython versions,
+# so we depend on the runtime file loosely rather than pinning it in.
+#
+# Test tooling
+pytest>=8.0
+pytest-cov>=5.0
+
+# Lint / format / type-check tooling (also run in CI).
+ruff>=0.6
+mypy>=1.11
+
+# Runtime packages the tested modules import directly:
+#   - pydantic : music_source.py (Metadata model)
+#   - requests : utilities.py (make_request)
+#   - numpy    : display_1_inch_69/compositor.py (full-frame pixel math) and
+#                the display_control full-frame compositor tests
+#   - Pillow   : display_1_inch_69/display_control.py (frame composition) used
+#                by the compositor/display unit tests
+# Left unpinned so a compatible wheel is picked for the local interpreter
+# (the exact runtime versions are pinned in requirements.txt for the target).
+pydantic>=2.10
+requests>=2.32
+numpy>=1.24
+Pillow>=10.0
+

@@ -1,0 +1,61 @@
+# ---------------------------------------------------------------------------
+# Raspberry Kitchen Radio — Python runtime dependencies
+#
+# These are the pure-Python packages the radio imports directly. Install with:
+#
+#     python3 -m pip install -r requirements.txt
+#
+# On a fresh Raspberry Pi OS image, prefer installing inside a virtualenv, or
+# use "--break-system-packages" if you deliberately install system-wide on
+# Bookworm (PEP 668 externally-managed environment).
+#
+# NOTE: Several hardware/system libraries are NOT listed here because they are
+# provided by the OS (apt) and generally should not be installed from PyPI on a
+# Raspberry Pi. See the "System (apt) packages" section at the bottom.
+# ---------------------------------------------------------------------------
+
+# Data models for the MusicSource metadata (music_source.py)
+pydantic==2.11.10
+
+# HTTP requests for Spotify status/cover art and generic fetches (utilities.py)
+requests==2.32.5
+
+# YAML config generation for the go-librespot Spotify client (spotify_service.py)
+PyYAML==6.0.3
+
+# Image handling for the SPI display rendering (display_control.py)
+Pillow==10.4.0
+
+# Framebuffer math for the ST7789 display driver (lcdconfig.py, LCD_1inch69.py)
+numpy==2.2.6
+
+# Userspace SPI access for the display (lcdconfig.py)
+spidev==3.8
+
+# GPIO abstraction used by the display config (lcdconfig.py)
+gpiozero==2.0.1
+
+# smbus2 is used by the (optional) button_handler.py I2C path AND by the
+# ADS1115 ADC access layer (ADS1x15/Adafruit_I2C.py).
+smbus2==0.5.0
+
+# ---------------------------------------------------------------------------
+# System (apt) packages — install these with apt, NOT pip, on Raspberry Pi OS.
+# They ship native/system components that the PyPI wheels do not provide
+# cleanly on the Pi:
+#
+#     sudo apt install -y \
+#         python3-rpi.gpio \
+#         python3-dbus \
+#         python3-pyalsaaudio \
+#         mpd mpc
+#
+#   - python3-rpi.gpio    -> RPi.GPIO   (radio.py, GPIO amplifier control)
+#   - python3-dbus        -> dbus       (airplay_service.py, utilities.py)
+#   - python3-pyalsaaudio -> alsaaudio  (alsa_controller.py, volume mixer)
+#   - mpd / mpc           -> the Music Player Daemon used by mpd_service.py
+#
+# NOTE: the ADS1115 ADC layer (ADS1x15/Adafruit_I2C.py) now uses the pure-Python
+# smbus2 package listed above, so the old system python3-smbus binding is no
+# longer required.
+# ---------------------------------------------------------------------------

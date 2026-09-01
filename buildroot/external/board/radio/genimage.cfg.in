@@ -1,0 +1,29 @@
+image boot.vfat {
+	vfat {
+		files = {
+#BOOT_FILES#
+		}
+	}
+
+	# FAT boot partition size. Enlarged from Buildroot's stock 32M so the
+	# firmware, kernel (zImage), DTBs, cmdline/config.txt and the shipped
+	# radio-config.txt.example comfortably fit with headroom for the user to
+	# add their own files. Overridable via RADIO_BOOT_VFAT_SIZE in post-image.sh.
+	size = #BOOT_SIZE#
+}
+
+image sdcard.img {
+	hdimage {
+	}
+
+	partition boot {
+		partition-type = 0xC
+		bootable = "true"
+		image = "boot.vfat"
+	}
+
+	partition rootfs {
+		partition-type = 0x83
+		image = "rootfs.ext4"
+	}
+}

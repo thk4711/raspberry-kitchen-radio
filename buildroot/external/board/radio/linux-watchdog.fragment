@@ -1,0 +1,21 @@
+# Reliability hardening for the radio appliance.
+#
+# Like linux-i2c.fragment this is intentionally small and positive-only: it
+# only ADDS options to the proven bcm2709 defconfig and disables nothing, so it
+# is safe with the debug-friendly image.
+#
+# 1) Hardware watchdog (BCM2835): exposes /dev/watchdog. The BusyBox `watchdog`
+#    applet (see /etc/init.d/S14watchdog) pets it; if the whole system wedges
+#    (kernel/SD/WiFi-driver lockup) the SoC hard-resets and the appliance comes
+#    back on its own. dtparam=watchdog=on in config.txt enables the DT node.
+CONFIG_WATCHDOG=y
+CONFIG_WATCHDOG_CORE=y
+CONFIG_BCM2835_WDT=y
+
+# 2) zram: a RAM-backed, compressed swap device (see /etc/init.d/S13zram). On a
+#    512 MB Pi 3A+ running Python+numpy+Pillow+MPD+shairport-sync+go-librespot
+#    this removes out-of-memory kills as a failure mode without any SD-card
+#    wear (swap lives in RAM, compressed).
+CONFIG_ZRAM=y
+CONFIG_ZSMALLOC=y
+CONFIG_CRYPTO_ZSTD=y

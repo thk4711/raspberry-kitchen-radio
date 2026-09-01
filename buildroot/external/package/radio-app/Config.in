@@ -1,0 +1,20 @@
+config BR2_PACKAGE_RADIO_APP
+	bool "radio-app (Raspberry Kitchen Radio)"
+	default y
+	# Only select this package's own (lightweight) Python deps. The heavier
+	# system packages (python3 itself, mpd, shairport-sync, go-librespot,
+	# dbus, avahi, alsa*) are enabled directly in the defconfig to avoid
+	# Kconfig "select vs depends" recursive-dependency cycles (e.g.
+	# mpd -> fluidsynth -> jack2 -> python3).
+	select BR2_PACKAGE_PYTHON_RPI_GPIO
+	select BR2_PACKAGE_PYTHON_GPIOZERO
+	select BR2_PACKAGE_PYTHON_SMBUS2
+	help
+	  Installs the Raspberry Kitchen Radio Python application and its
+	  init scripts. The app source is taken from this repository (the
+	  BR2_EXTERNAL tree) and installed to /opt/raspberry-kitchen-radio.
+
+	  Enable python3, mpd, mpc, shairport-sync, nqptp, go-librespot, dbus,
+	  avahi and the alsa packages in the defconfig (radio_rpi3_defconfig
+	  does this).
+

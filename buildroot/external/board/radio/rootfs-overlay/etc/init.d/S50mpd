@@ -1,0 +1,35 @@
+#!/bin/sh
+#
+# S50mpd — start the Music Player Daemon for internet-radio playback.
+#
+DAEMON=mpd
+MPD_CONF=/etc/mpd.conf
+PIDFILE=/run/mpd/mpd.pid
+
+case "$1" in
+	start)
+		printf 'Starting %s: ' "$DAEMON"
+		mkdir -p /run/mpd /var/lib/mpd/playlists
+		chown -R mpd:mpd /run/mpd /var/lib/mpd 2>/dev/null || true
+		if start-stop-daemon -S -q -x /usr/bin/mpd -- "$MPD_CONF"; then
+			echo "OK"
+		else
+			echo "FAIL"
+		fi
+		;;
+	stop)
+		printf 'Stopping %s: ' "$DAEMON"
+		start-stop-daemon -K -q -p "$PIDFILE" 2>/dev/null || killall mpd 2>/dev/null
+		echo "OK"
+		;;
+	restart|reload)
+		"$0" stop
+		sleep 1
+		"$0" start
+		;;
+	*)
+		echo "Usage: $0 {start|stop|restart}"
+		exit 1
+		;;
+esac
+exit 0

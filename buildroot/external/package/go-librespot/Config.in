@@ -1,0 +1,18 @@
+config BR2_PACKAGE_GO_LIBRESPOT
+	bool "go-librespot"
+	depends on BR2_PACKAGE_HOST_GO_TARGET_ARCH_SUPPORTS
+	depends on BR2_PACKAGE_HOST_GO_TARGET_CGO_LINKING_SUPPORTS
+	depends on BR2_TOOLCHAIN_HAS_THREADS
+	select BR2_PACKAGE_ALSA_LIB
+	select BR2_PACKAGE_LIBVORBIS
+	select BR2_PACKAGE_LIBOGG
+	help
+	  go-librespot is an open-source Spotify Connect client / daemon
+	  written in Go. The radio uses its HTTP API + zeroconf discovery.
+
+	  https://github.com/devgianlu/go-librespot
+
+comment "go-librespot needs a toolchain w/ threads, and Go+cgo target support"
+	depends on !BR2_PACKAGE_HOST_GO_TARGET_ARCH_SUPPORTS || \
+		!BR2_PACKAGE_HOST_GO_TARGET_CGO_LINKING_SUPPORTS || \
+		!BR2_TOOLCHAIN_HAS_THREADS

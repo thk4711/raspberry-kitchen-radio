@@ -1,0 +1,294 @@
+#!/bin/sh
+#
+# S42bluetooth — bring up the Bluetooth A2DP audio sink asynchronously.
+#
+# bluetoothd itself is owned by the Buildroot-provided /etc/init.d/S40bluetoothd
+# (bluez5_utils), which runs earlier in boot; we augment its args to add
+# --experimental via /etc/default/bluetoothd (so org.bluez exposes the AVRCP
+# MediaPlayer1 metadata the radio app reads). This script owns everything ON TOP
+# of bluetoothd (the Python app is only a D-Bus consumer of org.bluez metadata —
+# see lib/bluetooth_service):
+#   1. wait for the adapter (hci0) that S40bluetoothd/the kernel brought up
+#   2. hold ONE long-lived bluetoothctl client that registers an auto-accept
+#      agent (`agent auto` — no PIN, auto-confirms SSP numeric comparison), sets
+#      the adapter alias to the hostname, and makes the adapter discoverable +
+#      pairable so any phone can connect password-free
+#   3. start bluealsa (A2DP receiver) and bluealsa-aplay (routes the received
+#      PCM to the ALSA default device -> I2S DAC)
+#   4. a background loop that keeps the adapter discoverable/pairable while NO
+#      device is bonded, and stops advertising once a device is paired+connected
+#
+# IMPORTANT — why a *persistent* bluetoothctl session (not one-shot heredocs):
+#   In BlueZ the registered agent AND the adapter's `Pairable` state are scoped
+#   to the D-Bus client that set them. A `bluetoothctl <<EOF ... EOF` invocation
+#   exits the instant stdin closes, so bluetoothd immediately unregisters the
+#   agent and reverts `Pairable` back to no. The adapter was then left
+#   discoverable-but-NOT-pairable with no no-PIN agent, so phones could not pair.
+#   We therefore keep a single bluetoothctl process alive for the whole service
+#   lifetime, feeding it commands through a FIFO, so the agent and pairable state
+#   persist.
+#
+# Appliance policy: no persistent logs. LOG defaults to /dev/null; point it at
+# a real path (e.g. /tmp/S42bluetooth.log) temporarily when debugging.
+
+BLUEALSA=/usr/bin/bluealsa
+BLUEALSA_APLAY=/usr/bin/bluealsa-aplay
+BTCTL=/usr/bin/bluetoothctl
+# ALSA device bluealsa-aplay renders to. "default" follows /etc/asound.conf,
+# which plugs into the dmix -> I2S DAC path used by every other source.
+APLAY_PCM="${RADIO_BT_APLAY_PCM:-default}"
+LOG="${S42BLUETOOTH_LOG:-/dev/null}"
+# The persistent bluetoothctl session reads its commands from this FIFO; its PID
+# is tracked so stop_bt can tear it down cleanly.
+BTCTL_FIFO=/run/bluetooth-radio-btctl.fifo
+BTCTL_PID=/run/bluetooth-radio-btctl.pid
+# The connection-gating pairing_mode_loop runs backgrounded; track its PID too
+# so stop_bt can kill it. Without this, every restart would leave the previous
+# loop running (they accumulate and race, some toggling pairable off mid-pairing
+# and aborting the bond with "auth failed 0x05").
+LOOP_PID=/run/bluetooth-radio-loop.pid
+
+log() {
+	echo "S42bluetooth: $*" >> "$LOG"
+}
+
+# Send one or more bluetoothctl commands (one per argument) to the persistent
+# session by writing them into the FIFO. A no-op if the session is not up.
+btctl_cmd() {
+	[ -p "$BTCTL_FIFO" ] || return 1
+	for _c in "$@"; do
+		# Non-blocking-ish: the reader (bluetoothctl) is always draining the
+		# FIFO, so this returns immediately in practice.
+		printf '%s\n' "$_c" > "$BTCTL_FIFO"
+	done
+	return 0
+}
+
+# Wait for the HCI adapter to appear. bluetoothd + the BCM UART line discipline
+# create hci0 after the firmware is loaded; give it a short grace period.
+wait_for_hci() {
+	i=0
+	while [ "$i" -lt 20 ]; do
+		[ -d /sys/class/bluetooth/hci0 ] && return 0
+		sleep 0.5
+		i=$((i + 1))
+	done
+	log "hci0 did not appear"
+	return 1
+}
+
+# Start ONE long-lived bluetoothctl client and register the no-PIN agent, set
+# the adapter alias to the hostname (BlueZ 5.x does not expand `%h` from
+# main.conf on this build, and `Alias` is what phones display) and power on.
+# The client keeps reading from the FIFO for the whole service lifetime, so the
+# agent and the pairable state it later asserts are NOT torn down (see the
+# header note). The long-running pairing_mode_loop holds the FIFO open for
+# writing (fd 3) so the reader never sees EOF and exits between commands.
+setup_agent() {
+	[ -x "$BTCTL" ] || { log "bluetoothctl missing"; return 1; }
+	rm -f "$BTCTL_FIFO"
+	if ! mkfifo "$BTCTL_FIFO"; then
+		log "could not create control FIFO $BTCTL_FIFO"
+		return 1
+	fi
+	log "starting persistent bluetoothctl session"
+	# Reader side: bluetoothctl consumes the FIFO. Backgrounded; PID tracked.
+	"$BTCTL" < "$BTCTL_FIFO" >> "$LOG" 2>&1 &
+	echo $! > "$BTCTL_PID"
+	return 0
+}
+
+# Register the auto-accept agent, set the hostname alias and power on. Sent once
+# the FIFO writer is held open (by pairing_mode_loop) and bluetoothctl has had a
+# moment to connect to bluetoothd, otherwise "agent" races ahead and fails
+# ("Failed to register agent object" / "No agent is registered").
+#
+# Why `agent auto` (not NoInputNoOutput): modern phones do SSP *numeric
+# comparison* pairing. With a NoInputNoOutput agent bluetoothd asks the agent to
+# RequestConfirmation, and bluetoothctl's NoInputNoOutput agent answers that by
+# INTERACTIVELY prompting the operator to type "yes" — which never happens in
+# this headless, scripted FIFO session, so pairing stalls/fails. `agent auto`
+# registers bluetoothctl's auto-accept agent, which confirms passkeys and
+# authorizes services with no operator input: true hands-off, no-PIN,
+# no-tap pairing (the deliberate appliance policy documented in doc/bluetooth.md).
+register_agent() {
+	# Let bluetoothctl connect to bluetoothd before issuing the agent command,
+	# otherwise it races ahead and fails ("Failed to register agent object").
+	sleep 2
+	log "registering auto-accept agent; setting alias; powering on"
+	# NOTE: bluetoothctl auto-registers a default NoInputNoOutput agent at
+	# startup, and `agent auto` then short-circuits with "Agent is already
+	# registered" WITHOUT switching to the auto-accept methods. We must
+	# `agent off` first — AND wait for bluetoothd's async "Agent unregistered"
+	# to land — before `agent auto` will actually install the auto-accept agent
+	# (which prints the "setting auto response is not secure" warning — expected
+	# and intended for this hands-off appliance). Sending them back-to-back
+	# races: `agent auto` runs before the unregister completes and is skipped,
+	# leaving no agent at all. Hence the deliberate sleeps between steps.
+	btctl_cmd "power on" "system-alias $(hostname)"
+	sleep 1
+	btctl_cmd "agent off"
+	sleep 2
+	btctl_cmd "agent auto"
+	sleep 2
+	btctl_cmd "default-agent"
+}
+
+start_bluealsa() {
+	log "starting bluealsa (a2dp-sink)"
+	start-stop-daemon -S -q -b -m -p /run/bluealsa.pid \
+		-x "$BLUEALSA" -- -p a2dp-sink >> "$LOG" 2>&1 || {
+		log "bluealsa failed to start"
+		return 1
+	}
+	log "starting bluealsa-aplay -> $APLAY_PCM"
+	start-stop-daemon -S -q -b -m -p /run/bluealsa-aplay.pid \
+		-x "$BLUEALSA_APLAY" -- --pcm="$APLAY_PCM" >> "$LOG" 2>&1 || {
+		log "bluealsa-aplay failed to start"
+		return 1
+	}
+	return 0
+}
+
+# Report whether a device has FULLY paired AND connected (bond complete).
+# We deliberately do NOT gate merely on "Connected: yes": while a phone is still
+# performing SSP pairing it is Connected but not yet Paired, and turning
+# `pairable off` at that moment aborts the in-flight bond ("auth failed with
+# status 0x05 / Authentication Failed"). Only once the device is BOTH paired and
+# connected is the bond complete and safe to stop advertising.
+#
+# Uses only bluetoothctl (no jq/dbus tooling): "devices" lists known devices,
+# "info <MAC>" reports "Paired: yes/no" and "Connected: yes/no".
+any_device_bonded() {
+	macs=$("$BTCTL" devices 2>/dev/null | awk '/^Device /{print $2}')
+	[ -n "$macs" ] || return 1
+	for mac in $macs; do
+		info=$("$BTCTL" info "$mac" 2>/dev/null)
+		if echo "$info" | grep -q 'Connected: yes' &&
+			echo "$info" | grep -q 'Paired: yes'; then
+			return 0
+		fi
+	done
+	return 1
+}
+
+open_pairing() {
+	# The auto-accept agent registered in register_agent persists for the whole
+	# session, so we only need to (re-)assert discoverable + pairable here.
+	btctl_cmd \
+		"discoverable on" \
+		"pairable on" || true
+}
+
+close_pairing() {
+	btctl_cmd \
+		"discoverable off" \
+		"pairable off" || true
+}
+
+pairing_mode_loop() {
+	# Hold the control FIFO open for writing on fd 3 for the whole lifetime of
+	# this loop. This is what keeps the persistent bluetoothctl reader from
+	# seeing EOF (and exiting, which would drop the agent + pairable state)
+	# during the idle gaps between toggles. This loop is the single long-lived
+	# owner of the write end.
+	exec 3> "$BTCTL_FIFO"
+	# Now that a writer is attached, register the agent / alias / power on.
+	register_agent
+	# Track the last applied state so we only emit a toggle (and a log line) on
+	# an actual change, keeping the loop quiet and cheap. We stop advertising
+	# only once a device is fully bonded (paired + connected), never while a
+	# pairing handshake is still in flight (see any_device_bonded).
+	last=""
+	while true; do
+		if any_device_bonded; then
+			if [ "$last" != "connected" ]; then
+				log "device paired + connected; disabling pairing mode"
+				close_pairing
+				last="connected"
+			fi
+		else
+			if [ "$last" != "open" ]; then
+				log "no bonded device; enabling pairing mode (no PIN)"
+				open_pairing
+				last="open"
+			fi
+		fi
+		sleep 15
+	done
+}
+
+start_bt() {
+	: > "$LOG"
+	log "starting bluetooth"
+	# bluetoothd is owned by S40bluetoothd (started earlier). Just wait for the
+	# adapter it/the kernel brought up. Do not start bluetoothd here.
+	if ! wait_for_hci; then
+		log "no adapter (hci0); is S40bluetoothd running? giving up"
+		return 1
+	fi
+	# Small settle so bluetoothd has claimed org.bluez before bluetoothctl runs.
+	sleep 2
+	setup_agent
+	start_bluealsa
+	# The loop attaches the FIFO writer, registers the agent and then owns the
+	# connection-gated discoverable/pairable toggling for the rest of uptime.
+	# Record its PID so stop_bt can terminate it (otherwise restarts leak loops).
+	pairing_mode_loop &
+	echo $! > "$LOOP_PID"
+	return 0
+}
+
+stop_bt() {
+	log "stopping bluetooth"
+	# Kill the connection-gating loop FIRST so it cannot re-open pairing or race
+	# during teardown. It is a plain background sh loop, so its PID (not any
+	# bluetoothctl child) is what must be signalled.
+	if [ -f "$LOOP_PID" ]; then
+		kill "$(cat "$LOOP_PID")" 2>/dev/null
+		sleep 1
+		kill -9 "$(cat "$LOOP_PID")" 2>/dev/null
+	fi
+	# Belt-and-braces: kill any stray loops left over from earlier (buggy)
+	# builds that did not track the loop PID, so they cannot linger and toggle
+	# pairable off mid-pairing. Match only real init-script invocations
+	# (/etc/init.d/S42bluetooth), never this process, and never unrelated
+	# shells/ssh sessions that merely mention the name.
+	for _p in $(ps 2>/dev/null | awk '/\/etc\/init.d\/S42bluetooth/ && !/awk/{print $1}'); do
+		[ "$_p" = "$$" ] || [ "$_p" = "$PPID" ] || kill -9 "$_p" 2>/dev/null
+	done
+	# Only stop what this script owns; bluetoothd belongs to S40bluetoothd.
+	start-stop-daemon -K -q -p /run/bluealsa-aplay.pid 2>/dev/null
+	start-stop-daemon -K -q -p /run/bluealsa.pid 2>/dev/null
+	# Tear down the persistent bluetoothctl session (this also releases the
+	# agent) and the control FIFO.
+	start-stop-daemon -K -q -p "$BTCTL_PID" 2>/dev/null
+	sleep 1
+	killall bluealsa-aplay bluealsa 2>/dev/null
+	sleep 1
+	killall -9 bluealsa-aplay bluealsa 2>/dev/null || true
+	killall bluetoothctl 2>/dev/null || true
+	rm -f /run/bluealsa-aplay.pid /run/bluealsa.pid "$BTCTL_PID" "$BTCTL_FIFO" "$LOOP_PID"
+}
+
+case "$1" in
+	start)
+		start_bt &
+		echo "Starting Bluetooth: OK"
+		;;
+	stop)
+		stop_bt
+		echo "Stopping Bluetooth: OK"
+		;;
+	restart|reload)
+		stop_bt
+		start_bt &
+		echo "Restarting Bluetooth: OK"
+		;;
+	*)
+		echo "Usage: $0 {start|stop|restart}"
+		exit 1
+		;;
+esac
+
+exit 0

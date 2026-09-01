@@ -1,0 +1,186 @@
+#!/bin/sh
+#
+# S90radio — start, supervise and self-heal the Raspberry Kitchen Radio app.
+#
+# The app itself launches the media backends it needs (nqptp, shairport-sync,
+# go-librespot) via lib/utilities.start_external_program_in_background, so this
+# script only needs to keep radio.py alive. We use a tiny respawn wrapper since
+# BusyBox init's inittab respawn is reserved for getty here.
+#
+# Reliability model (defence in depth, fastest recovery first):
+#   1. CRASH  — radio.py exits: the supervisor loop below restarts it with
+#               exponential backoff (so a deterministic crash cannot become a
+#               tight, CPU-burning restart loop).
+#   2. FREEZE — radio.py is alive but wedged (a hung D-Bus/ALSA/SPI/HTTP call):
+#               the app stops refreshing its /tmp/radio.alive heartbeat; the
+#               freeze-watcher below kills it, which triggers case 1.
+#   3. SYSTEM — the whole board is hung and even this script is stuck: the
+#               hardware watchdog (S14watchdog) stops being fed and the SoC
+#               hard-resets. Last resort.
+#
+APP_DIR=/opt/raspberry-kitchen-radio
+APP=radio.py
+PIDFILE=/run/radio.pid
+WRAP=/run/radio-supervise.sh
+# Heartbeat file the app touches every metadata-loop iteration (see radio.py
+# [watchdog] section). If it goes stale the app is considered frozen.
+HEARTBEAT="${RADIO_HEARTBEAT_FILE:-/tmp/radio.alive}"
+# Consider the app frozen if the heartbeat has not been updated for this many
+# seconds (~10x the default 3s metadata interval leaves ample slack).
+HEARTBEAT_TIMEOUT="${RADIO_HEARTBEAT_TIMEOUT:-30}"
+WATCH_WRAP=/run/radio-freeze-watch.sh
+WATCH_PIDFILE=/run/radio-freeze-watch.pid
+
+start_supervisor() {
+	cat > "$WRAP" <<EOF
+#!/bin/sh
+cd $APP_DIR || exit 1
+export RADIO_LOG_LEVEL="\${RADIO_LOG_LEVEL:-ERROR}"
+export RADIO_I2C_BUS="\${RADIO_I2C_BUS:-1}"
+export RADIO_HEARTBEAT_FILE="$HEARTBEAT"
+
+wait_for_i2c() {
+	i=0
+	while [ "\$i" -lt 10 ]; do
+		[ -e "/dev/i2c-\${RADIO_I2C_BUS}" ] && return 0
+		# These are harmless when built in, and useful when the kernel provides
+		# them as modules. mdev creates /dev/i2c-* after the devices appear.
+		modprobe i2c-dev 2>/dev/null || true
+		modprobe i2c-bcm2835 2>/dev/null || true
+		mdev -s 2>/dev/null || true
+		sleep 1
+		i=\$((i + 1))
+	done
+	echo "warning: /dev/i2c-\${RADIO_I2C_BUS} did not appear before radio start" >&2
+	return 1
+}
+
+wait_for_i2c || true
+
+# Reap any media backends left behind by a previous crashed instance BEFORE
+# (re)starting the app. radio.py launches nqptp/shairport-sync/go-librespot as
+# children and cleans them up via atexit — but a hard crash or a SIGKILL (from
+# the freeze-watcher) skips that, so old backends can linger and the fresh app
+# would spawn duplicates. Clearing them here keeps exactly one owner each.
+reap_backends() {
+	killall shairport-sync nqptp go-librespot 2>/dev/null || true
+	sleep 1
+	killall -9 shairport-sync nqptp go-librespot 2>/dev/null || true
+}
+
+# Use the Buildroot-built media backends (on PATH). The repo ships no vendored
+# binaries; these env vars point the app at the from-source backends.
+export RADIO_NQPTP_BINARY="/usr/bin/nqptp"
+export RADIO_AIRPLAY_BINARY="/usr/bin/shairport-sync"
+export RADIO_SPOTIFY_BINARY="/usr/bin/go-librespot"
+export RADIO_SPOTIFY_CONF="/tmp/go-librespot/config.yaml"
+export RADIO_SPOTIFY_CONFIG_ARG="--config_dir"
+
+# Exponential backoff between restarts: 3 -> 6 -> 12 -> 24 -> 48 -> 60 (cap).
+# Reset to the minimum after any run that stayed up long enough to be healthy.
+backoff=3
+backoff_min=3
+backoff_max=60
+healthy_run=60
+
+while true; do
+	reap_backends
+	# Clear the heartbeat so a never-starting app is treated as frozen, not
+	# healthy, by the freeze-watcher.
+	rm -f "$HEARTBEAT" 2>/dev/null || true
+
+	start=\$(date +%s 2>/dev/null || echo 0)
+	/usr/bin/python3 $APP_DIR/$APP
+	rc=\$?
+	end=\$(date +%s 2>/dev/null || echo 0)
+
+	ran=\$((end - start))
+	if [ "\$ran" -ge "\$healthy_run" ]; then
+		backoff=\$backoff_min
+	fi
+
+	echo "radio.py exited (\$rc) after \${ran}s, restarting in \${backoff}s" >&2
+	sleep "\$backoff"
+
+	backoff=\$((backoff * 2))
+	[ "\$backoff" -gt "\$backoff_max" ] && backoff=\$backoff_max
+done
+EOF
+	chmod +x "$WRAP"
+	# -m writes the supervisor PID to PIDFILE.
+	start-stop-daemon -S -q -b -m -p "$PIDFILE" -x /bin/sh -- "$WRAP"
+}
+
+
+# --- Freeze-watcher ----------------------------------------------------------
+# A tiny companion loop that runs alongside the supervisor. It watches the
+# app's heartbeat file and, if it goes stale while the app should be running,
+# kills the python process so the supervisor restarts it. This catches a
+# hung-but-alive app (which the supervisor's exit-based loop never sees).
+start_freeze_watcher() {
+	cat > "$WATCH_WRAP" <<EOF
+#!/bin/sh
+HEARTBEAT="$HEARTBEAT"
+TIMEOUT="$HEARTBEAT_TIMEOUT"
+while true; do
+	sleep 10
+	# No heartbeat file yet: the app has not started/armed it. The supervisor's
+	# own restart loop handles a never-starting app, so do nothing here.
+	[ -f "\$HEARTBEAT" ] || continue
+	now=\$(date +%s 2>/dev/null || echo 0)
+	# File mtime in epoch seconds. Prefer stat (unambiguous); fall back to
+	# BusyBox 'date -r FILE'. If neither works, treat as fresh (skip).
+	mtime=\$(stat -c %Y "\$HEARTBEAT" 2>/dev/null || date -r "\$HEARTBEAT" +%s 2>/dev/null || echo "\$now")
+	age=\$((now - mtime))
+	if [ "\$age" -gt "\$TIMEOUT" ]; then
+		echo "radio.py heartbeat stale (\${age}s > \${TIMEOUT}s); killing frozen app" >&2
+		# Kill the python app so the supervisor respawns it. Drop the stale
+		# heartbeat so we do not immediately kill the fresh instance.
+		killall python3 2>/dev/null || true
+		rm -f "\$HEARTBEAT" 2>/dev/null || true
+		sleep "\$TIMEOUT"
+	fi
+done
+EOF
+	chmod +x "$WATCH_WRAP"
+	start-stop-daemon -S -q -b -m -p "$WATCH_PIDFILE" -x /bin/sh -- "$WATCH_WRAP"
+}
+
+case "$1" in
+	start)
+		printf 'Starting radio: '
+		# Ensure writable runtime dirs exist (rootfs may be read-only).
+		mkdir -p /tmp/shairport-sync/.cache/coverart /tmp/go-librespot
+		start_supervisor
+		if start_freeze_watcher; then
+			echo "OK"
+		else
+			echo "FAIL"
+		fi
+		;;
+	stop)
+		printf 'Stopping radio: '
+		# Stop the freeze-watcher first so it cannot restart the app mid-stop.
+		start-stop-daemon -K -q -p "$WATCH_PIDFILE" 2>/dev/null
+		start-stop-daemon -K -q -p "$PIDFILE" 2>/dev/null
+		sleep 1
+		# Also stop the child python + media backends. They are normally owned by
+		# the Python app, but clean up explicitly so repeated manual restarts cannot
+		# leave duplicate nqptp/shairport-sync/go-librespot processes around.
+		killall python3 shairport-sync nqptp go-librespot 2>/dev/null
+		sleep 1
+		killall -9 python3 shairport-sync nqptp go-librespot 2>/dev/null || true
+		rm -f "$PIDFILE" "$WATCH_PIDFILE" "$HEARTBEAT"
+		echo "OK"
+		;;
+	restart)
+		"$0" stop
+		sleep 2
+		"$0" start
+		;;
+	*)
+		echo "Usage: $0 {start|stop|restart}"
+		exit 1
+		;;
+esac
+exit 0

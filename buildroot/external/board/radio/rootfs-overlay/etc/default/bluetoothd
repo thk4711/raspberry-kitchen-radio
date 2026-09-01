@@ -1,0 +1,9 @@
+# Raspberry Kitchen Radio — extra arguments for bluetoothd.
+#
+# Sourced by the Buildroot-provided /etc/init.d/S40bluetoothd (bluez5_utils),
+# which owns the bluetoothd process. We keep the upstream "-n" (no-detach, the
+# init script backgrounds it) and add "--experimental" so BlueZ exposes the
+# full org.bluez.MediaPlayer1 / AVRCP metadata that the radio app reads over
+# D-Bus (title/artist/album). S42bluetooth then adds the auto-pairing agent and
+# the bluealsa A2DP receiver on top.
+BLUETOOTHD_ARGS="-n --experimental"

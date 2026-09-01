@@ -1,0 +1,67 @@
+# =============================================================================
+# Raspberry Kitchen Radio — first-boot configuration
+# =============================================================================
+#
+# HOW TO USE
+#   1. Flash the prebuilt image to the SD card.
+#   2. On any computer, open the SD card's small FAT ("boot") partition.
+#   3. Copy this file to  radio-config.txt  (drop the ".example").
+#   4. Edit the values below with a plain-text editor, then save.
+#   5. Insert the card into the Pi 3A+ and power it on.
+#
+# The radio reads /radio-config.txt from this FAT partition on EVERY boot,
+# before WiFi / hostname / SSH / time are brought up, and applies the settings.
+# They OVERRIDE whatever was baked into the image at build time. Re-edit the
+# file and reboot to change them again.
+#
+# FORMAT
+#   * One  key=value  per line.
+#   * Lines starting with #, and blank lines, are ignored.
+#   * Remove the leading "#" to activate a setting.
+#   * Values may optionally be wrapped in "double" or 'single' quotes.
+#
+# A bad or missing file never blocks boot — the image's built-in defaults are
+# used instead. See /tmp/provision-from-boot.log on the device for what was
+# applied or skipped.
+# =============================================================================
+
+# --- WiFi (REQUIRED: the Pi 3A+ has no Ethernet) -----------------------------
+# Only WPA-PSK (WPA2 personal) networks are supported.
+# The passphrase must be 8..63 characters.
+wifi_ssid=MyNetwork
+wifi_psk=my-wifi-password
+
+# WiFi regulatory domain: an ISO-3166 alpha-2 country code (e.g. DE, US, GB).
+# Applied at boot via `iw reg set` so the radio uses the channels and transmit
+# power allowed where you are. Setting this also clears the "reason -52" channel
+# errors seen in dmesg under the default worldwide domain. Leave it commented to
+# keep the safe worldwide default ("00").
+# wifi_country=DE
+
+# --- Identity ----------------------------------------------------------------
+# The hostname is also the AirPlay / Spotify Connect device name.
+# Letters, digits and hyphens only.
+# hostname=kuechenradio
+
+# --- Access / debugging ------------------------------------------------------
+# Set the root login password (console and SSH).
+# root_password=radio
+
+# Enable (1) or disable (0) the SSH server (dropbear). Default: enabled.
+# enable_ssh=1
+
+# --- Locale / time -----------------------------------------------------------
+# Time zone, e.g. Europe/Berlin. Applied only if the zoneinfo database is
+# present in the image; otherwise ignored (UTC is used). Without this the
+# top status-bar clock on the display shows UTC. Change it to your own zone
+# (any name under /usr/share/zoneinfo, e.g. Europe/London, America/New_York).
+timezone=Europe/Berlin
+
+# Use a specific NTP server instead of the default public pool. Handy on
+# locked-down networks that only allow a local time source.
+# ntp_server=pool.ntp.org
+
+# --- NOTE ON THE DAC OVERLAY -------------------------------------------------
+# The I2S DAC/amp overlay is NOT set here. It lives in "config.txt" on this same
+# FAT partition — edit the "dtoverlay=..." line there directly if you change
+# your DAC board.

@@ -1,0 +1,76 @@
+# Raspberry Kitchen Radio — Raspberry Pi 3A+ firmware config.
+# Installed to the FAT boot partition as config.txt by the Buildroot
+# post-image / genimage step.
+
+# Keep the stock Raspberry Pi 3 firmware files explicit while recovering the
+# bootable checkpoint. These match Buildroot's upstream raspberrypi3/config_3.txt.
+start_file=start.elf
+fixup_file=fixup.dat
+
+# Name the kernel image on the FAT boot partition. Our board/radio/post-image.sh
+# reads this `kernel=` line (like Buildroot's stock RPi post-image) to know which
+# file to place on boot.vfat; without it the generated genimage file list gets an
+# empty entry that makes mcopy try to copy the whole images dir into the vfat
+# ("Disk full"). 32-bit build ships a zImage (not the 64-bit Image).
+kernel=zImage
+
+# Keep the HDMI/framebuffer path debuggable until boot + SSH are proven.
+disable_overscan=1
+gpu_mem_512=100
+
+# Enable the on-chip Bluetooth radio (Bluetooth A2DP audio source). On the Pi
+# 3A+ the CYW43438/BCM4345C0 Bluetooth is attached over a PL011 UART (ttyAMA0).
+#
+# IMPORTANT — do NOT use `dtoverlay=pi3-miniuart-bt` here. That overlay moves
+# Bluetooth onto the *mini-UART* (ttyS0), whose clock/flow-control cannot
+# reliably sustain the A2DP data rate: streaming produced continuous
+# "Bluetooth: hci0: ACL packet for unknown connection handle" /
+# "Unexpected continuation frame (len 0)" kernel errors, ~50% of the audio was
+# lost, and playback was choppy then silent. Leaving the overlay OFF keeps
+# Bluetooth on the full PL011 (with hardware flow control), which streams A2DP
+# cleanly. The kernel console stays on tty1 (see cmdline.txt), so nothing else
+# needs the PL011. The BlueZ stack + UART attach come up via /etc/init.d/S42bluetooth.
+# dtoverlay=pi3-miniuart-bt   # deliberately NOT set — see note above
+
+# Bring up the PL011 UART deterministically for the Bluetooth attach. (Pinning
+# the VPU core clock via core_freq was tried and made no difference on the PL011,
+# so it is intentionally NOT set.)
+enable_uart=1
+
+# Hardware interfaces the radio needs.
+dtparam=i2c_arm=on      # ADS1115 ADC (volume / switch / buttons)
+dtparam=i2s=on          # I2S DAC
+dtparam=spi=on          # ST7789 display
+
+# Hardware watchdog (BCM2835): exposes /dev/watchdog so the BusyBox `watchdog`
+# applet (started by /etc/init.d/S14watchdog) can arm the SoC's watchdog. If the
+# whole system ever wedges, the board hard-resets on its own. Enabled in the
+# kernel via board/radio/linux-watchdog.fragment (CONFIG_BCM2835_WDT).
+dtparam=watchdog=on
+
+# On-board audio off; an I2S DAC/amp is used instead
+dtparam=audio=off
+
+# Active DAC overlay — change to match your board.
+dtoverlay=iqaudio-dacplus
+#dtoverlay=hifiberry-dacplus
+#dtoverlay=merus-amp
+
+# No device_tree= line: this is a 32-bit build and the VideoCore firmware
+# auto-loads the base DTB by board revision using the *downstream* name
+# (bcm2710-rpi-3-b-plus.dtb for the 3A+), which we build via
+# BR2_LINUX_KERNEL_INTREE_DTS_NAME. On this proven 32-bit base the auto-load
+# works, so no custom device_tree= is needed (and none is shipped).
+
+# Boot-speed/headless options: the ones applied in this file are disable_splash=1,
+# boot_delay=0 and initial_turbo=30 (see below/above).
+# gpu_mem is set via gpu_mem_512=100 (kept generous while the HDMI/framebuffer
+# path stays debuggable). The more aggressive headless options
+# (camera_auto_detect=0, display_auto_detect=0, a small gpu_mem=16) are NOT
+# applied here and can be introduced one at a time after a confirmed bootable
+# checkpoint.
+
+# Boot optimization: no firmware splash / no artificial boot delay.
+disable_splash=1
+boot_delay=0
+initial_turbo=30

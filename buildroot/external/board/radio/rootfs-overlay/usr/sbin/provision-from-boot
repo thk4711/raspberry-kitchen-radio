@@ -1,0 +1,316 @@
+#!/bin/sh
+# =============================================================================
+# provision-from-boot — apply per-device settings from the SD card FAT
+# partition, similar to Raspberry Pi OS's /boot provisioning.
+#
+# WHY THIS RUNS FROM inittab sysinit (NOT from an rcS S?? script):
+#   The provisioned data must be applied BEFORE anything consumes it. In
+#   particular /etc/hostname is consumed by the `hostname -F /etc/hostname`
+#   sysinit line, which runs BEFORE rcS (and therefore before any S?? script).
+#   WiFi (S41wlan), chrony (S49chronyd) and dropbear (S50dropbear) are all
+#   started later from rcS, so applying their config here — the first sysinit
+#   step after the rootfs is remounted read-write and /tmp (tmpfs) is mounted —
+#   guarantees every consumer reads the freshly-provisioned values.
+#
+#   inittab order (see rootfs-overlay/etc/inittab):
+#     mount /proc
+#     mount -o remount,rw /          <- rootfs writable (chpasswd, /etc writes)
+#     mkdir /dev/pts /dev/shm
+#     mount -a                       <- tmpfs /tmp available (for our log)
+#     /usr/sbin/provision-from-boot  <- THIS SCRIPT
+#     hostname -F /etc/hostname      <- reads provisioned hostname
+#     /etc/init.d/rcS                <- S41wlan / S49chronyd / S50dropbear ...
+#
+# The file on the FAT partition is a simple key=value text file
+# (radio-config.txt). It is parsed with a strict whitelist — the file is NEVER
+# sourced/eval'd, because a FAT partition is trivially editable. The partition
+# is mounted READ-ONLY and the file is never modified: it stays the single
+# source of truth, re-applied on every boot (idempotent).
+#
+# Settings on the SD card OVERRIDE the values baked in at build time by
+# buildroot/configure.sh. If the file (or the FAT partition) is absent, this is
+# a silent no-op and the built-in defaults are used.
+#
+# All failures are non-fatal: the script always exits 0 so a bad file can never
+# block boot.
+# =============================================================================
+
+BOOT_DEV=""
+BOOT_MNT=/mnt/boot
+CONFIG_NAME=radio-config.txt
+LOG=/tmp/provision-from-boot.log
+WPA_CONF=/etc/wpa_supplicant.conf
+HOSTNAME_FILE=/etc/hostname
+HOSTS_FILE=/etc/hosts
+CHRONY_CONF=/etc/chrony.conf
+SSH_DISABLE_FLAG=/run/provision-disable-ssh
+# WiFi regulatory domain handoff: this script validates wifi_country= and writes
+# the code here; S41wlan reads it at bring-up and runs `iw reg set`. On tmpfs so
+# the FAT radio-config.txt stays the single source of truth (re-derived each boot).
+WIFI_COUNTRY_FILE=/run/wifi-country
+
+log() {
+	echo "provision-from-boot: $*" >> "$LOG" 2>/dev/null || true
+}
+
+# --- Locate the FAT boot partition -------------------------------------------
+# Prefer deriving it from the running root device: root=/dev/mmcblk0p2 -> p1.
+# Fall back to the common Pi node, then to a vfat-labelled "boot" via blkid.
+find_boot_dev() {
+	root_dev=$(sed -n 's/.*root=\([^ ]*\).*/\1/p' /proc/cmdline 2>/dev/null)
+	case "$root_dev" in
+		/dev/mmcblk*p2)
+			cand=$(echo "$root_dev" | sed 's/p2$/p1/')
+			[ -b "$cand" ] && { echo "$cand"; return 0; }
+			;;
+		/dev/*[0-9])
+			# Generic "last digit is the partition number" fallback.
+			cand=$(echo "$root_dev" | sed 's/[0-9]$/1/')
+			[ -b "$cand" ] && { echo "$cand"; return 0; }
+			;;
+	esac
+
+	[ -b /dev/mmcblk0p1 ] && { echo /dev/mmcblk0p1; return 0; }
+
+	if command -v blkid >/dev/null 2>&1; then
+		cand=$(blkid -t LABEL=boot -o device 2>/dev/null | head -n 1)
+		[ -b "$cand" ] && { echo "$cand"; return 0; }
+	fi
+	return 1
+}
+
+# --- Safe value handling -----------------------------------------------------
+# Trim leading/trailing whitespace and a trailing CR (files edited on Windows),
+# then strip ONE layer of matching surrounding quotes.
+clean_value() {
+	v=$1
+	v=$(printf '%s' "$v" | tr -d '\r')
+	v=$(printf '%s' "$v" | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')
+	case "$v" in
+		\"*\") v=$(printf '%s' "$v" | sed -e 's/^"//' -e 's/"$//') ;;
+		\'*\') v=$(printf '%s' "$v" | sed -e "s/^'//" -e "s/'$//") ;;
+	esac
+	printf '%s' "$v"
+}
+
+# Escape " and \ for safe inclusion inside a double-quoted wpa_supplicant field.
+wpa_escape() {
+	printf '%s' "$1" | sed -e 's/\\/\\\\/g' -e 's/"/\\"/g'
+}
+
+
+# --- Individual appliers -----------------------------------------------------
+apply_wifi() {
+	ssid=$1
+	psk=$2
+	[ -n "$ssid" ] || { log "wifi: no ssid, skipping"; return; }
+	[ -n "$psk" ] || { log "wifi: no psk, skipping"; return; }
+
+	case "$ssid$psk" in
+		*YOUR_WIFI_*|*YOUR_SSID*|*YOUR_PASSWORD*)
+			log "wifi: placeholder credentials ignored"
+			return
+			;;
+	esac
+
+	psk_len=$(printf '%s' "$psk" | wc -c | tr -d ' ')
+	if [ "$psk_len" -lt 8 ] || [ "$psk_len" -gt 63 ]; then
+		log "wifi: psk length $psk_len out of range (8..63), skipping"
+		return
+	fi
+
+	ssid_e=$(wpa_escape "$ssid")
+	psk_e=$(wpa_escape "$psk")
+
+	umask 077
+	tmp="${WPA_CONF}.tmp.$$"
+	{
+		echo "# Generated at boot by /usr/sbin/provision-from-boot from ${CONFIG_NAME}."
+		echo "# The target wpa_supplicant is built without CONFIG_CTRL_IFACE, so only"
+		echo "# a bare network={...} block with key_mgmt=WPA-PSK is allowed."
+		echo "network={"
+		printf '    ssid="%s"\n' "$ssid_e"
+		printf '    psk="%s"\n' "$psk_e"
+		echo "    key_mgmt=WPA-PSK"
+		echo "}"
+	} > "$tmp" 2>/dev/null && mv "$tmp" "$WPA_CONF" && chmod 0600 "$WPA_CONF"
+	log "wifi: wrote $WPA_CONF for ssid=$ssid"
+}
+
+# Validate and persist the WiFi regulatory domain for S41wlan. Accepts an
+# ISO-3166 alpha-2 country code (two ASCII letters), uppercased. An empty value
+# clears any previously written code (falls back to the worldwide default);
+# anything else is logged and ignored. Never blocks boot.
+apply_wifi_country() {
+	cc=$1
+	if [ -z "$cc" ]; then
+		rm -f "$WIFI_COUNTRY_FILE" 2>/dev/null || true
+		return
+	fi
+	# Uppercase without relying on non-POSIX ${var^^}.
+	cc=$(printf '%s' "$cc" | tr '[:lower:]' '[:upper:]')
+	case "$cc" in
+		[A-Z][A-Z]) ;;
+		*) log "wifi_country: invalid '$1' ignored (need a 2-letter code, e.g. DE)"; return ;;
+	esac
+	if printf '%s\n' "$cc" > "$WIFI_COUNTRY_FILE" 2>/dev/null; then
+		log "wifi_country: set to $cc (S41wlan will apply via iw reg set)"
+	else
+		log "wifi_country: cannot write $WIFI_COUNTRY_FILE"
+	fi
+}
+
+apply_hostname() {
+	name=$1
+	[ -n "$name" ] || return
+	# Basic sanity: hostnames are letters, digits and hyphens.
+	case "$name" in
+		*[!A-Za-z0-9-]*) log "hostname: invalid '$name' ignored"; return ;;
+	esac
+
+	old=$(cat "$HOSTNAME_FILE" 2>/dev/null)
+	printf '%s\n' "$name" > "$HOSTNAME_FILE" 2>/dev/null || {
+		log "hostname: cannot write $HOSTNAME_FILE"
+		return
+	}
+
+	# Keep /etc/hosts in sync so local name resolution matches.
+	if [ -f "$HOSTS_FILE" ] && [ -n "$old" ]; then
+		tmp="${HOSTS_FILE}.tmp.$$"
+		sed "s/[[:space:]]${old}\$/ ${name}/; s/[[:space:]]${old}[[:space:]]/ ${name} /g" \
+			"$HOSTS_FILE" > "$tmp" 2>/dev/null && mv "$tmp" "$HOSTS_FILE"
+	fi
+	log "hostname: set to $name (was ${old:-unset})"
+	# hostname -F /etc/hostname runs next in sysinit and applies this live.
+}
+
+apply_root_password() {
+	pw=$1
+	[ -n "$pw" ] || return
+	if command -v chpasswd >/dev/null 2>&1; then
+		if printf 'root:%s\n' "$pw" | chpasswd >/dev/null 2>&1; then
+			log "root_password: updated"
+		else
+			log "root_password: chpasswd failed"
+		fi
+	else
+		log "root_password: chpasswd unavailable"
+	fi
+}
+
+apply_enable_ssh() {
+	val=$1
+	case "$val" in
+		0|no|false|off)
+			: > "$SSH_DISABLE_FLAG" 2>/dev/null || true
+			log "enable_ssh: disabled (S50dropbear will not start)"
+			;;
+		1|yes|true|on|"")
+			rm -f "$SSH_DISABLE_FLAG" 2>/dev/null || true
+			[ -n "$val" ] && log "enable_ssh: enabled"
+			;;
+		*)
+			log "enable_ssh: unrecognised value '$val' ignored"
+			;;
+	esac
+}
+
+apply_timezone() {
+	tz=$1
+	[ -n "$tz" ] || return
+	zi="/usr/share/zoneinfo/$tz"
+	if [ -f "$zi" ]; then
+		ln -sf "$zi" /etc/localtime 2>/dev/null && \
+			printf '%s\n' "$tz" > /etc/timezone 2>/dev/null
+		log "timezone: set to $tz"
+	else
+		log "timezone: zoneinfo for '$tz' not present in image; ignored"
+	fi
+}
+
+apply_ntp_server() {
+	server=$1
+	[ -n "$server" ] || return
+	[ -f "$CHRONY_CONF" ] || { log "ntp_server: $CHRONY_CONF missing"; return; }
+	tmp="${CHRONY_CONF}.tmp.$$"
+	# Drop existing pool/server lines, then add the requested server.
+	grep -vE '^[[:space:]]*(pool|server)[[:space:]]' "$CHRONY_CONF" > "$tmp" 2>/dev/null || cp "$CHRONY_CONF" "$tmp"
+	printf 'server %s iburst\n' "$server" >> "$tmp"
+	mv "$tmp" "$CHRONY_CONF" 2>/dev/null && log "ntp_server: set to $server"
+	# S49chronyd starts later in rcS and reads this file.
+}
+
+# --- Main --------------------------------------------------------------------
+: > "$LOG" 2>/dev/null || true
+log "starting"
+
+BOOT_DEV=$(find_boot_dev) || {
+	log "no FAT boot partition found; nothing to do"
+	exit 0
+}
+log "boot partition: $BOOT_DEV"
+
+mkdir -p "$BOOT_MNT" 2>/dev/null || true
+if ! mount -t vfat -o ro "$BOOT_DEV" "$BOOT_MNT" 2>>"$LOG"; then
+	log "could not mount $BOOT_DEV read-only; nothing to do"
+	exit 0
+fi
+
+CONFIG_FILE="$BOOT_MNT/$CONFIG_NAME"
+if [ ! -f "$CONFIG_FILE" ]; then
+	log "no $CONFIG_NAME on boot partition; using built-in defaults"
+	umount "$BOOT_MNT" 2>/dev/null || true
+	exit 0
+fi
+
+# Collect values first (WiFi needs both ssid and psk before writing).
+p_wifi_ssid=""
+p_wifi_psk=""
+p_wifi_country=""
+p_hostname=""
+p_root_password=""
+p_enable_ssh=""
+p_timezone=""
+p_ntp_server=""
+
+# Parse line by line. Whitelist keys only; never eval the file.
+while IFS= read -r line || [ -n "$line" ]; do
+	line=$(printf '%s' "$line" | tr -d '\r' | sed -e 's/^[[:space:]]*//')
+	case "$line" in
+		''|'#'*) continue ;;
+	esac
+	case "$line" in
+		*=*) ;;
+		*) continue ;;
+	esac
+	key=${line%%=*}
+	val=${line#*=}
+	key=$(printf '%s' "$key" | sed -e 's/[[:space:]]*$//')
+	val=$(clean_value "$val")
+	case "$key" in
+		wifi_ssid)      p_wifi_ssid=$val ;;
+		wifi_psk)       p_wifi_psk=$val ;;
+		wifi_country)   p_wifi_country=$val ;;
+		hostname)       p_hostname=$val ;;
+		root_password)  p_root_password=$val ;;
+		enable_ssh)     p_enable_ssh=$val ;;
+		timezone)       p_timezone=$val ;;
+		ntp_server)     p_ntp_server=$val ;;
+		*)              log "unknown key '$key' ignored" ;;
+	esac
+done < "$CONFIG_FILE"
+
+# Parsing is done; release the read-only mount before applying.
+umount "$BOOT_MNT" 2>/dev/null || true
+
+apply_wifi "$p_wifi_ssid" "$p_wifi_psk"
+apply_wifi_country "$p_wifi_country"
+apply_hostname "$p_hostname"
+apply_root_password "$p_root_password"
+apply_enable_ssh "$p_enable_ssh"
+apply_timezone "$p_timezone"
+apply_ntp_server "$p_ntp_server"
+
+log "done"
+exit 0
+

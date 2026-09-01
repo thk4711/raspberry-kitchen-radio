@@ -1,0 +1,78 @@
+# ---------------------------------------------------------------------------
+# Raspberry Kitchen Radio — .gitignore
+#
+# Note: tracked *.conf files (radio.conf, display.conf, stations.conf,
+# airplay.conf) and static assets (the UI font *.ttf and the station logo
+# PNGs) are intentionally committed and are NOT ignored here — see
+# doc/assets.md for the asset policy. spotify.conf is the exception: it is
+# generated at startup by SpotifyService.create_config_yml() and is therefore
+# ignored (see below).
+# ---------------------------------------------------------------------------
+
+# Python bytecode / caches
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environments
+.venv/
+venv/
+env/
+ENV/
+
+# Packaging / build artifacts
+build/
+dist/
+*.egg-info/
+.eggs/
+*.egg
+
+# Test & type/lint tooling caches
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.tox/
+.coverage
+.coverage.*
+htmlcov/
+
+# Local overrides & secrets (tracked *.conf files are kept)
+.env
+.env.*
+*.local.conf
+secrets.*
+
+# Generated at runtime by SpotifyService.create_config_yml() — not committed
+lib/spotify_service/spotify.conf
+
+# Buildroot: real WiFi credentials must NOT be committed. Track the template
+# instead (wpa_supplicant.conf.example).
+buildroot/external/board/radio/rootfs-overlay/etc/wpa_supplicant.conf
+
+# Buildroot: per-device settings (hostname/root password/DAC) written by
+# configure.sh and read back by build.sh. Never commit device-specific state.
+buildroot/local-device.conf
+
+# Runtime scratch (cover art the services write to /tmp)
+/tmp/spotify_cover.jpg
+
+# Logs
+*.log
+
+
+# OS files
+.DS_Store
+.DS_Store?
+._*
+Thumbs.db
+ehthumbs.db
+
+# Editor / IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Editor / tooling backups
+*.bak

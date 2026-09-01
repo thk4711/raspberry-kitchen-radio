@@ -1,0 +1,17 @@
+# Raspberry Kitchen Radio — WiFi credentials TEMPLATE.
+#
+# Copy this file to `wpa_supplicant.conf` (same directory) and fill in your
+# SSID / passphrase before building.
+#
+# The real `wpa_supplicant.conf` is git-ignored so your credentials are never
+# committed. The Pi 3A+ has no Ethernet, so WiFi is required for internet
+# radio / AirPlay / Spotify.
+#
+# Keep this file minimal: the current Buildroot wpa_supplicant is built without
+# CONFIG_CTRL_IFACE, so global fields like ctrl_interface/update_config are
+# rejected as "unknown global field".
+network={
+    ssid="YOUR_WIFI_SSID"
+    psk="YOUR_WIFI_PASSWORD"
+    key_mgmt=WPA-PSK
+}
