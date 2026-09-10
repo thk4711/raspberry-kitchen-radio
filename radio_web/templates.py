@@ -440,8 +440,9 @@ def stations_page(
         f'<div class="preset-grid">{cards}</div>'
         '<div class="card"><h2>Upload a logo</h2>'
         '<p class="note">PNG or JPEG, up to 4 MiB. Large images are reduced to '
-        "at most 512×512 before being saved. Choose the uploaded logo from a "
-        "preset dropdown, then save that preset.</p>"
+        "at most 512×512 before being saved. The upload keeps its (cleaned) "
+        "file name so it is easy to recognise in the dropdown. Choose the "
+        "uploaded logo from a preset dropdown, then save that preset.</p>"
         '<form method="post" action="/stations" enctype="multipart/form-data">'
         f"{csrf}"
         '<p><label>Logo image<br><input type="file" name="logo_file" '

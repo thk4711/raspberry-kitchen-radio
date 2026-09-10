@@ -16,7 +16,7 @@ GPIO numbers below are **BCM** (Broadcom) numbers — the scheme `radio.py` uses
 | Amplifier enable | Optional GPIO out | **26** | 37 | Profile-dependent; see sound-device pinout |
 | Display reset | GPIO out (RST) | **24** | 18 | `display.conf rst` |
 | Display data/command | GPIO out (DC) | **25** | 22 | `display.conf dc` |
-| Display backlight | GPIO out (BL) | **22** | 15 | `display.conf bl` |
+| Display backlight | GPIO out (BL) | **12** | 32 | `display.conf bl` |
 | Display SPI | MOSI | **10** | 19 | SPI0 (`dtparam=spi=on`) |
 | Display SPI | SCLK | **11** | 23 | SPI0 |
 | Display SPI chip select | CE0 (default) | **8** | 24 | `display.conf spi_device = 0` |
@@ -49,7 +49,7 @@ do not use them to drive a GPIO signal.
                           |                           |
                           |  SPI0 (MOSI=10, SCLK=11,  |
   ST7789 1.69" display ───┼── CE0=8) + RST=24,        |
-                          |  DC=25, BL=22              |
+                          |  DC=25, BL=12              |
                           |                           |
   Amplifier enable  ──────┼── GPIO 26                 |
                           |                           |
@@ -63,7 +63,7 @@ graph LR
     BTN[6-button ladder] -->|AIN1| ADS
     SW[Power switch] -->|AIN2| ADS
     ADS -->|I2C1 SDA=2 SCL=3| PI[Raspberry Pi]
-    PI -->|SPI0 MOSI=10 SCLK=11 CE0=8; RST=24 DC=25 BL=22| LCD[ST7789 1.69 display]
+    PI -->|SPI0 MOSI=10 SCLK=11 CE0=8; RST=24 DC=25 BL=12| LCD[ST7789 1.69 display]
     PI -->|GPIO 26| AMP[Amplifier enable]
     PI -->|selected profile| DAC[Sound device]
     HOST[USB host] -->|D- / D+ / GND only; no VBUS| PI

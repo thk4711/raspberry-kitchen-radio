@@ -331,7 +331,7 @@ def _stations_post(req: Request) -> Response:
                 req, stations_store.load_stations(), error="Choose an image file."
             )
         try:
-            logo_store.save_upload(uploaded.data)
+            logo_store.save_upload(uploaded.data, uploaded.filename)
         except ValueError as exc:
             return _stations_page_response(req, stations_store.load_stations(), error=str(exc))
         return _redirect("/stations?msg=logo-uploaded")

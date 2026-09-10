@@ -27,8 +27,10 @@ the internet at runtime** — the display always reads the logo from local disk.
 
 The web station editor can also upload PNG or JPEG logos. It converts them to
 PNG, proportionally scales them down to 512×512 or smaller, and saves them in
-`/etc/radio/logos/`. That managed directory takes precedence over the shipped
-directory and its files appear in the Logo dropdown.
+`/etc/radio/logos/` under a cleaned version of the uploaded file name (e.g.
+`MDR JUMP Logo.png` → `mdr-jump-logo.png`), so the Logo dropdown stays legible.
+That managed directory takes precedence over the shipped directory and its files
+appear in the Logo dropdown.
 
 ## How a logo becomes screen art
 

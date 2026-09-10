@@ -155,7 +155,7 @@ def main() -> int:
         height = int(display.get("height", 280))
         rst = int(display.get("rst", 24))
         dc = int(display.get("dc", 25))
-        bl = int(display.get("bl", 22))
+        bl = int(display.get("bl", 12))
         spi_bus = int(display.get("spi_bus", 0))
         spi_device = int(display.get("spi_device", 0))
         spi_freq = int(display.get("spi_freq", 40_000_000))

@@ -60,7 +60,7 @@ def read_display_config(path: Path) -> dict[str, int]:
         "height": section.getint("height", fallback=280),
         "rst": section.getint("rst", fallback=24),
         "dc": section.getint("dc", fallback=25),
-        "bl": section.getint("bl", fallback=22),
+        "bl": section.getint("bl", fallback=12),
         "spi_bus": section.getint("spi_bus", fallback=0),
         "spi_device": section.getint("spi_device", fallback=0),
         "spi_freq": section.getint("spi_freq", fallback=40_000_000),

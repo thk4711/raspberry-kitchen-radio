@@ -59,9 +59,14 @@ logo and prior upload; choose **No logo** to use the generated initials tile.
 Use the single **Upload a logo** control at the bottom of the page to upload a
 PNG or JPEG. Uploads are converted to transparent PNG and scaled down (aspect
 preserved) to at most 512×512 *before* they are stored under `/etc/radio/logos/`.
-The new logo then appears in every preset dropdown. Choose it, click **Save** on
-the required preset, then **Apply and restart radio** to make the display reload
-it.
+The stored file keeps a cleaned version of the name you uploaded (lower-cased,
+spaces and unusual characters turned into `-`, e.g. `MDR JUMP Logo.png` →
+`mdr-jump-logo.png`) so it is easy to recognise in the dropdown; a name with no
+usable characters falls back to `upload-<hash>.png`. Two *different* images that
+would produce the same name get a short hash suffix so neither overwrites the
+other. The new logo then appears in every preset dropdown. Choose it, click
+**Save** on the required preset, then **Apply and restart radio** to make the
+display reload it.
 
 ## Logos & licensing
 

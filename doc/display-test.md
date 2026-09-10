@@ -26,7 +26,7 @@ can check the jumper wires directly.
 | --- | --- | ---: | ---: |
 | RST | GPIO output | 24 | 18 |
 | DC | GPIO output | 25 | 22 |
-| BL | GPIO/PWM output | 22 | 15 |
+| BL | GPIO/PWM output | 12 | 32 |
 | DIN / MOSI | SPI0 MOSI | 10 | 19 |
 | CLK / SCLK | SPI0 SCLK | 11 | 23 |
 | CS / CE0 | SPI0 CE0 | 8 | 24 |
@@ -53,7 +53,7 @@ With the Raspberry Pi powered off:
 7. Connect display **RST**, sometimes labelled **RES** or **RESET**, to
    Raspberry Pi physical pin **18** / BCM **24**.
 8. Connect display **BL**, sometimes labelled **LED**, **BKL**, or **BLK**, to
-   Raspberry Pi physical pin **15** / BCM **22**.
+   Raspberry Pi physical pin **32** / BCM **12**.
 
 The display does not need SPI **MISO** for this driver because the app only
 writes pixels to the panel.
@@ -95,18 +95,25 @@ the left, even-numbered pins are on the right.
   GND   (9) (10)  GPIO15
 GPIO17 (11) (12)  GPIO18
 GPIO27 (13) (14)  GND
-GPIO22 (15) (16)  GPIO23     <- display BL
+GPIO22 (15) (16)  GPIO23
   3V3  (17) (18)  GPIO24     <- display RST
  MOSI  (19) (20)  GND        <- display DIN/MOSI
  MISO  (21) (22)  GPIO25     <- display DC
  SCLK  (23) (24)  CE0        <- display CLK/SCLK, display CS/CE0
   GND  (25) (26)  CE1
+ GPIO0 (27) (28)  GPIO1
+ GPIO5 (29) (30)  GND
+ GPIO6 (31) (32)  GPIO12     <- display BL
+GPIO13 (33) (34)  GND
+GPIO19 (35) (36)  GPIO16
+GPIO26 (37) (38)  GPIO20
+  GND  (39) (40)  GPIO21
 ```
 
 ### Quick wiring checklist
 
-- Confirm you are using **BCM 24/25/22** for `RST`/`DC`/`BL`, not physical pins
-  24/25/22 by mistake.
+- Confirm you are using **BCM 24/25/12** for `RST`/`DC`/`BL`, not physical pins
+  24/25/12 by mistake.
 - Confirm display **CS** matches `spi_device`: CE0 is physical pin 24 / BCM 8,
   while CE1 is physical pin 26 / BCM 7.
 - Confirm **MOSI** and **SCLK** are not swapped.

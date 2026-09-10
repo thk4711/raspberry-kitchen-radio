@@ -22,7 +22,7 @@
     "family": "IQaudIO",
     "kind": "i2s",
     "support_level": "tested",
-    "compatibility_note": "Optional amplifier mute can use BCM 22, the shipped display backlight pin. Rewire BL before enabling that feature.",
+    "compatibility_note": "Amplifier mute uses BCM 22. The display backlight is on BCM 12, so there is no conflict; no rewiring is required.",
     "audio_param": "off",
     "overlay": "iqaudio-dacplus",
     "volume_control": "hardware",
