@@ -138,7 +138,8 @@ The usual first setup flow is:
    Open the **Audio** page in the web interface and select the DAC / amplifier
    board used by your build. Save the setting and reboot if prompted. The
    built-in headphone output is the safe default. Supported sound cards and
-   wiring maps are documented in [`doc/sound-devices.md`](doc/sound-devices.md).
+   wiring maps are documented in [`doc/sound-devices.md`](doc/sound-devices.md)
+   ([color-coded pinout](https://thk4711.github.io/raspberry-kitchen-radio/sound-devices.html)).
 
 After that, use the web interface for stations, music sources, display settings,
 network settings, equalizer tuning, backups, and firmware maintenance. SSH is
@@ -180,7 +181,7 @@ Start here depending on what you want to do:
 | Build the Buildroot image | [`buildroot/README.md`](buildroot/README.md) |
 | Configure a flashed image | [`doc/buildroot.md`](doc/buildroot.md#provisioning-a-prebuilt-image-from-the-sd-card-radio-configtxt) |
 | Wire the base hardware | [`doc/hardware.md`](doc/hardware.md) |
-| Choose a DAC / amplifier | [`doc/sound-devices.md`](doc/sound-devices.md) |
+| Choose a DAC / amplifier | [`doc/sound-devices.md`](doc/sound-devices.md) · [color-coded pinout](https://thk4711.github.io/raspberry-kitchen-radio/sound-devices.html) |
 | Use the web interface | [`doc/web-interface.md`](doc/web-interface.md) |
 | Tune the parametric EQ | [`doc/equalizer.md`](doc/equalizer.md) |
 | Edit station presets | [`doc/stations.md`](doc/stations.md) |
