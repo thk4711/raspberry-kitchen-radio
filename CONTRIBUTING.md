@@ -31,12 +31,30 @@ mypy                    # static type check (the gated module set)
 pytest -q               # the full test suite
 ```
 
-Optionally install the pre-commit hooks so these run automatically:
+Install the pre-commit hooks so all of the above (plus the buildroot shellcheck
+and repository-hygiene gates) run automatically and locally, matching CI:
 
 ```bash
 pip install pre-commit
-pre-commit install
+pre-commit install                       # fast gates on every commit
+pre-commit install --hook-type pre-push  # + full pytest/coverage before a push
 ```
+
+The hooks are deliberately kept in lockstep with CI so a problem is caught on
+your machine rather than in the pipeline:
+
+- **`ruff` lint** includes **`FA102`**, which flags PEP 604 unions (`X | None`)
+  used without `from __future__ import annotations` — that syntax is evaluated
+  at import time and breaks on the **Python 3.9** appliance floor, even though
+  it runs fine on a newer local interpreter.
+- **shellcheck** runs the **same version CI uses (0.9.0)** via the pinned
+  `koalaman/shellcheck:v0.9.0` Docker image, so it does not drift from the
+  pipeline (a newer local shellcheck can miss findings CI still reports). This
+  hook needs Docker; if you don't have it, CI still enforces the check.
+- Formatting/whitespace fixers (`ruff-format`, trailing-whitespace, etc.) are
+  **not** CI gates, so they are opt-in (`stages: [manual]`) and never rewrite
+  the hand-formatted tree on a normal commit. Run them on demand, e.g.
+  `pre-commit run ruff-format --all-files`.
 
 ### Guidelines
 

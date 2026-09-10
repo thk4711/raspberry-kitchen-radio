@@ -29,7 +29,16 @@ extend-exclude = ["lib/ADS1x15"]
 # existing style. Pyupgrade (UP) is intentionally NOT enabled: the appliance
 # floor is Python 3.9 and several annotations are evaluated at runtime, so
 # PEP 604/585 rewrites would be unsafe there.
-select = ["E", "F", "W", "I", "B"]
+#
+# FA102 (flake8-future-annotations) is enabled on purpose: it flags PEP 604
+# unions (``X | Y``) used at runtime in a module WITHOUT
+# ``from __future__ import annotations``. That syntax is evaluated at import
+# time and raises ``TypeError`` on the Python 3.9 floor, so FA102 catches this
+# class of 3.9-only breakage locally instead of only in the 3.9 CI leg. Only
+# FA102 is selected (not the whole FA group): FA100 would demand converting the
+# codebase's pervasive ``typing.Optional`` usage, which is deliberate churn we
+# do not want.
+select = ["E", "F", "W", "I", "B", "FA102"]
 # E501 (line length) is enforced by the formatter, not the linter.
 # E402 (import not at top): several entry points intentionally manipulate
 #   sys.path before importing, and defer hardware imports; those sites already

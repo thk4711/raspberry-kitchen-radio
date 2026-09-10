@@ -1,18 +1,29 @@
 # Pre-commit hooks for Raspberry Kitchen Radio.
-#   pip install pre-commit && pre-commit install
+#   pip install pre-commit
+#   pre-commit install                       # commit-stage gates (fast)
+#   pre-commit install --hook-type pre-push  # + full pytest/coverage on push
 #
-# These mirror the checks enforced in .github/workflows/ci.yml and the rules in
-# scripts/check-repository.sh / .editorconfig, so failures are caught locally
-# before they reach CI.
+# The auto-run hooks mirror exactly what .github/workflows/ci.yml enforces, so
+# failures are caught locally before they reach CI. Formatting/whitespace
+# FIXERS that CI does NOT gate (ruff-format, trailing-whitespace,
+# end-of-file-fixer, mixed-line-ending) are set to `stages: [manual]` so they
+# never silently rewrite the hand-formatted tree on a normal commit; run them
+# on demand with e.g. `pre-commit run ruff-format --all-files`.
 repos:
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v4.6.0
     hooks:
+      # Whitespace/EOL fixers are opt-in (manual): CI's hygiene gate is
+      # scripts/check-repository.sh, which only rejects CRLF + tracked
+      # artifacts, so auto-fixing here would churn files CI is fine with.
       - id: trailing-whitespace
         exclude: '\.md$'
+        stages: [manual]
       - id: end-of-file-fixer
+        stages: [manual]
       - id: mixed-line-ending
         args: ["--fix=lf"]
+        stages: [manual]
       - id: check-yaml
       - id: check-toml
       - id: check-added-large-files
@@ -20,9 +31,10 @@ repos:
   - repo: https://github.com/astral-sh/ruff-pre-commit
     rev: v0.6.9
     hooks:
-      - id: ruff          # lint (matches `ruff check .`)
+      - id: ruff          # lint (matches CI's `ruff check .`)
         args: ["--fix"]
-      - id: ruff-format    # matches `ruff format .`
+      - id: ruff-format    # NOT a CI gate; opt-in to avoid reformatting churn
+        stages: [manual]
 
   - repo: https://github.com/pre-commit/mirrors-mypy
     rev: v1.11.2
@@ -36,8 +48,50 @@ repos:
 
   - repo: local
     hooks:
+      # shellcheck pinned to the SAME version CI uses. CI installs Ubuntu's apt
+      # shellcheck (0.9.0); newer shellcheck releases drop/relax findings, so an
+      # unpinned local shellcheck can pass while CI's 0.9.0 fails (this exact
+      # drift once let SC2015/SC3013/SC2016 through). We run the official
+      # koalaman/shellcheck Docker image pinned to v0.9.0 for guaranteed parity.
+      # NOTE: the shellcheck-py mirror was NOT used because its release tags do
+      # not track the underlying shellcheck version (v0.9.0.6 bundles 0.11.0).
+      # Requires Docker; if unavailable, CI still enforces this gate.
+      - id: shellcheck
+        name: shellcheck 0.9.0 (buildroot scripts, matches CI)
+        entry: koalaman/shellcheck:v0.9.0 -S style
+        language: docker_image
+        files: '^buildroot/.*\.sh$'
+
       - id: check-repository
         name: repository hygiene (no artifacts / secrets / CRLF)
         entry: ./scripts/check-repository.sh
         language: script
         pass_filenames: false
+
+      # POSIX-parse the buildroot scripts, matching CI's `sh -n` step.
+      - id: shell-parse
+        name: sh -n (POSIX parse buildroot scripts)
+        entry: sh -n
+        language: system
+        files: '^buildroot/.*\.sh$'
+
+      # Byte-compile the tracked Python, matching CI's `compileall` step. This
+      # is a cheap catch for syntax the linter might not flag.
+      - id: compileall
+        name: python compileall (lib, radio.py, tests, radio_web, scripts)
+        entry: python -m compileall -q lib radio.py tests radio_web scripts
+        language: system
+        pass_filenames: false
+        always_run: true
+
+      # Full test suite + coverage floor, EXACTLY as CI runs it. Wired to the
+      # pre-push stage (not pre-commit) so day-to-day commits stay fast while
+      # nothing leaves the machine without passing the suite. Enable with:
+      #   pre-commit install --hook-type pre-push
+      - id: pytest
+        name: pytest -q + coverage floor (matches CI, pre-push)
+        entry: pytest -q --cov=lib --cov=radio_web --cov=radio --cov-fail-under=65
+        language: system
+        pass_filenames: false
+        always_run: true
+        stages: [pre-push]
