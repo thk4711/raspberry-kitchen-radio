@@ -15,7 +15,7 @@ This directory collects the project documentation.
 | [analog-audio.md](analog-audio.md) | Switching a development appliance from an I2S DAC to the Raspberry Pi's built-in headphone output. |
 | [sound-devices.md](sound-devices.md) | Every selectable sound device, with a complete color-coded 40-pin map, compatibility actions, routing, and qualification. |
 | [alsa-audio-path.md](alsa-audio-path.md) | **ALSA topology & routing reference.** The single end-to-end picture: how every source converges on ALSA `default`, the layered parametric-EQ and `Radio Volume` softvol/dmix stages, the `bluealsa-aplay` and `alsaloop` bridges, stable-card routing, worked `asound.conf` examples, and verification. |
-| [equalizer.md](equalizer.md) | **Parametric-EQ user and developer guide.** Web controls, headroom, Save/Apply/Reset behavior, persistence, troubleshooting, ALSA/LADSPA topology, implementation and tests. |
+| [equalizer.md](equalizer.md) | **Parametric-EQ user and developer guide.** Web controls, headroom, Save-and-Apply/Reset behavior, persistence, troubleshooting, ALSA/LADSPA topology, implementation and tests. |
 | [display-test.md](display-test.md) | Standalone 1.69" ST7789 display smoke test & wiring troubleshooting. |
 | [stations.md](stations.md) | How to add / edit the internet-radio preset stations. |
 | [web-interface.md](web-interface.md) | The local web administration interface: login, dashboard and settings pages, firmware management, restart/reboot behavior, managed state, and recovery. |

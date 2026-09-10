@@ -1384,7 +1384,7 @@ class TestAudioHardwareRoutes:
         assert 'id="eq-flash"' in body
         assert 'src="/static/app.js?v=17"' in body
         assert 'name="eq_preamp_db" min="-24" max="0" step="0.1" value="-3.0"' in body
-        assert "Apply updates the sound live without interrupting playback" in body
+        assert "Save and Apply updates the sound live without interrupting playback" in body
 
         script = (Path(routes.__file__).with_name("static") / "app.js").read_text(
             encoding="utf-8"
@@ -1476,33 +1476,7 @@ class TestAudioHardwareRoutes:
         assert seen == [("apply_equalizer", {})]
         assert equalizer_store.load_equalizer()["bands"][0]["gain_db"] == 4.5
 
-    def test_post_save_equalizer_ajax_does_not_dispatch(self, monkeypatch, tmp_path):
-        import json
-
-        from radio_web import equalizer_store
-
-        seen = []
-        monkeypatch.setattr(
-            "radio_web.actions.run_action",
-            lambda action_id, **args: (seen.append((action_id, args)) is None, "x"),
-        )
-        sessions = auth.SessionStore()
-        session = sessions.create()
-        form = {
-            key: str(value).lower() if isinstance(value, bool) else str(value)
-            for key, value in equalizer_store.settings_as_form(equalizer_store.defaults()).items()
-        }
-        form.update({"op": "save_equalizer", "ajax": "1", "csrf_token": session.csrf_token})
-        req = self._ctx(
-            monkeypatch, tmp_path, "POST", sessions=sessions, session=session, form=form
-        )
-        status, content_type, body, _headers = routes.resolve(req)
-        assert status == 200
-        assert content_type.startswith("application/json")
-        payload = json.loads(body)
-        assert payload["ok"] is True
-        assert payload["message"] == "Equalizer settings saved. Apply them to hear the change."
-        assert seen == []
+    # The UI no longer exposes a Save-only EQ button; save-only AJAX test removed.
 
     def test_post_equalizer_ajax_validation_error_returns_json(self, monkeypatch, tmp_path):
         import json

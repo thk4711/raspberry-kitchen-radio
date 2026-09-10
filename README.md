@@ -1,250 +1,194 @@
 # Raspberry Pi Radio
 
-Raspberry Pi Radio turns a Raspberry Pi into a **kitchen-style internet radio
-and streaming speaker** with real, tactile controls. Power it on and it boots
-straight into the radio — no desktop, no login, no app to launch. Turn the knob
-to change the volume, press a button to switch stations, and stream to it from
-your phone over AirPlay, Spotify Connect, Bluetooth, or USB Audio.
+Raspberry Pi Radio turns a Raspberry Pi 3A+ into a **kitchen-style internet
+radio and streaming speaker** with real, tactile controls. Power it on and it
+boots straight into the radio — no desktop, no login, no app to launch. Turn the
+knob to change the volume, press a button to switch stations, and stream to it
+from your phone over AirPlay, Spotify Connect, Bluetooth, or USB Audio.
 
-Under the hood it is a small Python application that runs on a **minimal,
-fast-booting [Buildroot](https://buildroot.org/) appliance image** for the
-**Raspberry Pi 3A+**. The image is purpose-built: it boots in seconds into the
-radio and nothing else.
+Under the hood it is a small Python application running on a **minimal,
+fast-booting [Buildroot](https://buildroot.org/) appliance image**. The image is
+purpose-built for the **Raspberry Pi 3A+** and starts the radio automatically.
 
-**New here? Start with the [documentation map](#documentation--where-to-find-what)
-below** — it points you to the right guide whether you want to build your own
-radio, flash a prebuilt image, or work on the code.
+## What you get
 
-## Features
+### A standalone radio appliance
 
-- **Internet Radio Streaming:** Play and manage your favorite online radio stations.
-- **AirPlay Receiver:** Stream music wirelessly from your iOS devices.
-- **Spotify Connect:** Control and play music directly from the Spotify app.
-- **Bluetooth A2DP:** Stream audio from any phone/tablet over Bluetooth — the
-  radio is always discoverable and pairs without a PIN when nothing is connected.
-- **USB Audio Class receiver:** Use the radio as a stereo UAC1 sound card over
-  the Pi 3A+ USB data port (data-only wiring; USB VBUS must not be connected).
-- **Extensible Music Sources:** The system is modular, so new music sources are
-  easy to add (see [`doc/adding-a-music-source.md`](doc/adding-a-music-source.md)).
-- **Display Support:** Built-in support for an SPI-connected display, with room
-  to add other display types.
-- **Hardware Controls:** A physical volume knob and preset buttons for a tactile
-  radio experience.
-- **Appliance image:** Ships as a minimal, fast-booting Buildroot image that
-  boots straight into the radio.
-- **Safe A/B firmware updates:** Upload a versioned `.swu` from the web
-  interface; updates write only the inactive slot, retain configuration, use a
-  health-checked trial boot, and automatically return to the previous firmware
-  when the trial is unhealthy.
-- **Web administration interface:** A local, password-protected web UI (port
-  8080) to view status, edit presets, toggle music sources, set the device
-  name/clock, tune the display, configure a parametric equalizer, pick the sound
-  card and maximum volume, view
-  read-only Bluetooth adapter status, change WiFi/static IP, manage firmware,
-  back up or restore persistent device data, and restart or reboot — see
-  [`doc/web-interface.md`](doc/web-interface.md).
+- Boots directly into the radio application.
+- Uses physical controls: a volume knob, preset buttons, and a power switch.
+- Shows now-playing information and station logos on an SPI display.
+- Runs from a minimal Buildroot image instead of a general-purpose desktop OS.
 
-## How it works
+### Multiple audio sources
 
-`radio.py` runs a `RadioController` that ties everything together: the playback
-backends, the display, and the analog controls. Every backend implements the
-same small [`MusicSource`](lib/music_source.py) interface, so the controller
-treats internet radio, AirPlay, Spotify, Bluetooth, and USB Audio interchangeably.
+- **Internet radio presets** for everyday listening.
+- **AirPlay receiver** for Apple devices.
+- **Spotify Connect** for playback from the Spotify app.
+- **Bluetooth A2DP** for phones, tablets, and computers.
+- **USB Audio Class receiver** so the radio can appear as a stereo USB sound
+  card over the Pi 3A+ USB data port. See the USB wiring warning in
+  [`doc/hardware.md`](doc/hardware.md#usb-audio-gadget-wiring): USB VBUS must
+  not be connected.
 
-```mermaid
-graph TD
-    subgraph Inputs["Physical controls (ADS1115 ADC, I2C)"]
-        VOL["Volume knob"]
-        BTN["Preset buttons"]
-        PWR["Power switch"]
-    end
+### Web administration
 
-    RC["radio.py<br/>RadioController"]
+- Local password-protected web interface on port 8080.
+- Edit radio presets and choose which music sources are enabled.
+- Configure WiFi, static IP, hostname, device name, time settings, display
+  options, audio output, and maximum volume.
+- View status for the player, network, Bluetooth adapter, and system.
+- Back up and restore persistent device data.
+- Install firmware updates and switch back to retained compatible firmware.
 
-    subgraph Sources["MusicSource backends"]
-        MPD["MPD<br/>internet radio"]
-        AIR["AirPlay<br/>(shairport-sync)"]
-        SPO["Spotify Connect<br/>(go-librespot)"]
-        BT["Bluetooth A2DP<br/>(BlueZ, metadata only)"]
-        USB["USB Audio Class 1<br/>(DWC2, ConfigFS, alsaloop)"]
-    end
+### Sound tuning
 
-    DISP["SPI display<br/>(ST7789)"]
-    AMP["Amplifier<br/>GPIO 26"]
+- Built-in **ten-band parametric equalizer** in the web interface.
+- Per-band frequency, gain, Q, and filter type controls.
+- One EQ profile applies to Internet Radio, AirPlay, Spotify Connect,
+  Bluetooth, and USB Audio.
+- Ordinary EQ adjustments are applied live without restarting the current
+  stream; enabling or bypassing the whole EQ briefly restarts the audio path.
+- EQ settings survive normal firmware updates, trial boots, and automatic
+  rollback.
 
-    VOL --> RC
-    BTN --> RC
-    PWR --> RC
-    RC --> MPD
-    RC --> AIR
-    RC --> SPO
-    RC --> BT
-    RC --> USB
-    RC --> DISP
-    RC --> AMP
-```
+### Appliance reliability
 
-## First boot: configure the SD card
+- Fast-booting appliance image focused on the radio use case.
+- Persistent configuration and user data on a shared data partition.
+- Safe A/B firmware update flow with health-checked trial boots.
+- Automatic rollback when a trial firmware is unhealthy.
+- Service restart and watchdog support for unattended use.
 
-The image includes an editable **`radio-config.txt`** on the SD card's small FAT
-boot partition. This is the easiest way to get a freshly flashed radio onto your
-network:
+## Typical use cases
 
-1. Flash `sdcard.img`, then reinsert or remount the SD card on your computer.
-2. Open the boot partition and edit the existing `radio-config.txt` with a plain
-   text editor—do not rename it.
-3. At minimum, replace `MyNetwork` and `my-wifi-password` with your WiFi SSID and
-   password. You can also replace the `changeme` hostname and root password,
-   select your timezone/country, or explicitly enable SSH.
-4. Safely eject the card and boot the Pi. With the shipped values, the web
-   interface is available at `http://changeme.local:8080` after WiFi connects.
-5. Use the web interface for subsequent device, network, station, display and
-   audio configuration. SSH is disabled by default.
-
-Provisioning is **one-shot**: after applying the active settings, the radio
-comments their lines out in `radio-config.txt`. To apply a boot setting again,
-edit its value on the boot partition, remove the leading `#`, and reboot. See
-[`doc/buildroot.md`](doc/buildroot.md#provisioning-a-prebuilt-image-from-the-sd-card-radio-configtxt)
-for every supported key.
-
-## Update the firmware
-
-Obtain a trusted `kitchen-radio-<version>.swu`, log in to the web interface, open
-**Maintenance**, and choose **Update firmware**. The guided overlay asks for the
-administrator password, the update file, and final confirmation. It then uploads,
-validates, installs, and reboots automatically while reporting progress. After
-the device reconnects, the overlay waits for the health-checked trial to be
-accepted. Repeated unhealthy boots make U-Boot return to the previous accepted
-slot, and the overlay reports that recovery. Maintenance can also start a
-password-confirmed trial of the retained compatible firmware with **Switch to
-previous firmware**.
-
-Firmware packages are **unsigned**, so SHA-256 detects corruption but does not
-prove authenticity. Obtain packages through a trusted channel and use the
-plain-HTTP administration interface only on a trusted LAN. The complete upload,
-activation, rollback and unreachable-UI recovery procedure is in
-[`doc/firmware-updates.md`](doc/firmware-updates.md).
-
-The media backends (shairport-sync, nqptp, go-librespot, BlueZ/bluez-alsa, and
-the ALSA `alsaloop`/libsamplerate USB bridge) are compiled from source into the
-appliance image. For the service layout and how these are supervised, see
-[`doc/buildroot.md`](doc/buildroot.md).
+- A kitchen, workshop, or bedside internet radio with physical controls.
+- A compact AirPlay, Spotify Connect, Bluetooth, or USB Audio speaker.
+- A local audio appliance that can be administered from a phone or laptop.
+- A hackable embedded audio project with extensible music-source backends.
 
 ## Hardware at a glance
 
-- **Raspberry Pi 3A+** — the appliance image targets this board specifically
-  (32-bit ARMv7, 512 MB). Other Pi models are not supported by the image.
-- **SPI-connected display** (1.69" ST7789) for now-playing info and station logos.
-- **ADS1115 ADC** (I2C) reading a volume potentiometer, a button ladder, and a
+The appliance image targets the **Raspberry Pi 3A+** specifically. Other Pi
+models are not supported by the image.
+
+A typical build uses:
+
+- Raspberry Pi 3A+.
+- SPI-connected display, currently a 1.69" ST7789, for now-playing information
+  and station logos.
+- ADS1115 ADC on I2C for the volume potentiometer, preset-button ladder, and
   power switch.
-- **I2S DAC / amplifier** board (e.g. IQaudIO, HiFiBerry, ESS I-SABRE/Katana,
-  or MERUS)
-  driving the speaker.
+- I2S DAC / amplifier board, for example IQaudIO, HiFiBerry, ESS I-SABRE/Katana,
+  or MERUS, driving the speaker.
+- Speaker, enclosure, wiring, and power supply.
 
-Base-radio wiring and ADS1115 controls are in
+Base-radio wiring and ADS1115 controls are documented in
 [`doc/hardware.md`](doc/hardware.md). Every selectable output has a complete,
-color-coded 40-pin map in [`doc/sound-devices.md`](doc/sound-devices.md).
-No 3D-printable case or speaker files ship with this repository.
+color-coded 40-pin map in [`doc/sound-devices.md`](doc/sound-devices.md). No
+3D-printable case or speaker files ship with this repository.
 
+## Getting started
 
-## Get started
+The usual first setup flow is:
 
-You build a generic `sdcard.img` on an **x64/amd64 Debian or Ubuntu host**
-(you cannot build it on macOS, Windows, or the Pi itself), flash it, edit its
-boot-partition configuration, and boot. The helper under
-[`buildroot/`](buildroot/) does the build work.
+1. **Burn the image to an SD card.**
 
-```mermaid
-flowchart LR
-    B["1 · Build<br/>buildroot/build.sh<br/>(→ generic sdcard.img)"]
-      --> F["2 · Flash<br/>dd / Raspberry Pi Imager"]
-      --> C["3 · Configure SD card<br/>radio-config.txt"]
-      --> R["4 · Boot the Pi<br/>straight into the radio"]
-```
+   Flash a completed `sdcard.img` to a microSD card using a tool such as:
 
-- **Never built an embedded image before?** Follow the step-by-step
-  [`doc/build-from-scratch.md`](doc/build-from-scratch.md) — no prior
-  embedded-Linux experience assumed.
-- **Comfortable with Buildroot?** The scripted and manual quick-start lives in
-  [`buildroot/README.md`](buildroot/README.md).
-- **Just flashed a prebuilt image and want to set WiFi/hostname without
-  rebuilding?** Edit `radio-config.txt` on the SD card's boot partition — see
-  [`doc/buildroot.md`](doc/buildroot.md#provisioning-a-prebuilt-image-from-the-sd-card-radio-configtxt).
+   - [Raspberry Pi Imager](https://www.raspberrypi.com/software/)
+   - [balenaEtcher](https://etcher.balena.io/)
+   - GNOME Disks
+   - `dd` on Linux/macOS
+   - Win32 Disk Imager on Windows
 
-## Documentation — where to find what
+   If you still need to build the image, follow the beginner walkthrough in
+   [`doc/build-from-scratch.md`](doc/build-from-scratch.md) or the Buildroot
+   quick start in [`buildroot/README.md`](buildroot/README.md).
 
-Pick the trail that matches your goal. The full per-file index lives in
-[`doc/README.md`](doc/README.md).
+2. **Edit `radio-config.txt` on the boot partition.**
 
-### 🛠️ I want to build and set up my own radio
+   After flashing, remove and reinsert the SD card on your computer. Open the
+   small FAT boot partition and edit the existing `radio-config.txt` with a plain
+   text editor. At minimum, set your WiFi SSID and password. You can also set the
+   hostname, root password, timezone, country, display options, and source flags.
 
-- [`doc/build-from-scratch.md`](doc/build-from-scratch.md) — beginner's
-  step-by-step guide from a fresh download to a flashed SD card.
-- [`doc/hardware.md`](doc/hardware.md) — base wiring, display, USB gadget, and
-  ADS1115 controls.
-- [`doc/sound-devices.md`](doc/sound-devices.md) — supported output devices,
-  each with its own color-coded 40-pin map, conflicts and validation.
-- [`doc/alsa-audio-path.md`](doc/alsa-audio-path.md) — the end-to-end ALSA
-  routing picture: source convergence on `default`, the layered parametric-EQ
-  and `Radio Volume` softvol/dmix stages, the Bluetooth/USB bridges, stable-card
-  routing and worked `asound.conf` examples.
-- [`doc/equalizer.md`](doc/equalizer.md) — use, tune and troubleshoot the
-  ten-band parametric EQ; includes its ALSA/LADSPA developer architecture.
-- [`doc/stations.md`](doc/stations.md) — add / edit the preset radio stations.
-- [`doc/web-interface.md`](doc/web-interface.md) — the local web admin UI (port
-  8080): dashboard, editing presets/sources, device settings, firmware, and
-  maintenance.
-- [`doc/firmware-updates.md`](doc/firmware-updates.md) — operator workflow for
-  firmware upload, progress, trial activation, rollback, and recovery.
-- [`doc/bluetooth.md`](doc/bluetooth.md) — pairing a phone (no PIN) and how the
-  Bluetooth source behaves.
-- [`doc/usb-audio.md`](doc/usb-audio.md) — USB sound-card usage, source switching,
-  validation and troubleshooting; wiring is in [`doc/hardware.md`](doc/hardware.md#usb-audio-gadget-wiring).
-- [`doc/logos.md`](doc/logos.md) — how station logos are rendered and how to add
-  your own.
+   Provisioning is one-shot: after applying active settings, the radio comments
+   their lines out in `radio-config.txt`. To apply a boot setting again, edit its
+   value on the boot partition, remove the leading `#`, and reboot. The full key
+   reference is in
+   [`doc/buildroot.md`](doc/buildroot.md#provisioning-a-prebuilt-image-from-the-sd-card-radio-configtxt).
 
-### 📦 I'm building, flashing or debugging the image
+3. **Boot the device.**
 
-- [`buildroot/README.md`](buildroot/README.md) — the appliance image quick-start:
-  build a generic image with `build.sh`, flash it, then edit `radio-config.txt`.
-- [`doc/buildroot.md`](doc/buildroot.md) — the authoritative reference: scripted
-  & manual build, flash, on-target validation, `radio-config.txt` provisioning,
-  A/B image/update internals, logging & debugging, service layout, recovery, and
-  design constraints.
-- [`doc/persistent-data.md`](doc/persistent-data.md) — complete inventory of the
-  shared data partition, why each item persists, and how build/boot/runtime writes
-  are guaranteed to reach partition `p4`.
-- [`doc/firmware-update-architecture.md`](doc/firmware-update-architecture.md) —
-  reusable A/B update design: Buildroot, U-Boot, SWUpdate, health acceptance,
-  fallback, runtime tooling, and porting guidance.
-- [`doc/display-test.md`](doc/display-test.md) — standalone display smoke test &
-  wiring troubleshooting.
+   Insert the SD card into the Raspberry Pi 3A+ and power it on. The appliance
+   boots directly into the radio application.
 
-### 💻 I'm a developer or contributor
+4. **Open the web interface.**
 
-- [`CONTRIBUTING.md`](CONTRIBUTING.md) — how to set up, run the checks, and open
-  a pull request.
-- [`doc/development.md`](doc/development.md) — local setup, running the tests,
-  coverage, linting (`ruff`), type checks (`mypy`), and the CI pipeline.
-- [`doc/adding-a-music-source.md`](doc/adding-a-music-source.md) — add a new
-  `MusicSource` playback backend.
-- [`doc/equalizer.md`](doc/equalizer.md) — EQ persistence, DSP/ALSA topology,
-  implementation boundaries, target qualification and focused tests.
-- [`doc/hardware.md`](doc/hardware.md) — the hardware the code drives.
-- [`SECURITY.md`](SECURITY.md) — how to report a vulnerability and the device's
-  threat model.
-- [`CODE_OF_CONDUCT.md`](CODE_OF_CONDUCT.md) — community expectations.
+   From a phone or computer on the same trusted local network, open one of:
 
-### 🎨 Assets & licensing
+   - `http://<hostname>.local:8080`
+   - `http://<device-ip>:8080`
 
-- [`doc/assets.md`](doc/assets.md) — the vendored UI font and station logos:
-  provenance, licensing, checksums, and how to replace them.
-- [`doc/logos.md`](doc/logos.md) — preparing and adding station logo artwork.
+   On first use, the web interface asks you to create an administrator password.
+   The interface uses plain HTTP and is intended for trusted LANs only.
 
-### 📓 Project history
+5. **Select the sound card.**
 
-- [`CHANGELOG.md`](CHANGELOG.md) — release notes / version history, including
-  the release checklist.
+   Open the **Audio** page in the web interface and select the DAC / amplifier
+   board used by your build. Save the setting and reboot if prompted. The
+   built-in headphone output is the safe default. Supported sound cards and
+   wiring maps are documented in [`doc/sound-devices.md`](doc/sound-devices.md).
+
+After that, use the web interface for stations, music sources, display settings,
+network settings, equalizer tuning, backups, and firmware maintenance. SSH is
+disabled by default.
+
+## Firmware updates
+
+Firmware updates are installed from the web interface using versioned
+`kitchen-radio-<version>.swu` packages. Updates are written to the inactive
+firmware slot, keep persistent configuration and user data, and use a
+health-checked trial boot. If a trial firmware is unhealthy, U-Boot automatically
+returns to the previous accepted slot.
+
+Firmware packages are **unsigned**, so SHA-256 detects corruption but does not
+prove authenticity. Obtain packages through a trusted channel and use the web
+interface only on a trusted LAN. The complete upload, activation, rollback, and
+recovery procedure is in [`doc/firmware-updates.md`](doc/firmware-updates.md).
+
+## Technical overview
+
+`radio.py` runs a `RadioController` that ties together the playback backends, the
+display, and the analog controls. Every backend implements the same small
+[`MusicSource`](lib/music_source.py) interface, so the controller can treat
+internet radio, AirPlay, Spotify Connect, Bluetooth, and USB Audio as
+interchangeable sources.
+
+The media backends — shairport-sync, nqptp, go-librespot, BlueZ/bluez-alsa, and
+the ALSA `alsaloop`/libsamplerate USB bridge — are compiled from source into the
+Buildroot appliance image. For the service layout, audio routing, and update
+architecture, see the documentation below.
+
+## Documentation
+
+Start here depending on what you want to do:
+
+| Goal | Read |
+| --- | --- |
+| Build your first radio from scratch | [`doc/build-from-scratch.md`](doc/build-from-scratch.md) |
+| Build the Buildroot image | [`buildroot/README.md`](buildroot/README.md) |
+| Configure a flashed image | [`doc/buildroot.md`](doc/buildroot.md#provisioning-a-prebuilt-image-from-the-sd-card-radio-configtxt) |
+| Wire the base hardware | [`doc/hardware.md`](doc/hardware.md) |
+| Choose a DAC / amplifier | [`doc/sound-devices.md`](doc/sound-devices.md) |
+| Use the web interface | [`doc/web-interface.md`](doc/web-interface.md) |
+| Tune the parametric EQ | [`doc/equalizer.md`](doc/equalizer.md) |
+| Edit station presets | [`doc/stations.md`](doc/stations.md) |
+| Use Bluetooth audio | [`doc/bluetooth.md`](doc/bluetooth.md) |
+| Use USB Audio | [`doc/usb-audio.md`](doc/usb-audio.md) |
+| Update firmware | [`doc/firmware-updates.md`](doc/firmware-updates.md) |
+| Develop or contribute | [`CONTRIBUTING.md`](CONTRIBUTING.md) and [`doc/development.md`](doc/development.md) |
+| Browse all documentation | [`doc/README.md`](doc/README.md) |
 
 ## License
 
@@ -253,4 +197,3 @@ compiles its media backends (shairport-sync, nqptp, go-librespot, and the
 Bluetooth stack BlueZ + bluez-alsa) from source under their own upstream
 licenses. The repository itself vendors only a UI font (Apache-2.0) and station
 logos (broadcaster trademarks) — see [`doc/assets.md`](doc/assets.md).
-

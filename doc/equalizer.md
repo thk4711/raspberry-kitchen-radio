@@ -39,8 +39,7 @@ is disabled; when it is enabled, only dots belonging to enabled bands can move.
 
 ### Save, apply and reset
 
-- **Save EQ** validates and stores the controls without interrupting playback.
-- **Apply EQ** stores the controls and updates the sound. Ordinary changes
+- **Save and Apply** validates, stores the controls and updates the sound. Ordinary changes
   (preamp, per-band type/frequency/gain/Q, and enabling or disabling individual
   bands) are applied **live**: they are pushed to a small runtime file that the
   LADSPA plugin re-reads without closing any stream, so playback is not
@@ -54,10 +53,10 @@ is disabled; when it is enabled, only dots belonging to enabled bands can move.
   become `0 dB`, all bands become disabled Bell filters with `Q = 1`, and the dots
   return to 60, 120, 250, 500, 1000, 2000, 4000, 8000, 12000 and 16000 Hz.
 
-The browser graph is a preview. Audio changes only after **Apply EQ** (or
+The browser graph is a preview. Audio changes only after **Save and Apply** (or
 **Reset flat**) completes.
 
-**Save EQ**, **Apply EQ** and **Reset flat** submit without reloading the page:
+**Save and Apply** and **Reset flat** submit without reloading the page:
 the request is sent in the background and a short status line appears above the
 band controls, so you keep your scroll position at the equalizer. When
 JavaScript is unavailable the same buttons fall back to a normal form submit

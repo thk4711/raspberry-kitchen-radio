@@ -1070,7 +1070,7 @@ def audio_hardware_page(
         '<input type="hidden" name="ajax" value="">'
         '<div class="card eq-card" id="parametric-equalizer"><h2>Parametric equalizer</h2>'
         '<p class="note">Drag a point to change bell/shelf frequency and gain. The graph previews '
-        "changes immediately; Apply updates the sound live without interrupting playback. Enabling or "
+        "changes immediately; Save and Apply updates the sound live without interrupting playback. Enabling or "
         "disabling the whole equalizer briefly restarts the radio application and all audio receivers.</p>"
         '<div class="eq-flash" id="eq-flash" role="status" aria-live="polite"></div>'
         '<div class="eq-toolbar"><label class="switch-label"><input type="checkbox" '
@@ -1091,9 +1091,8 @@ def audio_hardware_page(
         '<div class="eq-band-head" aria-hidden="true"><span></span><span>On</span><span>Curve</span>'
         '<span>Gain</span><span>Q</span><span>Frequency</span></div>'
         f'<div class="eq-bands">{"".join(band_rows)}</div>'
-        '<div class="btnrow"><button class="btn-primary" type="submit" name="op" '
-        'value="save_equalizer">Save EQ</button><button class="btn-apply" type="submit" '
-        'name="op" value="apply_equalizer">Apply EQ</button><button class="btn-danger" '
+        '<div class="btnrow"><button class="btn-apply" type="submit" '
+        'name="op" value="apply_equalizer">Save and Apply</button><button class="btn-danger" '
         'name="op" value="restore_equalizer">Reset flat</button></div></div></form>'
     )
     body = (
