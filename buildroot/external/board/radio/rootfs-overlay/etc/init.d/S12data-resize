@@ -1,0 +1,23 @@
+#!/bin/sh
+# Expand only the final persistent-data partition; never resize a firmware slot.
+
+case "$1" in
+	start)
+		printf 'Checking persistent data partition: '
+		if (cd /opt/raspberry-kitchen-radio && \
+			/usr/bin/python3 -m radio_web.data_partition); then
+			echo "OK"
+		else
+			echo "FAIL"
+			exit 1
+		fi
+		;;
+	stop)
+		;;
+	*)
+		echo "Usage: $0 {start|stop}" >&2
+		exit 1
+		;;
+esac
+
+exit 0

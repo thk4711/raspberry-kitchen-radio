@@ -1,0 +1,43 @@
+# Pre-commit hooks for Raspberry Kitchen Radio.
+#   pip install pre-commit && pre-commit install
+#
+# These mirror the checks enforced in .github/workflows/ci.yml and the rules in
+# scripts/check-repository.sh / .editorconfig, so failures are caught locally
+# before they reach CI.
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.6.0
+    hooks:
+      - id: trailing-whitespace
+        exclude: '\.md$'
+      - id: end-of-file-fixer
+      - id: mixed-line-ending
+        args: ["--fix=lf"]
+      - id: check-yaml
+      - id: check-toml
+      - id: check-added-large-files
+
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.6.9
+    hooks:
+      - id: ruff          # lint (matches `ruff check .`)
+        args: ["--fix"]
+      - id: ruff-format    # matches `ruff format .`
+
+  - repo: https://github.com/pre-commit/mirrors-mypy
+    rev: v1.11.2
+    hooks:
+      - id: mypy
+        # mypy reads its file list and settings from pyproject.toml; pass no
+        # explicit files so it checks exactly the gated set, as CI does.
+        pass_filenames: false
+        args: []
+        additional_dependencies: ["pydantic>=2.10"]
+
+  - repo: local
+    hooks:
+      - id: check-repository
+        name: repository hygiene (no artifacts / secrets / CRLF)
+        entry: ./scripts/check-repository.sh
+        language: script
+        pass_filenames: false

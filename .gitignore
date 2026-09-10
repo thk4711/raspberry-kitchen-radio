@@ -45,13 +45,9 @@ secrets.*
 # Generated at runtime by SpotifyService.create_config_yml() — not committed
 lib/spotify_service/spotify.conf
 
-# Buildroot: real WiFi credentials must NOT be committed. Track the template
-# instead (wpa_supplicant.conf.example).
+# Buildroot: runtime WiFi credentials must NOT be committed. Generic images
+# create an empty target file during post-build and populate it at first boot.
 buildroot/external/board/radio/rootfs-overlay/etc/wpa_supplicant.conf
-
-# Buildroot: per-device settings (hostname/root password/DAC) written by
-# configure.sh and read back by build.sh. Never commit device-specific state.
-buildroot/local-device.conf
 
 # Runtime scratch (cover art the services write to /tmp)
 /tmp/spotify_cover.jpg

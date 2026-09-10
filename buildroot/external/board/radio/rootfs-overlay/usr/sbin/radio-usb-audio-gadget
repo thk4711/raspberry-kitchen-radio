@@ -1,0 +1,124 @@
+#!/bin/sh
+set -eu
+
+GADGET_NAME=radio-usb-audio
+GADGET_ROOT=/sys/kernel/config/usb_gadget
+GADGET="$GADGET_ROOT/$GADGET_NAME"
+CONFIG=c.1
+MODE_FILE=/etc/radio/usb_audio.ini
+
+write_value() {
+	printf '%s' "$2" > "$1"
+}
+
+serial_number() {
+	if [ -r /sys/firmware/devicetree/base/serial-number ]; then
+		tr -d '\000' < /sys/firmware/devicetree/base/serial-number
+	else
+		awk -F: '/^Serial/ { gsub(/[[:space:]]/, "", $2); print $2; exit }' /proc/cpuinfo
+	fi
+}
+
+stop_gadget() {
+	[ -d "$GADGET" ] || return 0
+	[ ! -e "$GADGET/UDC" ] || write_value "$GADGET/UDC" ""
+	for function in "$GADGET"/configs/$CONFIG/uac*.usb0; do
+		[ -e "$function" ] || continue
+		rm -f "$function"
+	done
+	rmdir "$GADGET/configs/$CONFIG/strings/0x409" 2>/dev/null || true
+	rmdir "$GADGET/configs/$CONFIG" 2>/dev/null || true
+	for function in "$GADGET"/functions/uac*.usb0; do
+		[ -d "$function" ] || continue
+		rmdir "$function" 2>/dev/null || true
+	done
+	rmdir "$GADGET/strings/0x409" 2>/dev/null || true
+	rmdir "$GADGET" 2>/dev/null || true
+}
+
+start_gadget() {
+	mode=uac1
+	if [ -r "$MODE_FILE" ]; then
+		configured_mode=$(sed -n 's/^mode[[:space:]]*=[[:space:]]*\(uac[12]\)[[:space:]]*$/\1/p' "$MODE_FILE" | head -n 1)
+		[ -z "$configured_mode" ] || mode=$configured_mode
+	fi
+	if [ "$mode" = uac2 ]; then
+		FUNCTION=uac2.usb0
+		DRIVER=usb_f_uac2
+	else
+		FUNCTION=uac1.usb0
+		DRIVER=usb_f_uac1
+	fi
+	modprobe dwc2
+	modprobe libcomposite
+	modprobe "$DRIVER"
+	mkdir -p /sys/kernel/config
+	if ! grep -qs ' /sys/kernel/config configfs ' /proc/mounts; then
+		mount -t configfs configfs /sys/kernel/config
+	fi
+
+	stop_gadget
+	mkdir -p "$GADGET"
+	write_value "$GADGET/idVendor" 0x1d6b
+	write_value "$GADGET/idProduct" 0x0101
+	write_value "$GADGET/bcdDevice" 0x0100
+	write_value "$GADGET/bcdUSB" 0x0200
+
+	mkdir -p "$GADGET/strings/0x409"
+	write_value "$GADGET/strings/0x409/serialnumber" "$(serial_number)"
+	write_value "$GADGET/strings/0x409/manufacturer" "Raspberry Pi"
+	write_value "$GADGET/strings/0x409/product" "Raspberry Radio USB Audio"
+
+	mkdir -p "$GADGET/configs/$CONFIG/strings/0x409"
+	write_value "$GADGET/configs/$CONFIG/MaxPower" 2
+	mode_label=$(printf '%s' "$mode" | tr '[:lower:]' '[:upper:]')
+	write_value "$GADGET/configs/$CONFIG/strings/0x409/configuration" \
+		"$mode_label stereo playback"
+
+	mkdir -p "$GADGET/functions/$FUNCTION"
+	write_value "$GADGET/functions/$FUNCTION/c_chmask" 3
+	write_value "$GADGET/functions/$FUNCTION/p_chmask" 0
+	if [ "$mode" = uac2 ]; then
+		# UAC2 validates both clock sources even though playback is disabled.
+		write_value "$GADGET/functions/$FUNCTION/p_srate" 48000
+		write_value "$GADGET/functions/$FUNCTION/p_ssize" 2
+		write_value "$GADGET/functions/$FUNCTION/c_srate" "44100,48000,96000"
+		write_value "$GADGET/functions/$FUNCTION/c_ssize" 3
+		write_value "$GADGET/functions/$FUNCTION/c_sync" adaptive
+	else
+		write_value "$GADGET/functions/$FUNCTION/c_srate" 48000
+		write_value "$GADGET/functions/$FUNCTION/c_ssize" 2
+	fi
+	write_value "$GADGET/functions/$FUNCTION/c_mute_present" 0
+	write_value "$GADGET/functions/$FUNCTION/c_volume_present" 0
+	write_value "$GADGET/functions/$FUNCTION/p_mute_present" 0
+	write_value "$GADGET/functions/$FUNCTION/p_volume_present" 0
+	ln -s "$GADGET/functions/$FUNCTION" "$GADGET/configs/$CONFIG/$FUNCTION"
+
+	udc=""
+	tries=0
+	while [ "$tries" -lt 100 ]; do
+		for path in /sys/class/udc/*; do
+			[ -e "$path" ] || continue
+			udc=${path##*/}
+			break
+		done
+		[ -z "$udc" ] || break
+		tries=$((tries + 1))
+		sleep 0.1
+	done
+	if [ -z "$udc" ]; then
+		echo "No USB Device Controller found; is DWC2 in peripheral mode?" >&2
+		stop_gadget
+		exit 1
+	fi
+	write_value "$GADGET/UDC" "$udc"
+	echo "Bound USB Audio gadget to $udc"
+}
+
+case "${1:-}" in
+	start) start_gadget ;;
+	stop) stop_gadget ;;
+	restart) stop_gadget; start_gadget ;;
+	*) echo "Usage: $0 {start|stop|restart}" >&2; exit 2 ;;
+esac

@@ -21,6 +21,10 @@ underneath.
   turn the radio into an A2DP receiver that is discoverable/pairable whenever no
   device is connected; AVRCP track metadata
   is read by `radio.py` over the `org.bluez` D-Bus API.
+- **USB Audio source:** DWC2 runs in peripheral mode and a BusyBox service creates
+  a playback-only UAC1 ConfigFS gadget. `alsaloop` with libsamplerate bridges the
+  host stream to the shared ALSA/I2S output. The USB-A port uses D+/D−/GND only;
+  see [`hardware.md`](hardware.md#usb-audio-gadget-wiring) before connecting it.
 - **Build host:** the image is built **natively on an x64 (amd64) Debian (or
   Ubuntu) host** using a stock Buildroot checkout plus this repository's
   `buildroot/external/` directory as the `BR2_EXTERNAL` tree. There is no Docker
@@ -41,30 +45,22 @@ external toolchain and builds `host-go` itself.
 
 ## Build it (scripted — recommended)
 
-Two helper scripts in [`../buildroot/`](../buildroot/) do everything. Run them on
-the amd64 Debian host from the root of a fresh clone of this repository:
+The helper script in [`../buildroot/`](../buildroot/) builds a generic image. Run
+it on the amd64 Debian host from the root of a fresh clone of this repository:
 
 ```bash
-# 1) Configure the appliance (hostname, WiFi, root password, DAC overlay).
-#    Prompts interactively (current value = default), or pass flags to script it.
-#    WiFi credentials are written to a git-ignored file, so they are never
-#    committed.
-./buildroot/configure.sh --hostname kuechenradio \
-    --ssid MyNetwork --psk 'my-wifi-password' \
-    --root-password radio --dac iqaudio-dacplus
-./buildroot/configure.sh --show      # print current values (PSK hidden)
-
-# 2) Build (or rebuild) the image. Installs the host build packages via apt,
+# Build (or rebuild) the image. Installs the host build packages via apt,
 #    fetches a pinned stock Buildroot, applies radio_rpi3_defconfig, and compiles.
 ./buildroot/build.sh
-./buildroot/build.sh --configure     # run configure.sh first, then build
 ./buildroot/build.sh --clean         # make clean, then rebuild
 ./buildroot/build.sh --dirclean      # wipe output/, then full rebuild
 ./buildroot/build.sh --no-apt        # skip the apt host-package step
 ```
 
-`build.sh` prints the finished image path (`output/images/sdcard.img`), its size
-and SHA-256, plus the exact `dd` command for Linux and macOS.
+`build.sh` requires and prints both the installation image
+(`output/images/sdcard.img`) and versioned update package
+(`output/images/kitchen-radio-<version>.swu`), with each size and SHA-256. It
+also prints the exact `dd` command for Linux and macOS.
 
 Override the build locations with environment variables if the defaults do not
 suit your host:
@@ -74,17 +70,9 @@ BUILDROOT_DIR=~/br/buildroot BR2_DL_DIR=~/br/dl BUILDROOT_VERSION=2026.05.2 \
     ./buildroot/build.sh
 ```
 
-`configure.sh` writes device settings to git-ignored files only — no tracked
-source is edited, so two devices configure from one clean checkout and no secret
-lands in a tracked diff:
-
-- `buildroot/local-device.conf` — `RADIO_HOSTNAME`, `RADIO_ROOT_PASSWORD`,
-  `RADIO_DAC` (git-ignored). `build.sh` merges hostname + root password onto the
-  tracked defconfig via a generated kconfig fragment and applies the DAC overlay
-  to the boot `config.txt` build artifact.
-- `buildroot/external/board/radio/rootfs-overlay/etc/wpa_supplicant.conf` —
-  regenerated from the template as a constraint-safe `network={...}` block
-  (git-ignored).
+The build contains generic defaults and no WiFi credentials. Device-specific
+settings are supplied after flashing through `radio-config.txt`, so one image
+can be reused for multiple radios without rebuilding.
 
 ## Build it (manual)
 
@@ -98,16 +86,13 @@ export BUILDROOT_DIR=$HOME/embedded/buildroot          # stock Buildroot checkou
 export BR2_DL_DIR=$HOME/embedded/dl                    # shared download cache
 export REPO_DIR=$HOME/embedded/radio-repo              # this repo on the host
 
-# Set WiFi credentials before building (copy the template, then edit):
-#   $REPO_DIR/buildroot/external/board/radio/rootfs-overlay/etc/wpa_supplicant.conf
-#   (start from wpa_supplicant.conf.example)
-
 cd "$BUILDROOT_DIR"
 make BR2_EXTERNAL="$REPO_DIR/buildroot/external" radio_rpi3_defconfig
 make -j"$(nproc)"
 ```
 
-The resulting image is `output/images/sdcard.img`. To change kernel or Buildroot
+The resulting release artifacts are `output/images/sdcard.img` and
+`output/images/kitchen-radio-<version>.swu`. To change kernel or Buildroot
 options interactively:
 
 ```bash
@@ -134,11 +119,14 @@ diskutil list
 sudo dd if=sdcard.img of=/dev/rdiskN bs=4m
 ```
 
-Log in on the HDMI/USB-keyboard console (or over SSH once WiFi is up):
+Before booting, edit `radio-config.txt` on the flashed card's FAT boot partition
+as described below. Log in over SSH once WiFi is up and SSH has been explicitly
+enabled. The HDMI `tty1` login remains visible, but the
+USB port is dedicated to USB Audio and cannot accept a keyboard:
 
 ```text
 user:     root
-password: radio          # or whatever you passed to configure.sh
+password: <the root_password value from radio-config.txt>
 ```
 
 ### Validate on the target
@@ -289,12 +277,12 @@ export RADIO_PROCESS_LOG_DIR="${RADIO_PROCESS_LOG_DIR:-/tmp/radio-proc-logs}"
 
 Because `/tmp` is tmpfs, these logs are **still lost on reboot** and remain
 size-capped, so this is safe to leave on temporarily without risking the SD
-card. **Persistent** logging (surviving reboots) requires writing to the ext4
-rootfs — point `RADIO_PROCESS_LOG_DIR` at a real path such as
-`/opt/raspberry-kitchen-radio/logs`, keep `RADIO_PROCESS_LOG_MAX_BYTES` sane,
-and remember the rootfs is normally the appliance's only writable persistent
-store. Revert these changes once debugging is done to restore the silent
-default.
+card. If persistent diagnostic logging is temporarily unavoidable, use a
+dedicated bounded directory under `/data` rather than a firmware slot, for
+example `/data/diagnostics/radio-proc-logs`, and keep
+`RADIO_PROCESS_LOG_MAX_BYTES` conservative. Such logs are not part of the
+supported persistence inventory and are not cleaned automatically; remove them
+and revert the setting after diagnosis. See [Persistent data](persistent-data.md).
 
 > If you truly need centralized syslog, enable a BusyBox `syslogd`/`klogd`
 > (`BR2_PACKAGE_BUSYBOX` config) and add an `S01logging` init script — but this
@@ -342,14 +330,16 @@ buildroot/
    │                       #   (nqptp, python-smbus2, python-gpiozero,
    │                       #    python-colorzero come from upstream Buildroot)
    └─ board/radio/
-      ├─ config.txt        # i2c/i2s/spi on, audio off, DAC overlay,
+      ├─ config.txt        # built-in headphones, optional I2S DACs, DWC2 peripheral,
       │                    #   Bluetooth on PL011 (NOT pi3-miniuart-bt) + enable_uart,
       │                    #   boot_delay=0 / initial_turbo
       ├─ cmdline.txt       # kernel command line (quiet loglevel=3, tty1 only)
       ├─ linux-i2c.fragment       # positive fragment (APPLIED): expose the ADS1115 I2C bus
       ├─ linux-watchdog.fragment  # positive fragment (APPLIED): BCM2835 watchdog + zram
       ├─ linux-bluetooth.fragment # positive fragment (APPLIED): CONFIG_BT + BT UART HCI
-      ├─ post-build.sh     # mpd user, tmpfs fstab, hostname, service layout
+      ├─ linux-usb-audio.fragment # positive fragment (APPLIED): DWC2 + ConfigFS UAC1
+       ├─ device_table.txt   # fakeroot ownership for radio-web writable dirs
+      ├─ post-build.sh     # mpd + radio-web users, tmpfs fstab, hostname, service layout
       └─ rootfs-overlay/   # init.d scripts (incl. S41wlan async WiFi and
                            #   S42bluetooth A2DP receiver), asound.conf, mpd.conf,
                            #   bluetooth/main.conf, default/bluetoothd,
@@ -398,13 +388,25 @@ BR2_PACKAGE_BLUEZ5_UTILS_PLUGINS_AUDIO=y
 BR2_PACKAGE_BLUEZ5_UTILS_CLIENT=y
 BR2_PACKAGE_BLUEZ_ALSA=y
 
+# USB Audio adaptive ALSA bridge.
+BR2_PACKAGE_ALSA_UTILS_ALSALOOP=y
+BR2_PACKAGE_LIBSAMPLERATE=y
+BR2_PACKAGE_RADIO_EQUALIZER=y
+
 BR2_ROOTFS_OVERLAY="$(BR2_EXTERNAL_RADIO_PATH)/board/radio/rootfs-overlay"
 BR2_ROOTFS_POST_BUILD_SCRIPT="$(BR2_EXTERNAL_RADIO_PATH)/board/radio/post-build.sh"
 BR2_ROOTFS_POST_IMAGE_SCRIPT="board/raspberrypi3/post-image.sh"
 ```
 
-The firmware `config.txt` enables the hardware interfaces and the DAC overlay
-and applies the boot-speed options; `cmdline.txt` keeps the HDMI/keyboard console
+`BR2_PACKAGE_RADIO_EQUALIZER` builds the project-owned, MIT-licensed LADSPA
+plugin from `buildroot/external/package/radio-equalizer/` and installs
+`/usr/lib/ladspa/radio_equalizer.so`. ALSA's built-in LADSPA PCM hosts it; the
+web helper generates the selected filters in `/etc/asound.conf`. See
+[Parametric equalizer](equalizer.md#developer-architecture) for the signal path,
+control ABI and target qualification procedure.
+
+The firmware `config.txt` enables the hardware interfaces and built-in headphone
+output and applies the boot-speed options; `cmdline.txt` keeps the HDMI/keyboard console
 while suppressing kernel chatter:
 
 ```text
@@ -413,53 +415,95 @@ kernel=zImage
 gpu_mem_512=100
 # Bluetooth on the PL011 UART: NOT pi3-miniuart-bt (that breaks A2DP)
 enable_uart=1
+dtoverlay=dwc2,dr_mode=peripheral
 disable_splash=1
 boot_delay=0
 initial_turbo=30
 dtparam=i2c_arm=on
-dtparam=i2s=on
+#dtparam=i2s=on              # enabled when an external I2S DAC is selected
 dtparam=spi=on
-dtparam=audio=off
-dtoverlay=iqaudio-dacplus     # set by configure.sh --dac
+dtparam=audio=on
+#dtoverlay=iqaudio-dacplus    # selected by the web Audio page when needed
 
 # cmdline.txt
 root=/dev/mmcblk0p2 rootwait console=tty1 quiet loglevel=3 logo.nologo
 ```
 
+Peripheral mode dedicates the Pi 3A+ USB-A connector to USB Audio, so a USB
+keyboard is no longer available as a recovery path. Keep WiFi/SSH access working
+or configure a separate serial console. The wiring must omit VBUS/+5 V.
+
 ### Boot order (BusyBox init) and service layout
 
 ```text
 BusyBox init -> /etc/inittab
-  sysinit:  mount /proc; remount,rw /; mkdir /dev/{pts,shm}; mount -a (tmpfs /tmp)
+  sysinit:  mount /proc; remount,rw /; mkdir /dev/{pts,shm}; mount -a (/data + tmpfs /tmp)
   sysinit:  /usr/sbin/radio-boot-splash     # paint the branded SPI splash ASAP,
                                              #   launched DETACHED so it renders
                                              #   in parallel and never blocks boot
-  sysinit:  /usr/sbin/provision-from-boot   # apply SD-card radio-config.txt FIRST,
-                                             #   before hostname/WiFi/chrony/SSH
+  sysinit:  /usr/sbin/radio-persistent-boot # validate writable ext4 p4; then link,
+                                             #   migrate, provision radio-config.txt,
+                                             #   and render firmware-owned files
   sysinit:  hostname -F /etc/hostname        # reads provisioned hostname
   sysinit:  /etc/init.d/rcS
   S10mdev / mounts, tmpfs on /tmp
   S11modules
+  S12data-resize        # safely grow only final persistent-data partition p4
   S13zram              # compressed RAM swap (OOM protection on the 512 MB board)
   S14watchdog          # arm the BCM2835 hardware watchdog (/dev/watchdog)
   S30dbus-daemon       # system bus (required for shairport-sync AirPlay control + BlueZ)
+  S39usb-audio         # ConfigFS UAC1 gadget + supervised alsaloop bridge to I2S
   S40network           # brings up lo (WiFi is NOT here — non-blocking)
   S40bluetoothd        # bluetoothd (bluez5_utils); --experimental via /etc/default/bluetoothd
-  S41wlan              # wpa_supplicant + udhcpc for wlan0, IN THE BACKGROUND
+  S41wlan              # wpa_supplicant + udhcpc (sends hostname) for wlan0, IN THE BACKGROUND
                        #   (log discarded to /dev/null by default;
                        #    set S41WLAN_LOG=/tmp/S41wlan.log to debug)
   S42bluetooth         # no-PIN auto-pair agent + connection-gated pairing mode +
                        #   bluealsa (A2DP receiver) + bluealsa-aplay (-> ALSA default)
   S49chronyd           # sets wall clock for HTTPS/TLS clients on the RTC-less Pi
   S50avahi-daemon      # mDNS for AirPlay / Spotify discovery
-  S50dropbear          # SSH server (root login enabled; skipped if enable_ssh=0)
+  S50dropbear          # SSH server (disabled unless explicitly enabled)
   S50mpd               # Music Player Daemon (/etc/mpd.conf)
+  S79radio-helper      # root-owned privileged helper for the web admin UI
+                       #   Listens on a local unix
+                       #   socket (/run/radio-helper.sock, chowned root:radio-web
+                       #   0660) and performs only a fixed whitelist of actions
+                       #   (restart radio/MPD, reboot, shutdown, set hostname,
+                       #   set time). Starts BEFORE S80radio-web.
+  S80radio-web         # web admin interface (python3 -m radio_web). Runs as the
+                       #   unprivileged 'radio-web' user (Phase 7 privilege
+                       #   split) and delegates privileged ops to S79radio-helper.
+                       #   Runs independently of S90radio and survives its
+                       #   restarts/freeze recovery.
   S90radio             # supervises radio.py (crash restart w/ backoff +
                        #   freeze-watcher), which launches nqptp,
                        #   shairport-sync and go-librespot itself
-                       #   (Bluetooth is NOT launched here — radio.py only reads
-                       #    org.bluez metadata over D-Bus)
+                       #   (Bluetooth and the USB bridge are init-owned; radio.py
+                       #    observes their state and performs source arbitration)
+  S99firmware-health   # background local trial-health confirmation and rollback
 ```
+
+Each root slot contains immutable `/etc/radio-release.json` metadata generated
+from `lib/_version.py` and the fixed Pi 3A+ hardware revision. The privileged
+helper derives the non-running partition from the kernel slot/root pair and mounts
+it only at `/mnt/firmware-other-ro` with `ro,noload,nodev,nosuid,noexec` while
+validating that metadata. Neither HTTP nor the helper protocol accepts a device,
+slot, path, or mountpoint. A password-confirmed manual switch transactionally sets
+the current slot as `previous_slot`, selects the validated other slot, resets the
+boot counter, enables a trial, verifies the environment, and only then reboots.
+
+The same metadata declares the firmware's persistent-schema writer and reader
+capabilities. `/data/radio/schema-version` is the format last written, while
+`schema-compatibility.json` records the oldest reader that may safely consume it.
+Configuration changes should be additive: INI readers ignore unknown keys, and a
+renamed key must remain readable under both names for at least one rollback
+generation. Early boot runs ordered, locked migrations before services start,
+publishes schema metadata only after success, and leaves a root-only pre-migration
+backup under `/data/update/config-backups`. The backup is accepted only after the
+trial firmware is marked good and the latest accepted generation remains protected.
+An update or manual switch is refused when the retained firmware cannot read the
+shared data. Irreversible migrations are not part of the normal update policy and
+are rejected before installation because they would also defeat automatic fallback.
 
 #### Early boot splash (non-blocking)
 
@@ -505,7 +549,12 @@ fastest first, so a cheap targeted restart is tried before a full reboot:
    `RADIO_HEARTBEAT_FILE`) on **every** metadata-loop iteration; the
    **freeze-watcher** companion in `S90radio` kills the frozen process when the
    heartbeat is stale for `RADIO_HEARTBEAT_TIMEOUT` seconds (default 30, ≈10× the
-   3 s loop), which then triggers case 1.
+   3 s loop), which then triggers case 1. Both the freeze-watcher and the
+   `stop`/`restart` path kill **only the supervised player's process group**
+   (the supervisor wrapper recorded in `/run/radio.pid` plus its `radio.py`
+   child), never `killall python3`, so the separate `S80radio-web` service is
+   left untouched. The media backends (`shairport-sync`, `nqptp`,
+   `go-librespot`) are still reaped by name because they have no other owner.
 3. **Whole-system hang** — a kernel lockup, stuck SD/I-O path or wedged WiFi
    driver that also takes the userspace supervisors down. `S14watchdog` arms the
    **BCM2835 hardware watchdog** via the BusyBox `watchdog` applet
@@ -528,8 +577,10 @@ Quick on-target checks:
 ls -l /dev/watchdog          # present -> hardware watchdog available
 cat /proc/swaps              # shows /dev/zram0 as swap
 cat /tmp/radio.alive         # heartbeat file (mtime advances every ~3 s)
-# Simulate a crash: the supervisor restarts radio.py within the backoff window.
-killall python3
+# Simulate a crash: kill radio.py; the supervisor restarts it within the
+# backoff window. (Target radio.py specifically — do not "killall python3",
+# which would also take down the S80radio-web service.)
+kill "$(pgrep -f radio.py)"
 # Simulate a freeze: pause the app; the freeze-watcher kills+restarts it
 # after RADIO_HEARTBEAT_TIMEOUT.
 kill -STOP "$(pgrep -f radio.py)"
@@ -538,43 +589,52 @@ kill -STOP "$(pgrep -f radio.py)"
 
 ### Provisioning a prebuilt image from the SD card (`radio-config.txt`)
 
-`buildroot/configure.sh` bakes hostname / WiFi / root password / DAC into the
-image at build time. For someone who only wants to flash a **prebuilt image**
-and adjust it without rebuilding, the FAT ("boot") partition of the SD card can
-carry a plain-text `radio-config.txt` — the same idea as Raspberry Pi OS's
-`/boot` provisioning.
+Every build produces the same generic image. Device-specific settings belong in
+the FAT ("boot") partition's plain-text `radio-config.txt` — the same idea as
+Raspberry Pi OS's `/boot` provisioning.
 
-The image ships `radio-config.txt.example` on the FAT partition (added by
-`board/radio/post-image.sh`). Copy it to `radio-config.txt`, edit it, and boot:
+The image ships an active `radio-config.txt` on the FAT partition (added by
+`board/radio/post-image.sh`). Edit it directly before the first boot:
 
 ```ini
 wifi_ssid=MyNetwork
 wifi_psk=my-wifi-password
-# hostname=kuechenradio      # also the AirPlay / Spotify device name
-# root_password=radio
-# enable_ssh=1               # 0 disables the SSH server
-timezone=Europe/Berlin       # zoneinfo name; without it the display clock shows UTC
+hostname=changeme            # also the AirPlay / Spotify device name
+root_password=changeme
+enable_ssh=0                 # 1 enables the SSH server
+timezone=UTC                 # zoneinfo name
 # ntp_server=pool.ntp.org
 ```
 
-- **Applied first, on every boot.** `/usr/sbin/provision-from-boot` runs from an
-  `inittab` **sysinit** line *before* `hostname -F` and *before* `rcS`
-  (WiFi/chrony/dropbear), so every consumer reads the provisioned values. It is
-  the earliest step after the rootfs is remounted read-write and `/tmp` exists.
-- **Overrides the build-time defaults**; values persist on the rootfs.
-- **Read-only, whitelist parser.** The FAT partition is mounted read-only and
-  the file is never modified. Unknown keys are ignored and the file is never
-  sourced/eval'd. A missing or invalid file never blocks boot — the built-in
-  defaults are used and the outcome is logged to `/tmp/provision-from-boot.log`.
+Each active line is automatically commented on the FAT partition **only after
+its individual setting has been successfully persisted**. This lets later
+web-interface changes persist while ensuring a failed write or invalid value
+remains active and is retried on the next boot. To apply a stored boot setting
+again, edit its value, remove the leading `#`, and reboot.
+
+- **Applied first, when active settings are present.**
+  `/usr/sbin/provision-from-boot` runs from an `inittab` **sysinit** line
+  *before* `hostname -F` and *before* `rcS` (WiFi/chrony/dropbear), so every
+  consumer reads newly provisioned values. It is the earliest step after the
+  rootfs is remounted read-write and `/tmp` exists.
+- **Overrides the generic image defaults**; values persist on the rootfs.
+- **One-shot, whitelist parser with retry safety.** The FAT partition is mounted
+  read-write for this early step. A recognised assignment is commented only
+  after its durable apply succeeds; failed or invalid assignments remain active
+  for a later boot retry. Unknown keys are ignored and the file is never
+  sourced/eval'd. A missing or invalid file never blocks boot — built-in or
+  previously persisted values are used and the outcome is logged to
+  `/tmp/provision-from-boot.log`.
 - **WiFi** is rewritten as the strict `network={ … key_mgmt=WPA-PSK }` block the
   stripped `wpa_supplicant` requires (PSK 8..63 chars). `wifi_country` (an
   ISO-3166 alpha-2 code, e.g. `DE`) is **validated and persisted to
-  `/run/wifi-country`**, then applied at bring-up by the `S41wlan` init script
+  `/etc/radio/wifi-country`**, then applied at bring-up by the `S41wlan` init script
   via `iw reg set`. The country is set with `iw` (not `wpa_supplicant`) because
   this `wpa_supplicant` is built without `CONFIG_CTRL_IFACE` and rejects a
   `country=` line inside `wpa_supplicant.conf`. An unset or invalid value keeps
   the safe worldwide default.
-- **`enable_ssh=0`** writes `/run/provision-disable-ssh`; the overlay
+- **`enable_ssh=0`** persists the disabled setting and writes
+  `/run/provision-disable-ssh`; the overlay
   `S50dropbear` checks it and skips starting SSH (race-free, since sysinit runs
   before `S50`).
 - **`timezone`** (a zoneinfo name such as `Europe/Berlin`) symlinks
@@ -582,28 +642,149 @@ timezone=Europe/Berlin       # zoneinfo name; without it the display clock shows
   the tz database (`BR2_TARGET_TZ_INFO`, enabled in the defconfig); otherwise the
   appliance — and the display's top status-bar clock — stays on UTC. Because it
   runs before `S90radio`, the radio app starts already in the local zone.
-- The **DAC overlay** is not a key here — edit the `dtoverlay=` line in
-  `config.txt` on the same FAT partition directly.
+- The **sound card** is selected after the first network boot from the web
+  interface's Audio page. This updates both the FAT `config.txt` overlay and the
+  matching ALSA/MPD/radio settings before requesting a reboot.
 
-#### Image assembly and the FAT boot partition size
+#### Image assembly and partition layout
 
 `board/radio/post-image.sh` is a self-contained replacement for Buildroot's
 stock `board/raspberrypi/post-image.sh`. It builds `sdcard.img` with `genimage`
 from `board/radio/genimage.cfg.in`, and:
 
-- Enlarges the FAT boot partition to **64M** (Buildroot's stock template uses
-  32M) so the firmware, kernel, DTBs, `config.txt`/`cmdline.txt` and the shipped
-  `radio-config.txt.example` fit with headroom. Override with the
-  `RADIO_BOOT_VFAT_SIZE` environment variable at build time, e.g.
-  `RADIO_BOOT_VFAT_SIZE=128M ./buildroot/build.sh`.
-- Builds the boot-file list exactly like the stock script (every `*.dtb`, every
-  file under `rpi-firmware/`, plus the kernel named by the `kernel=` line in
-  `config.txt`) and adds `radio-config.txt.example`.
+- Reserves the first **8 MiB** for the MBR and two redundant 64 KiB U-Boot
+  environments at fixed 1 MiB and 2 MiB offsets, and seeds both copies.
+- Creates a fixed **128 MiB** FAT loader partition, equal **768 MiB** ext4 A/B
+  firmware slots, and a **128 MiB** seed ext4 data partition as final p4.
+- Gives A, B and data distinct deterministic filesystem labels and UUIDs, then
+  copies the completed Buildroot rootfs into both initial firmware slots.
+- Seeds `/data`, mounts it before provisioning, and links `/etc/radio`, WiFi,
+  Dropbear identity and BlueZ state to their persistent locations.
+- Mounts the fixed data partition as `/dev/mmcblk0p4`, avoiding dependency on
+  optional BusyBox filesystem-label resolution. Early persistent processing is
+  skipped unless that mount is writable ext4 p4, preventing accidental writes
+  into an unmounted `/data` directory in a firmware slot.
+- Places Raspberry Pi firmware/DTBs, `u-boot.bin`, the fixed A/B `boot.scr`, and
+  `radio-config.txt` on the FAT loader. U-Boot loads `/boot/zImage` from the
+  selected ext4 slot and passes a matching `root=` and `radio.slot=` pair.
+- Runs `scripts/verify-audio-catalog.py` before image assembly. The build fails
+  if a selectable I2S overlay is absent from the completed image or one of its
+  required drivers is disabled in the final kernel `.config`. Driver selections
+  are explicit in the positive-only `linux-i2s-audio.fragment`.
 
-`post-build.sh` enforces the service layout. The enabled radio scripts are
-`S13zram`, `S14watchdog`, `S50mpd` and `S90radio` (all shipped in the board
-overlay and `chmod 0755`'d by `post-build.sh`); the competing upstream media
-scripts are moved to `/etc/init.d/disabled/`:
+The fixed on-card map is:
+
+| Region | Size | Purpose |
+| --- | ---: | --- |
+| Raw reservation | 8 MiB | MBR plus redundant U-Boot environments at 1 MiB and 2 MiB. |
+| `p1` FAT | 128 MiB | Stable Raspberry Pi firmware, DTBs, U-Boot, `boot.scr`, and provisioning file. |
+| `p2` ext4 | 768 MiB | Firmware slot A, including its own `/boot/zImage`. |
+| `p3` ext4 | 768 MiB | Firmware slot B, including its own `/boot/zImage`. |
+| `p4` ext4 | 128 MiB seed | Shared persistent data; expanded to the card's end on early boot. |
+
+`S12data-resize` validates that `p4` is the final partition before growing the
+partition and filesystem. It never resizes either firmware slot. Consequently a
+normal `.swu` writes only inactive `p2` or `p3`; it contains no partition table,
+loader, provisioning file, or data filesystem.
+
+#### U-Boot A/B variables and trial policy
+
+The complete boot state machine, redundant-environment requirements, SWUpdate
+transaction, and porting guidance are in the
+[firmware-update architecture reference](firmware-update-architecture.md).
+
+The two redundant environments are initialized from `uboot-env.txt`. These
+variables form the boot transaction:
+
+| Variable | Meaning |
+| --- | --- |
+| `active_slot` | Slot A or B selected for the next boot. |
+| `previous_slot` | Accepted starting slot to use if the trial fails. |
+| `upgrade_available` | `1` while `active_slot` is an unaccepted trial. |
+| `bootcount` | Trial attempts consumed by U-Boot. |
+| `bootlimit` | Attempts allowed before fallback; shipped as `3`. |
+| `rollback_from` | Failed slot recorded when U-Boot falls back, otherwise `none`. |
+
+On every trial boot, `boot.scr` increments and saves `bootcount`. When it exceeds
+`bootlimit`, U-Boot selects `previous_slot`, clears the trial state, and records
+the failed slot. Slot A maps only to `p2`; slot B maps only to `p3`. U-Boot loads
+that slot's `/boot/zImage` and supplies a matching `root=/dev/mmcblk0pN` and
+`radio.slot=A|B`. A healthy trial is accepted by `S99firmware-health`, which
+clears the trial state only after local checks pass.
+
+For read-only diagnosis, use `fw_printenv` with the six variables above and
+inspect `/proc/cmdline`. Do not use `fw_setenv` as a routine operator workflow:
+the installer and manual-switch helper commit and verify the complete variable
+set transactionally.
+
+#### Persistent paths and compatibility
+
+`/data` is the ext4 filesystem on fixed partition `p4`; it is mounted before
+provisioning and services. The early `radio-persistent-boot` coordinator validates
+that exact read-write mount, establishes compatibility links, migrates shared
+state, applies `radio-config.txt`, and regenerates slot-owned outputs. The
+canonical inventory, ownership, image-seeding process and write guarantees are in
+[Persistent data](persistent-data.md).
+
+| Persistent location | Compatibility path or purpose |
+| --- | --- |
+| `/data/radio` | `/etc/radio`; administrator secret, managed INI files, logos, ADC calibration, and schema state. |
+| `/data/network/wpa_supplicant.conf` | `/etc/wpa_supplicant.conf`. |
+| `/data/identity/dropbear` | `/etc/dropbear`; stable SSH host identity. |
+| `/data/bluetooth` | `/var/lib/bluetooth`; retained pairing state. |
+| `/data/update/upload` | Bounded unprivileged upload staging and reboot-reconnect status. |
+| `/data/update/queue` | Root-only fixed package consumed by the installer. |
+| `/data/update/history.json` | Bounded root-owned update history. |
+| `/data/update/config-backups` | Root-only migration backups. |
+| `/data/update/data-resize` | Guarded p4-resize marker and MBR backup. |
+
+`/etc/radio` is a directory symlink, so same-directory atomic writes beneath it
+land in `/data/radio`. `/etc/wpa_supplicant.conf` is a file symlink; its writers
+must resolve the target before `mv`/`os.replace` to avoid replacing the symlink.
+Both provisioning and the privileged network helper enforce this distinction.
+
+Firmware-owned `/etc/mpd.conf`, `/etc/asound.conf`, and live ALSA state are not
+copied between slots. Each firmware regenerates them from persistent profile,
+volume, and calibration inputs. Release metadata and persistent schema markers
+allow installation and manual switching only when both the target and retained
+firmware can safely read the shared state.
+
+#### `.swu` generation and release-artifact validation
+
+The archive's exact format, build validation, runtime selection, and Linux
+tooling are detailed in the
+[firmware-update architecture reference](firmware-update-architecture.md).
+
+The image build runs `board/radio/build-swu.sh` after the root filesystem is
+complete. `scripts/build_firmware_swu.py` creates a deterministic unsigned CRC
+CPIO named `kitchen-radio-<version>.swu`. Its first member is `sw-description`;
+its second is one deterministic gzip-compressed root filesystem shared by fixed
+`slot-a` and `slot-b` selections. The manifest records semantic version,
+Pi 3A+ hardware compatibility, persistent-schema contracts, compressed size,
+and SHA-256. The builder validates member order and payload integrity and asks
+the native `swupdate` checker to parse both selections before atomic publication.
+
+`build.sh` starts a build marker and then runs `validate-artifacts.sh`. Reporting
+fails unless `sdcard.img` and exactly one matching, non-empty, newer versioned
+`.swu` exist. It prints each path, size, and SHA-256. These hashes detect
+accidental corruption; because packages are not signed, they are not an
+authenticity guarantee.
+
+#### Firmware recovery paths
+
+The supported recovery order is automatic U-Boot fallback, a password-confirmed
+manual switch from Maintenance, and boot-partition `radio-config.txt` recovery
+for WiFi/hostname/root-password/SSH access. HDMI exposes `tty1`, but USB Audio
+peripheral mode prevents use of a USB keyboard; prepare serial access or enable
+SSH before low-level work. Reflashing `sdcard.img` is the final recovery path and
+destroys existing `/data`. See the complete operator procedure in
+[`firmware-updates.md`](firmware-updates.md).
+
+`post-build.sh` enforces the service layout. The enabled radio scripts include
+`S12data-resize`, `S13zram`, `S14watchdog`, `S50mpd`, `S79radio-helper`,
+`S80radio-web`, `S90radio` and `S99firmware-health` (all shipped in the board
+overlay and `chmod 0755`'d by `post-build.sh`); the competing upstream media scripts are moved to
+`/etc/init.d/disabled/`:
 
 ```text
 /etc/init.d/disabled/S90nqptp
@@ -647,13 +828,15 @@ Keep these to avoid regressing the known-good image:
   disabled script under `/etc/init.d/S??*` even with a `.disabled` suffix —
   BusyBox `rcS` still runs every matching regular file. Do not mix app-owned and
   init-script-owned models.
-- **Keep the HDMI/USB-keyboard console** (`console=tty1` + a `tty1` getty) as the
-  recovery path. Re-enable a serial getty only for low-level boot debugging.
+- **Keep the HDMI `tty1` console for diagnostics**, but remember that it has no
+  USB keyboard while the connector is in peripheral mode. WiFi/SSH is the normal
+  recovery path; configure a serial getty when low-level interactive debugging
+  is required.
 - **Keep the validated boot-speed options** (`quiet loglevel=3 logo.nologo`,
   `disable_splash=1`, `boot_delay=0`, `initial_turbo=30`, async `S41wlan`) unless
   a change is shown to regress on hardware.
-- **Only the small positive `linux-i2c.fragment` is applied** (it exposes the
-  ADS1115 I2C bus). No broad kernel trim is used: the image deliberately keeps
+- **Only small positive kernel fragments are applied** for I2C, watchdog,
+  Bluetooth, and USB Audio. No broad kernel trim is used: the image deliberately keeps
   the framebuffer/DRM console and other drivers so failed boots stay debuggable.
 - **No persistent logs — nothing writes to the SD card.** This is an always-on
   appliance, so logging is minimized and kept off the (small, wear-sensitive)
@@ -718,4 +901,8 @@ Why the setup looks the way it does:
 
 - [`../buildroot/README.md`](../buildroot/README.md) — the external-tree scripts
   and layout in more detail.
-- [`hardware.md`](hardware.md) — DAC/overlays, GPIO, ADS1115 wiring.
+- [`firmware-updates.md`](firmware-updates.md) — operator update, activation,
+  rollback, and unreachable-interface recovery procedures.
+- [`hardware.md`](hardware.md) — base-radio GPIO, display and ADS1115 wiring.
+- [`sound-devices.md`](sound-devices.md) — selectable audio overlays and one
+  complete pinout per output device.

@@ -15,19 +15,20 @@ class ALSAController:
     reused, and transparently re-opened if the handle goes stale.
     """
 
-    def __init__(self, mixer_name: str = 'Digital') -> None:
+    def __init__(self, mixer_name: str = "Digital", mixer_max_percent: int = 100) -> None:
         """Open the named ALSA mixer and cache the handle.
 
         Args:
             mixer_name (str): The ALSA mixer control name (e.g. ``Digital``).
         """
         self.mixer_name = mixer_name
+        self.mixer_max_percent = max(0, min(100, int(mixer_max_percent)))
         # Open the mixer once and reuse it. Opening a new ``alsaaudio.Mixer``
         # on every volume tick (the ADC loop can call this many times/second)
         # is wasteful; keep a single long-lived handle instead.
         self.mixer: Optional[alsaaudio.Mixer] = self._open_mixer()
 
-    def _open_mixer(self) -> Optional['alsaaudio.Mixer']:
+    def _open_mixer(self) -> Optional["alsaaudio.Mixer"]:
         """Open (or re-open) the ALSA mixer handle.
 
         Returns:
@@ -69,6 +70,8 @@ class ALSAController:
             volume = 100
 
         log_volume = self.linear_to_log_volume(volume)
+        mixer_max_percent = getattr(self, "mixer_max_percent", 100)
+        log_volume = int(log_volume * mixer_max_percent / 100)
 
         if self.mixer is None:
             self.mixer = self._open_mixer()

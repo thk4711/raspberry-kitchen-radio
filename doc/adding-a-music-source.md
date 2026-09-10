@@ -2,10 +2,11 @@
 
 The radio treats every playback backend uniformly through the `MusicSource`
 abstraction in [`lib/music_source.py`](../lib/music_source.py). MPD (internet
-radio), AirPlay and Spotify Connect are all `MusicSource` subclasses. This guide
+radio), AirPlay, Spotify Connect, Bluetooth, and USB Audio are `MusicSource`
+subclasses. This guide
 shows how to add another one (e.g. a local file player, an internet-radio
-directory, …). The **Bluetooth A2DP** source added later is a worked example of
-this exact pattern — see `lib/bluetooth_service`.
+directory, …). The Bluetooth and USB sources are worked examples; see
+`lib/bluetooth_service` and `lib/usb_audio_service`.
 
 ## The `MusicSource` contract
 

@@ -1,0 +1,56 @@
+name: Bug report
+description: Report a problem with the radio app, web UI, or appliance image
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for filing a bug! For anything security-sensitive, please follow
+        [SECURITY.md](../SECURITY.md) instead of opening a public issue.
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: A clear description of the bug and what you expected instead.
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. ...
+        2. ...
+        3. ...
+    validations:
+      required: true
+  - type: dropdown
+    id: component
+    attributes:
+      label: Affected component
+      options:
+        - Radio app (radio.py / lib)
+        - Web administration UI (radio_web)
+        - Buildroot appliance image
+        - A media backend (MPD/AirPlay/Spotify/Bluetooth/USB)
+        - Hardware / wiring
+        - Documentation
+        - Other / not sure
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      description: "Output of `radio.py --version`, or the git commit / image build."
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: Pi model, sound card/DAC, display, host OS for the dev workflow, etc.
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant logs
+      description: Paste logs (e.g. from the diagnostics bundle). Redact any secrets.
+      render: text

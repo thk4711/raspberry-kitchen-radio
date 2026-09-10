@@ -61,6 +61,8 @@ def read_display_config(path: Path) -> dict[str, int]:
         "rst": section.getint("rst", fallback=24),
         "dc": section.getint("dc", fallback=25),
         "bl": section.getint("bl", fallback=22),
+        "spi_bus": section.getint("spi_bus", fallback=0),
+        "spi_device": section.getint("spi_device", fallback=0),
         "spi_freq": section.getint("spi_freq", fallback=40_000_000),
     }
 
@@ -250,13 +252,17 @@ def main() -> int:
     print("Display configuration:")
     print(f"  size:      {conf['width']}x{conf['height']}")
     print(f"  RST/DC/BL: BCM {conf['rst']} / {conf['dc']} / {conf['bl']}")
-    print("  SPI:       bus 0, device CE0, mode 0")
+    print(
+        f"  SPI:       bus {conf['spi_bus']}, device CE{conf['spi_device']}, mode 0"
+    )
     print(f"  SPI freq:  {conf['spi_freq']} Hz")
 
     disp = LCD_1inch69.LCD_1inch69(
         rst=conf["rst"],
         dc=conf["dc"],
         bl=conf["bl"],
+        spi_bus=conf["spi_bus"],
+        spi_device=conf["spi_device"],
         spi_freq=conf["spi_freq"],
     )
 

@@ -1,0 +1,59 @@
+#!/bin/sh
+# Prepare compatibility paths backed by the shared persistent data partition.
+set -eu
+
+DATA=/data
+
+if ! awk '$1 ~ /^\/dev\/mmcblk[0-9]+p4$/ && $2 == "/data" && $3 == "ext4" && $4 ~ /(^|,)rw(,|$)/ { found = 1 }
+	END { exit found ? 0 : 1 }' /proc/mounts; then
+	echo "radio-persistent-paths: /data is not writable ext4 on SD-card partition 4" >&2
+	exit 1
+fi
+
+mkdir -p "$DATA/radio/logos"
+mkdir -p "$DATA/network"
+mkdir -p "$DATA/identity/dropbear"
+mkdir -p "$DATA/bluetooth"
+mkdir -p "$DATA/update/upload"
+mkdir -p "$DATA/update/queue"
+mkdir -p "$DATA/update/config-backups"
+mkdir -p "$DATA/update/backup-restore"
+[ -e "$DATA/update/history.json" ] || printf '[]\n' > "$DATA/update/history.json"
+
+if [ ! -e "$DATA/radio/schema-version" ]; then
+	printf '0\n' > "$DATA/radio/schema-version"
+fi
+
+chown 601:601 "$DATA/radio" "$DATA/radio/logos" "$DATA/update/upload" "$DATA/update/backup-restore"
+chmod 0755 "$DATA/radio" "$DATA/radio/logos"
+chmod 0750 "$DATA/update/upload"
+chmod 0770 "$DATA/update/backup-restore"
+chown 0:0 "$DATA/update" "$DATA/update/queue" "$DATA/update/config-backups"
+chown 0:0 "$DATA/update/history.json"
+chmod 0755 "$DATA/update"
+chmod 0700 "$DATA/update/queue" "$DATA/update/config-backups"
+chmod 0600 "$DATA/update/history.json"
+chmod 0600 "$DATA/identity/root-password.hash" 2>/dev/null || true
+
+if [ ! -e "$DATA/network/wpa_supplicant.conf" ]; then
+	: > "$DATA/network/wpa_supplicant.conf"
+	chmod 0600 "$DATA/network/wpa_supplicant.conf"
+fi
+
+link_path() {
+	target="$1"
+	compat="$2"
+	# BusyBox ln -sfn does not consistently replace an existing regular file
+	# on all target/filesystem combinations. Remove the compatibility path
+	# explicitly, but preserve an already-correct symlink.
+	if [ -L "$compat" ] && [ "$(readlink "$compat")" = "$target" ]; then
+		return 0
+	fi
+	rm -rf "$compat"
+	ln -s "$target" "$compat"
+}
+
+link_path "$DATA/radio" /etc/radio
+link_path "$DATA/network/wpa_supplicant.conf" /etc/wpa_supplicant.conf
+link_path "$DATA/identity/dropbear" /etc/dropbear
+link_path "$DATA/bluetooth" /var/lib/bluetooth

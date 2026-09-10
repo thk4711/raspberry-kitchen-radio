@@ -8,8 +8,8 @@ backend (see [`adding-a-music-source.md`](adding-a-music-source.md)).
 ## How to use it
 
 1. On your phone, open Bluetooth settings and look for the radio. Its name is
-   the appliance **hostname** (set via `buildroot/configure.sh --hostname …`,
-   default `kuechenradio`).
+   the appliance **hostname** (set through `radio-config.txt` or Device settings;
+   default `changeme`).
 2. Tap to connect. **There is no PIN and no confirmation prompt** — the radio
    runs an auto-accept agent that answers the pairing automatically. (Your phone
    may briefly show a pairing/passkey dialog; you do not need to act on it — the
@@ -136,7 +136,7 @@ Common checks:
 - **Radio not visible on the phone:** confirm a device is not already connected
   (pairing mode is off while connected — that is by design). `bluetoothctl show`
   should report `Discoverable: yes` **and** `Pairable: yes` when idle, with
-  `Alias:` set to the hostname (e.g. `kuechenradio`). If `Pairable: no` while
+  `Alias:` set to the hostname (e.g. `kitchen-radio`). If `Pairable: no` while
   idle, the persistent auto-pairing session is not up: check that a single
   `bluetoothctl` process is running (`ps | grep bluetoothctl`) and that the
   control FIFO exists (`ls -l /run/bluetooth-radio-btctl.fifo`); restart with

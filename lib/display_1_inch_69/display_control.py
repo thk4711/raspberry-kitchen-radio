@@ -32,7 +32,7 @@ from display_1_inch_69 import layout as layout_mod
 from display_1_inch_69 import theme as theme_mod
 from display_1_inch_69.transient_state import TransientState
 from PIL import Image, ImageDraw, ImageFilter, ImageFont, ImageOps
-from utilities import UtilityLibrary
+from utilities import MANAGED_CONFIG_DIR, UtilityLibrary
 
 utility = UtilityLibrary()
 logger = logging.getLogger(__name__)
@@ -110,7 +110,10 @@ class DisplayController:
     def __init__(self) -> None:
         """Initialise the display, layout, render buffers and update thread."""
         self.module_location = os.path.dirname(os.path.abspath(__file__))
-        conf = utility.read_config(f'{self.module_location}/display.conf')
+        conf = utility.read_config_layered(
+            f'{self.module_location}/display.conf',
+            os.path.join(MANAGED_CONFIG_DIR, 'display.ini'),
+        )
 
         # Resolve the [ui] theme (Workstream 5). Absent section -> shipped
         # defaults (byte-identical to the pre-theme look); malformed values fall
@@ -126,6 +129,8 @@ class DisplayController:
             rst=conf['display']['rst'],
             dc=conf['display']['dc'],
             bl=conf['display']['bl'],
+            spi_bus=conf['display'].get('spi_bus', 0),
+            spi_device=conf['display'].get('spi_device', 0),
             spi_freq=conf['display'].get('spi_freq', 40000000)
         )
         self.disp.Init()

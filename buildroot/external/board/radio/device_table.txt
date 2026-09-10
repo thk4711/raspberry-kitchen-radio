@@ -1,0 +1,10 @@
+# Target ownership and permissions applied by Buildroot under fakeroot.
+#
+# Post-build scripts run as the unprivileged build-host user, so a host-side
+# chown cannot reliably assign target UID/GID values.  Keep writable directories
+# for the unprivileged web service here instead.
+#
+# <name>                 <type>  <mode>  <uid>  <gid>  <major> <minor> <start> <inc> <count>
+/etc/radio               d       755     601    601    -       -       -       -     -
+/etc/radio/logos         d       755     601    601    -       -       -       -     -
+/var/lib/radio-web       d       755     601    601    -       -       -       -     -

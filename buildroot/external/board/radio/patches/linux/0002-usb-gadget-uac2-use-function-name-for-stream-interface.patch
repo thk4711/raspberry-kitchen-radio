@@ -1,0 +1,36 @@
+From 5cb6631cc45751d86a1ed88d64b53c945141e97f Mon Sep 17 00:00:00 2001
+From: Raspberry Kitchen Radio <radio@localhost>
+Date: Tue, 8 Sep 2026 12:00:00 +0200
+Subject: [PATCH] usb: gadget: uac2: use function name for stream interface
+
+Use the ConfigFS function name for UAC2 playback alternate settings and set an appliance default function name.
+
+Signed-off-by: Raspberry Kitchen Radio <radio@localhost>
+---
+ drivers/usb/gadget/function/f_uac2.c | 8 ++++----
+ 1 file changed, 4 insertions(+), 4 deletions(-)
+
+--- a/drivers/usb/gadget/function/f_uac2.c
++++ b/drivers/usb/gadget/function/f_uac2.c
+@@ -1044,8 +1044,8 @@
+ 	strings_fn[STR_USB_IT_CH].s = uac2_opts->c_it_ch_name;
+ 	strings_fn[STR_IO_OT].s = uac2_opts->c_ot_name;
+ 	strings_fn[STR_FU_OUT].s = uac2_opts->c_fu_vol_name;
+-	strings_fn[STR_AS_OUT_ALT0].s = "Playback Inactive";
+-	strings_fn[STR_AS_OUT_ALT1].s = "Playback Active";
++	strings_fn[STR_AS_OUT_ALT0].s = uac2_opts->function_name;
++	strings_fn[STR_AS_OUT_ALT1].s = uac2_opts->function_name;
+ 
+ 	strings_fn[STR_IO_IT].s = uac2_opts->p_it_name;
+ 	strings_fn[STR_IO_IT_CH].s = uac2_opts->p_it_ch_name;
+@@ -2224,7 +2224,7 @@
+ 	opts->req_number = UAC2_DEF_REQ_NUM;
+ 	opts->fb_max = FBACK_FAST_MAX;
+ 
+-	scnprintf(opts->function_name, sizeof(opts->function_name), "Source/Sink");
++	scnprintf(opts->function_name, sizeof(opts->function_name), "Raspberry Radio USB Audio");
+ 	scnprintf(opts->if_ctrl_name, sizeof(opts->if_ctrl_name), "Topology Control");
+ 	scnprintf(opts->clksrc_in_name, sizeof(opts->clksrc_in_name), "Input Clock");
+ 	scnprintf(opts->clksrc_out_name, sizeof(opts->clksrc_out_name), "Output Clock");
+-- 
+2.51.0

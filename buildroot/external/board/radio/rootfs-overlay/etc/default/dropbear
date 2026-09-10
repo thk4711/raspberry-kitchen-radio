@@ -10,11 +10,10 @@
 #     with "-s" (disable all passwords) or "-g" (disable password login for
 #     root); we deliberately do NOT pass either.
 #   * The root password itself is baked into the image via
-#     BR2_TARGET_GENERIC_ROOT_PASSWD ("radio") in the defconfig.
+#     BR2_TARGET_GENERIC_ROOT_PASSWD ("changeme") in the defconfig.
 #
-# NOTE: this is intentionally permissive because the device is a headless
-# appliance on a trusted LAN. Change the root password (and consider switching
-# to key-only auth by adding "-s") before exposing it to an untrusted network.
+# NOTE: the init script disables this service by default. If SSH is explicitly
+# enabled, change the root password and use it only on a trusted network.
 #
 # -p 22   : listen on the standard SSH port.
 DROPBEAR_ARGS="-p 22"

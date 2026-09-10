@@ -58,6 +58,29 @@ With the Raspberry Pi powered off:
 The display does not need SPI **MISO** for this driver because the app only
 writes pixels to the panel.
 
+### Alternative chip select for a MERUS Amp
+
+The `merus-amp` device-tree overlay reserves BCM 8, so the default CE0 display
+connection cannot be used with that amplifier. SPI0 has a second hardware chip
+select which leaves MOSI and SCLK unchanged:
+
+1. With power off, move only the display **CS** wire from physical pin 24 /
+   BCM 8 / CE0 to physical pin **26** / BCM **7** / **CE1**.
+2. In `lib/display_1_inch_69/display.conf`, set:
+
+   ```ini
+   [display]
+   spi_bus = 0
+   spi_device = 1
+   ```
+
+3. Reboot, then verify that `/dev/spidev0.1` exists and run this smoke test.
+
+`spi_device = 0` means CE0/BCM 8 and remains the shipped default;
+`spi_device = 1` means CE1/BCM 7. This change addresses the MERUS BCM 8
+conflict only. The overlay also reserves BCM 14, 15, 17 and 23, so those pins
+must not be assigned to other peripherals.
+
 ### Raspberry Pi 40-pin header reference
 
 This shows the relevant physical pins as viewed from above the Raspberry Pi,
@@ -84,7 +107,8 @@ GPIO22 (15) (16)  GPIO23     <- display BL
 
 - Confirm you are using **BCM 24/25/22** for `RST`/`DC`/`BL`, not physical pins
   24/25/22 by mistake.
-- Confirm display **CS** is on **CE0** physical pin 24 / BCM 8.
+- Confirm display **CS** matches `spi_device`: CE0 is physical pin 24 / BCM 8,
+  while CE1 is physical pin 26 / BCM 7.
 - Confirm **MOSI** and **SCLK** are not swapped.
 - Confirm the display has a common **GND** with the Raspberry Pi.
 - Keep the SPI wires short while testing. If long jumper wires are unavoidable,
@@ -207,8 +231,14 @@ Expected for this app:
 /dev/spidev0.0
 ```
 
-If `/dev/spidev0.0` is missing, check that the boot partition `config.txt`
-contains:
+With `spi_device = 1` (the MERUS-compatible wiring), expect and use:
+
+```text
+/dev/spidev0.1
+```
+
+If the configured `/dev/spidev0.0` or `/dev/spidev0.1` node is missing, check
+that the boot partition `config.txt` contains:
 
 ```text
 dtparam=spi=on
@@ -224,7 +254,7 @@ The display hardware path is basically working:
 
 - SPI is enabled.
 - The display has power and ground.
-- MOSI, SCLK, CE0, RST, DC, and BL are probably wired correctly.
+- MOSI, SCLK, the configured CE0/CE1, RST, DC, and BL are probably wired correctly.
 - The Python display driver can initialize the ST7789.
 
 If the main radio app still does not show anything, investigate the radio app
@@ -244,8 +274,8 @@ RADIO_LOG_LEVEL=DEBUG python3 radio.py
 
 Likely causes:
 
-- SPI is not enabled or `/dev/spidev0.0` is missing.
-- MOSI/SCLK/CE0 wiring is wrong.
+- SPI is not enabled or the configured `/dev/spidev0.0`/`spidev0.1` is missing.
+- MOSI/SCLK wiring is wrong, or display CS does not match the configured CE0/CE1.
 - DC or RST wiring is wrong.
 - SPI clock is too high for the wiring; retry with `--spi-freq 10000000` or
   `--spi-freq 1000000`.

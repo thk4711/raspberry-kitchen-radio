@@ -8,6 +8,12 @@ PIDFILE=/run/mpd/mpd.pid
 
 case "$1" in
 	start)
+		# Feature flag gate: the web UI can disable the
+		# internet-radio (MPD) source in /etc/radio/sources.ini.
+		if ! /usr/sbin/radio-source-enabled internet_radio; then
+			echo "MPD disabled via sources.ini; not starting"
+			exit 0
+		fi
 		printf 'Starting %s: ' "$DAEMON"
 		mkdir -p /run/mpd /var/lib/mpd/playlists
 		chown -R mpd:mpd /run/mpd /var/lib/mpd 2>/dev/null || true

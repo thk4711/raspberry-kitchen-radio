@@ -12,6 +12,12 @@ import requests
 
 logger = logging.getLogger(__name__)
 
+# Directory holding the web-UI managed override files (``*.ini``). These layer
+# on top of the shipped defaults under the application image (see
+# Overridable via the ``RADIO_CONFIG_DIR`` env var so the
+# tests (and any future relocation) never have to touch ``/etc``.
+MANAGED_CONFIG_DIR = os.environ.get("RADIO_CONFIG_DIR", "/etc/radio")
+
 
 class UtilityLibrary:
     """A utility library for managing external processes, making HTTP requests,
@@ -308,20 +314,22 @@ class UtilityLibrary:
             return None
 
     @staticmethod
-    def read_config(config_file: str) -> Dict[str, Dict[str, Any]]:
-        """Reads a configuration file in a simple INI format.
+    def _parse_config(config_file: str) -> Dict[str, Dict[str, Any]]:
+        """Parse an INI-format file into a nested dict.
+
+        Shared parsing core for :meth:`read_config`, :meth:`read_config_layered`
+        and :meth:`read_config_preferred`. Coerces ``true``/``false`` to bool
+        and bare digit strings to ``int``; only the first ``=`` splits a line so
+        values may themselves contain ``=``. Comments (lines starting with
+        ``#``) and blank lines are skipped. Assumes ``config_file`` exists.
 
         Args:
-            config_file (str): Path to the configuration file.
+            config_file (str): Path to an existing configuration file.
 
         Returns:
             dict: Parsed configuration data.
         """
-        if not os.path.isfile(config_file):
-            logger.error(f"Config file '{config_file}' does not exist.")
-            exit(1)
-
-        conf = {}
+        conf: Dict[str, Dict[str, Any]] = {}
         with open(config_file) as f:
             content = f.readlines()
 
@@ -336,14 +344,84 @@ class UtilityLibrary:
                 continue
             if '=' in line:
                 key, value = map(str.strip, line.split('=', 1))
+                coerced: Any = value
                 if value.lower() == 'true':
-                    value = True
+                    coerced = True
                 elif value.lower() == 'false':
-                    value = False
+                    coerced = False
                 elif re.match(r'^(\d+)$', value):
-                    value = int(value)
-                conf[section][key] = value
+                    coerced = int(value)
+                conf[section][key] = coerced
         return conf
+
+    @staticmethod
+    def read_config(config_file: str) -> Dict[str, Dict[str, Any]]:
+        """Reads a configuration file in a simple INI format.
+
+        The file is required: a missing path is a fatal error and the process
+        exits. Use :meth:`read_config_layered` or :meth:`read_config_preferred`
+        for optional override files whose absence is not fatal.
+
+        Args:
+            config_file (str): Path to the configuration file.
+
+        Returns:
+            dict: Parsed configuration data.
+        """
+        if not os.path.isfile(config_file):
+            logger.error(f"Config file '{config_file}' does not exist.")
+            exit(1)
+        return UtilityLibrary._parse_config(config_file)
+
+    @staticmethod
+    def read_config_layered(
+        default_path: str, override_path: Optional[str] = None
+    ) -> Dict[str, Dict[str, Any]]:
+        """Read a required default file and shallow-merge an optional override.
+
+        The ``default_path`` is required (a missing default exits, exactly like
+        :meth:`read_config`). When ``override_path`` is given and the file
+        exists, it is parsed and merged **section by section**: for every
+        section in the override, its keys replace the matching keys in the base
+        (new sections are added). A missing or ``None`` override is a silent
+        no-op — absence simply means "use the lower layer" — so the caller keeps
+        the shipped defaults without any error.
+
+        Args:
+            default_path (str): Path to the required built-in default file.
+            override_path (Optional[str]): Path to an optional override file.
+
+        Returns:
+            dict: The default configuration with the override merged on top.
+        """
+        conf = UtilityLibrary.read_config(default_path)
+        if override_path and os.path.isfile(override_path):
+            override = UtilityLibrary._parse_config(override_path)
+            for section, values in override.items():
+                conf.setdefault(section, {}).update(values)
+        return conf
+
+    @staticmethod
+    def read_config_preferred(
+        override_path: str, default_path: str
+    ) -> Dict[str, Dict[str, Any]]:
+        """Return the override file when present, else the required default.
+
+        Unlike :meth:`read_config_layered`, this performs a **whole-file**
+        selection rather than a merge: when ``override_path`` exists it fully
+        replaces the shipped file (e.g. the managed station presets), otherwise
+        the required ``default_path`` is used (and a missing default exits).
+
+        Args:
+            override_path (str): Path to an optional override file.
+            default_path (str): Path to the required built-in default file.
+
+        Returns:
+            dict: Parsed configuration from the override or the default file.
+        """
+        if os.path.isfile(override_path):
+            return UtilityLibrary.read_config(override_path)
+        return UtilityLibrary.read_config(default_path)
 
     @staticmethod
     def restart_systemd_service(service_name: str) -> None:

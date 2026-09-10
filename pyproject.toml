@@ -1,6 +1,6 @@
 [project]
 name = "raspberry-kitchen-radio"
-version = "0.1.0"
+version = "0.2.0"
 description = "Buildroot appliance that turns a Raspberry Pi into an internet radio / streaming device."
 readme = "README.md"
 license = { file = "LICENSE" }
@@ -63,7 +63,42 @@ files = [
     "radio.py",
     "lib/_version.py",
     "lib/bluetooth_service/bluetooth_service.py",
+    "lib/usb_audio_service/usb_audio_service.py",
     "lib/display_1_inch_69/transient_state.py",
+    "radio_web/__init__.py",
+    "radio_web/__main__.py",
+    "radio_web/auth.py",
+    "radio_web/config_store.py",
+    "radio_web/server.py",
+    "radio_web/routes.py",
+    "radio_web/sources_store.py",
+    "radio_web/system_status.py",
+    "radio_web/templates.py",
+    "radio_web/device_store.py",
+    "radio_web/diagnostics.py",
+    "radio_web/helper_protocol.py",
+    "radio_web/helper.py",
+    "radio_web/actions.py",
+    "radio_web/artwork.py",
+    "radio_web/logo_store.py",
+    "radio_web/validators.py",
+    "radio_web/display_store.py",
+    "radio_web/audio_store.py",
+    "radio_web/equalizer_store.py",
+    "radio_web/bluetooth_store.py",
+    "radio_web/network_store.py",
+    "radio_web/network_apply.py",
+    "radio_web/data_partition.py",
+    "radio_web/data_backup.py",
+    "radio_web/persistent_config.py",
+    "radio_web/firmware_upload.py",
+    "radio_web/firmware_installer.py",
+    "radio_web/firmware_health.py",
+    "radio_web/firmware_slots.py",
+    "radio_web/firmware_authorization.py",
+    "radio_web/firmware_tracking.py",
+    "radio_web/adc_store.py",
+    "lib/adc_snapshot.py",
 ]
 
 [[tool.mypy.overrides]]

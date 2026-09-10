@@ -1,0 +1,8 @@
+# USB Audio Class 1/2 gadget on the Pi 3A+ DWC2 controller.
+# Positive-only additions to the proven bcm2709 defconfig.
+CONFIG_CONFIGFS_FS=y
+CONFIG_USB_GADGET=y
+CONFIG_USB_DWC2=m
+CONFIG_USB_CONFIGFS=m
+CONFIG_USB_CONFIGFS_F_UAC1=y
+CONFIG_USB_CONFIGFS_F_UAC2=y

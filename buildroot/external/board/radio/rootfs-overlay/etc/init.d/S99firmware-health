@@ -1,0 +1,36 @@
+#!/bin/sh
+# Confirm a healthy A/B trial without delaying completion of BusyBox rcS.
+
+PIDFILE=/run/firmware-health.pid
+LOGFILE=/tmp/firmware-health.log
+
+case "$1" in
+	start)
+		printf 'Starting firmware health confirmation: '
+		# Reconcile a completed acceptance or U-Boot fallback before deciding
+		# whether this boot still has an active trial.
+		/usr/sbin/radio-firmware-health reconcile >>"$LOGFILE" 2>&1 || true
+		if [ "$(/usr/bin/fw_printenv -n upgrade_available 2>/dev/null)" != "1" ]; then
+			echo "not required"
+			exit 0
+		fi
+		if start-stop-daemon -S -q -b -m -p "$PIDFILE" \
+			-O "$LOGFILE" -x /usr/sbin/radio-firmware-health -- run; then
+			echo "OK"
+		else
+			echo "FAIL"
+		fi
+		;;
+	stop)
+		start-stop-daemon -K -q -p "$PIDFILE" 2>/dev/null || true
+		rm -f "$PIDFILE"
+		;;
+	restart)
+		"$0" stop
+		"$0" start
+		;;
+	*)
+		echo "Usage: $0 {start|stop|restart}" >&2
+		exit 1
+		;;
+esac

@@ -1,0 +1,4 @@
+#!/bin/sh
+set -eu
+cd /opt/raspberry-kitchen-radio
+exec /usr/bin/python3 -m radio_web.firmware_health "$@"

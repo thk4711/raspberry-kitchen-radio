@@ -26,8 +26,17 @@ define RADIO_APP_INSTALL_TARGET_CMDS
 	$(INSTALL) -d $(TARGET_DIR)$(RADIO_APP_TARGET_DIR)
 	$(INSTALL) -m 0755 $(@D)/radio.py $(TARGET_DIR)$(RADIO_APP_TARGET_DIR)/radio.py
 	$(INSTALL) -m 0644 $(@D)/radio.conf $(TARGET_DIR)$(RADIO_APP_TARGET_DIR)/radio.conf
+	$(INSTALL) -m 0644 $(@D)/sources.conf $(TARGET_DIR)$(RADIO_APP_TARGET_DIR)/sources.conf
 	$(INSTALL) -d $(TARGET_DIR)$(RADIO_APP_TARGET_DIR)/lib
 	cp -a $(@D)/lib/. $(TARGET_DIR)$(RADIO_APP_TARGET_DIR)/lib/
+	# Web administration interface package (python3 -m radio_web and its
+	# root-owned helper python3 -m radio_web.helper). Standard-library only;
+	# no extra Buildroot packages are required for it.
+	$(INSTALL) -d $(TARGET_DIR)$(RADIO_APP_TARGET_DIR)/radio_web
+	cp -a $(@D)/radio_web/. $(TARGET_DIR)$(RADIO_APP_TARGET_DIR)/radio_web/
+	# audio_hardware_profiles.json is intentionally copied with the package: it is
+	# the shared declarative catalog consumed by the target and build verifier.
+	test -f $(TARGET_DIR)$(RADIO_APP_TARGET_DIR)/radio_web/audio_hardware_profiles.json
 	# The media backends (shairport-sync, nqptp, go-librespot) are built from
 	# source by Buildroot and referenced on PATH; the repo ships no binaries
 	# for them. Only the UI font and the station logos under lib/ are assets.
@@ -40,6 +49,18 @@ define RADIO_APP_INSTALL_INIT_SYSV
 		$(TARGET_DIR)/etc/init.d/S90radio
 	$(INSTALL) -D -m 0755 $(BR2_EXTERNAL_RADIO_PATH)/board/radio/rootfs-overlay/etc/init.d/S50mpd \
 		$(TARGET_DIR)/etc/init.d/S50mpd
+	# Web administration services: the root-owned privileged helper
+	# (S79radio-helper) must start before the unprivileged web server
+	# (S80radio-web). Install with an explicit 0755 mode so they are always
+	# executable regardless of how the overlay preserved host mode bits.
+	$(INSTALL) -D -m 0755 $(BR2_EXTERNAL_RADIO_PATH)/board/radio/rootfs-overlay/etc/init.d/S79radio-helper \
+		$(TARGET_DIR)/etc/init.d/S79radio-helper
+	$(INSTALL) -D -m 0755 $(BR2_EXTERNAL_RADIO_PATH)/board/radio/rootfs-overlay/etc/init.d/S80radio-web \
+		$(TARGET_DIR)/etc/init.d/S80radio-web
+	# Shared source-flag reader used by the init scripts (S42bluetooth,
+	# S39usb-audio, S50mpd, S50dropbear) to no-op when a source is disabled.
+	$(INSTALL) -D -m 0755 $(BR2_EXTERNAL_RADIO_PATH)/board/radio/rootfs-overlay/usr/sbin/radio-source-enabled \
+		$(TARGET_DIR)/usr/sbin/radio-source-enabled
 endef
 
 $(eval $(generic-package))

@@ -1,0 +1,6 @@
+config BR2_PACKAGE_RADIO_SWUPDATE_PROGRESS
+	bool "radio SWUpdate progress bridge"
+	depends on BR2_PACKAGE_SWUPDATE
+	help
+	  Installs a small machine-readable client for SWUpdate's binary progress
+	  IPC. It is consumed only by the root-owned radio firmware worker.

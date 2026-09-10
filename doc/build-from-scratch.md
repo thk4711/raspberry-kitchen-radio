@@ -2,15 +2,22 @@
 
 This guide takes you from a fresh download of this project to a flashed SD card
 that boots straight into the radio. **No prior embedded-Linux experience is
-assumed.** You do not need to understand Buildroot — two scripts do the work.
+assumed.** You do not need to understand Buildroot — one script does the build.
 
 ## What you're building
 
 A small, self-contained Linux "appliance" image for the **Raspberry Pi 3A+**
 that boots directly into the radio app. It is produced by
 [Buildroot](https://buildroot.org/), a tool that downloads and compiles a whole
-minimal operating system for you. The output is a single file, `sdcard.img`,
-that you write to an SD card.
+minimal operating system for you. It produces an installation image,
+`sdcard.img`, to write to an SD card and a matching versioned
+`kitchen-radio-<version>.swu` for later firmware updates.
+
+The installation image has four partitions: a stable FAT loader, equal firmware
+slots A and B, and a shared data partition. Both slots initially contain the
+same firmware. Updates replace only the inactive slot; configuration and device
+identity remain on the shared data partition. Older two-partition cards are not
+converted in place and must be freshly flashed with `sdcard.img`.
 
 ## What you need before you start
 
@@ -40,27 +47,7 @@ cd raspberry-kitchen-radio
 
 Every command below is run from this folder.
 
-## Step 2 — Configure your radio (WiFi, name, sound card)
-
-Run the configuration script, replacing the example values with your own. The
-`--dac` option picks which I2S sound-card / amplifier board you fitted; if you
-are unsure, leave the default (`iqaudio-dacplus`).
-
-```bash
-./buildroot/configure.sh --hostname kuechenradio \
-    --ssid "YourWiFiName" --psk "YourWiFiPassword" \
-    --root-password radio --dac iqaudio-dacplus
-```
-
-- Valid `--dac` values: `iqaudio-dacplus`, `hifiberry-dacplus`, `merus-amp`.
-- The WiFi password (`--psk`) must be 8–63 characters.
-- Run `./buildroot/configure.sh` with **no options** to be prompted for each
-  value interactively instead.
-- Check what you have set at any time: `./buildroot/configure.sh --show`.
-- Your WiFi password is written to a local, git-ignored file. It is never
-  uploaded or committed to git.
-
-## Step 3 — Build the image
+## Step 2 — Build the generic image
 
 ```bash
 ./buildroot/build.sh
@@ -77,23 +64,66 @@ configuration, and compiles everything.
 > This is normal; let it run. Downloaded sources are cached in `~/embedded/dl`,
 > so later rebuilds are much faster.
 
-When it finishes you will see a **"Build complete."** banner printing the image
-path, its size, and a SHA-256 checksum, for example:
+When it finishes you will see a **"Build complete."** banner printing both
+artifact paths, sizes, and SHA-256 checksums, for example:
 
 ```
- Image : /home/you/embedded/buildroot/output/images/sdcard.img
+ Install : /home/you/embedded/buildroot/output/images/sdcard.img
+ Size    : 1.8G
+ SHA256  : <installation-image digest>
+ Update  : /home/you/embedded/buildroot/output/images/kitchen-radio-0.1.0.swu
+ Size    : <compressed update size>
+ SHA256  : <firmware-package digest>
 ```
+
+Keep the versioned `.swu` and its checksum for updating an already-flashed
+radio. The build validates the update archive for both A-to-B and B-to-A
+selection before publishing it. Firmware packages are unsigned, so the checksum
+detects accidental corruption but does not prove who created the file.
+
+The installation image and update package are a matched pair from the same build.
+Keep them together and retain both displayed SHA-256 values.
 
 Useful variations:
 
-- `./buildroot/build.sh --configure` — run Step 2 first, then build.
 - `./buildroot/build.sh --clean` — recompile from clean.
 - `./buildroot/build.sh --dirclean` — wipe everything and do a full rebuild.
 - `./buildroot/build.sh --no-apt` — skip the `apt` step (if the build tools are
   already installed, or you can't use `sudo`).
 
+## Optional: build remotely and copy both artifacts to macOS
 
-## Step 4 — Write the image to the SD card
+The development workflow can build the image on the separate x64 Linux host and
+copy both resulting artifacts to macOS with:
+
+```bash
+python3 /path/to/your/build-helper.py
+```
+
+The script synchronizes the current repository, runs the Buildroot build on the
+configured host, validates `sdcard.img` and the versioned `.swu`, and verifies
+the SHA-256 checksum of each file after `scp` transfers them to:
+
+```text
+/path/to/your/output-directory/
+```
+
+The downloaded files are timestamped so a previous build is never overwritten:
+
+```text
+kitchen-radio-<version>-<timestamp>-sdcard.img
+kitchen-radio-<version>-<timestamp>.swu
+```
+
+Use the `.img` file for initial installation or complete recovery. Use the
+matching `.swu` file for an A/B firmware update through the radio's Maintenance
+web interface. The script requires `ssh`, `scp`, and `rsync` on macOS and
+passwordless SSH access to the configured build host. Its host, repository,
+Buildroot, and Downloads paths can be changed with the script's command-line
+options; run `built_image.py --help` for the available options.
+
+
+## Step 3 — Write the image to the SD card
 
 Insert the SD card into your workstation. **Double-check the device name — `dd`
 writing to the wrong disk destroys its data.**
@@ -112,32 +142,55 @@ writing to the wrong disk destroys its data.**
 - Prefer a graphical tool? **Raspberry Pi Imager** or **balenaEtcher** can flash
   the `sdcard.img` file too (choose "use custom image").
 
+## Step 4 — Configure the SD card
+
+After flashing, reinsert or remount the SD card and open its small FAT boot
+partition. Edit the existing `radio-config.txt` with a plain-text editor:
+
+- replace `MyNetwork` and `my-wifi-password` with your WiFi details;
+- choose a hostname and a root password;
+- optionally set the WiFi country, timezone, static IP, and SSH enablement.
+
+The WiFi password must be 8–63 characters. Save the file and safely eject the
+card. Device-specific credentials are added only now; the built image remains
+generic and reusable.
+
 ## Step 5 — Boot the Pi
 
 Put the card in the Pi 3A+ and power it on. It joins your WiFi and starts the
 radio automatically. If SSH is enabled you can reach it at the hostname you set
-(e.g. `kuechenradio.local`) with user `root` and the root password from Step 2.
+(e.g. `kitchen-radio.local`) with user `root` and the root password from Step 4.
+Open `http://<hostname>.local:8080` to finish setup. The generic image starts on
+the built-in headphone output; select an external sound card on the web Audio
+page and reboot if needed.
+
+On early boot, the guarded data-resize service expands only the final data
+partition (`p4`) to use the SD card's remaining capacity. The loader and two
+768 MiB firmware slots stay fixed-size so A/B updates always have equal targets.
 
 ## If something goes wrong (common beginner issues)
 
-- **"appliance not configured" / "WiFi credentials missing"** — you skipped
-  Step 2, or left placeholder values. Re-run `configure.sh`.
+- **Radio does not join WiFi** — check that Step 4's active `wifi_ssid` and
+  `wifi_psk` values are correct. Inspect `/tmp/provision-from-boot.log` from a
+  console if available.
 - **`apt` or `sudo` errors** — you are not on Debian/Ubuntu, or your user can't
   use `sudo`. Use a supported host, or install the build tools manually and
   re-run with `./buildroot/build.sh --no-apt`.
 - **Build fails partway through** — simply re-run `./buildroot/build.sh`; it
   resumes using the download cache. For a completely fresh attempt use
   `--dirclean`.
-- **Wrong sound or no audio** — the `--dac` value (Step 2) must match the sound
-  board you actually fitted.
-- **Change WiFi or hostname without rebuilding** — you can edit
-  `radio-config.txt` on the SD card's boot partition after flashing. See
-  "Configuring a prebuilt image from the SD card" in the main
-  [`README.md`](../README.md).
+- **Wrong sound or no audio** — choose the fitted sound-card profile from the
+  web interface's Audio page and reboot.
+- **Change WiFi or hostname without rebuilding** — use the web interface, or
+  edit and reactivate the relevant `radio-config.txt` lines as a recovery route.
 
 ## Where to go deeper
 
-- [`buildroot/README.md`](../buildroot/README.md) — the two scripts in detail.
+- [`buildroot/README.md`](../buildroot/README.md) — build-script quick start.
 - [`doc/buildroot.md`](buildroot.md) — full reference (manual build, on-target
   validation, service layout, debugging).
-- [`doc/hardware.md`](hardware.md) — wiring, GPIO, and DAC overlays.
+- [`doc/firmware-updates.md`](firmware-updates.md) — upload the generated `.swu`,
+  follow trial activation, roll back, and recover an unreachable radio.
+- [`doc/hardware.md`](hardware.md) — base-radio wiring, GPIO, display and controls.
+- [`doc/sound-devices.md`](sound-devices.md) — choose and wire a sound device
+  using its dedicated pinout.

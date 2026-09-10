@@ -1,0 +1,127 @@
+#!/bin/sh
+set -eu
+
+MODE_FILE=/etc/radio/usb_audio.ini
+OUTPUT_FILE=/etc/radio/usb_audio_output.ini
+GADGET_CARD="${RADIO_USB_AUDIO_CARD:-}"
+PLAYBACK_DEVICE="${RADIO_USB_AUDIO_PLAYBACK_DEVICE:-default}"
+INHIBIT_FILE="${RADIO_USB_AUDIO_INHIBIT_FILE:-/run/usb-audio-inhibited}"
+alsaloop_pid=""
+
+audio_mode() {
+	mode=$(sed -n 's/^mode[[:space:]]*=[[:space:]]*\(uac[12]\)[[:space:]]*$/\1/p' "$MODE_FILE" 2>/dev/null | head -n 1)
+	printf '%s\n' "${mode:-uac1}"
+}
+
+output_format() {
+	format=$(sed -n 's/^format[[:space:]]*=[[:space:]]*\(S16_LE\|S32_LE\|S24_LE\|S24_3LE\)[[:space:]]*$/\1/p' "$OUTPUT_FILE" 2>/dev/null | head -n 1)
+	printf '%s\n' "${format:-S16_LE}"
+}
+
+if [ -z "$GADGET_CARD" ]; then
+	if [ "$(audio_mode)" = uac2 ]; then
+		GADGET_CARD=UAC2Gadget
+	else
+		GADGET_CARD=UAC1Gadget
+	fi
+fi
+
+find_card_id() {
+	wanted=$1
+	for id_file in /sys/class/sound/card*/id; do
+		[ -r "$id_file" ] || continue
+		card_id=$(cat "$id_file")
+		case "$card_id" in
+			"$wanted"|"${wanted}_"*|"${wanted}"*)
+				printf '%s\n' "$card_id"
+				return 0
+				;;
+		esac
+	done
+	return 1
+}
+
+wait_for_card() {
+	wanted=$1
+	tries=0
+	while [ "$tries" -lt 100 ]; do
+		if card_id=$(find_card_id "$wanted"); then
+			printf '%s\n' "$card_id"
+			return 0
+		fi
+		tries=$((tries + 1))
+		sleep 0.1
+	done
+	return 1
+}
+
+GADGET_CARD=$(wait_for_card "$GADGET_CARD") || {
+	echo "USB Audio gadget ALSA card did not appear" >&2
+	exit 1
+}
+
+capture_rate() {
+	rate=$(/usr/bin/amixer -c "$GADGET_CARD" \
+		cget "iface=PCM,name='Capture Rate'" 2>/dev/null \
+		| sed -n 's/^  : values=\([0-9][0-9]*\).*$/\1/p')
+	printf '%s\n' "${rate:-0}"
+}
+
+stop_alsaloop() {
+	if [ -n "$alsaloop_pid" ] && kill -0 "$alsaloop_pid" 2>/dev/null; then
+		kill "$alsaloop_pid" 2>/dev/null || true
+		wait "$alsaloop_pid" 2>/dev/null || true
+	fi
+	alsaloop_pid=""
+}
+trap 'stop_alsaloop; exit 0' HUP INT TERM
+
+while :; do
+	while [ "$(capture_rate)" -le 0 ] || [ -e "$INHIBIT_FILE" ]; do
+		sleep 0.2
+	done
+	mode=$(audio_mode)
+	if [ "$mode" = uac2 ]; then
+		# Explicitly convert the packed 24-bit gadget stream to S16_LE before
+		# alsaloop's libsamplerate synchronizer. This is a diagnostic/stability
+		# path for the built-in headphone output; alsaloop's samplerate mode
+		# supports S16_LE and avoids the S24_3LE/S32_LE scaling path.
+		capture_device="plughw:CARD=$GADGET_CARD,DEV=0"
+		format=$(output_format)
+		case "$format" in
+			S32_LE) capture_device="plughw:CARD=$GADGET_CARD,DEV=0" ;;
+			S16_LE) capture_device="plughw:CARD=$GADGET_CARD,DEV=0" ;;
+			*) format=S16_LE; capture_device="plughw:CARD=$GADGET_CARD,DEV=0" ;;
+		esac
+	else
+		capture_device="hw:CARD=$GADGET_CARD,DEV=0"
+		format=S16_LE
+	fi
+	rate=$(capture_rate)
+
+	/usr/bin/alsaloop \
+		--cdevice="$capture_device" \
+		--pdevice="$PLAYBACK_DEVICE" \
+		--format="$format" \
+		--channels=2 \
+		--rate="$rate" \
+		--tlatency=100000 \
+		--sync=samplerate \
+		--samplerate=sincfastest \
+		--xrun &
+	alsaloop_pid=$!
+
+	while kill -0 "$alsaloop_pid" 2>/dev/null; do
+		if [ -e "$INHIBIT_FILE" ]; then
+			break
+		fi
+		if [ "$(capture_rate)" -le 0 ]; then
+			sleep 1
+			[ "$(capture_rate)" -le 0 ] && break
+		else
+			sleep 0.2
+		fi
+	done
+	stop_alsaloop
+	sleep 0.2
+done

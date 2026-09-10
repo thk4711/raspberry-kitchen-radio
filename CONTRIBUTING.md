@@ -1,0 +1,73 @@
+# Contributing to Raspberry Kitchen Radio
+
+Thanks for your interest in improving the project! This guide covers the
+**Python application** workflow. Building the Buildroot appliance image is a
+separate topic — see [`doc/build-from-scratch.md`](doc/build-from-scratch.md)
+and [`doc/buildroot.md`](doc/buildroot.md).
+
+The developer reference lives in [`doc/development.md`](doc/development.md);
+this file is the short version plus the contribution etiquette.
+
+## Getting started
+
+None of this needs a Raspberry Pi — the hardware/system-only libraries are
+stubbed in [`tests/conftest.py`](tests/conftest.py), so the whole workflow runs
+on macOS or Linux.
+
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements-dev.txt
+```
+
+## Before you open a pull request
+
+Run the same checks CI enforces (see
+[`.github/workflows/ci.yml`](.github/workflows/ci.yml)):
+
+```bash
+ruff check .            # lint (also: ruff format . to auto-format)
+mypy                    # static type check (the gated module set)
+pytest -q               # the full test suite
+```
+
+Optionally install the pre-commit hooks so these run automatically:
+
+```bash
+pip install pre-commit
+pre-commit install
+```
+
+### Guidelines
+
+- **Match the existing style.** `ruff` targets Python 3.9 (the appliance
+  floor); do not introduce syntax that will not run there. Line length is 100.
+- **Keep the standard-library-only constraint** in `radio_web/` — no web
+  framework, database or Node.js.
+- **Add or update tests** for any behaviour change. Coverage is enforced in CI
+  with a floor, so new untested code can fail the build.
+- **Update the docs.** User-facing behaviour changes belong in the relevant
+  `doc/*.md` file; add an entry to the `## [Unreleased]` section of
+  [`CHANGELOG.md`](CHANGELOG.md) (Keep a Changelog format).
+- **Keep secrets and device-specific state out of the repo.**
+  `scripts/check-repository.sh` (run in CI) fails the build if tracked build
+  artifacts, credentials or CRLF line endings sneak in.
+- **Write focused commits** with clear messages. The history uses
+  Conventional-Commit-style prefixes (`feat:`, `fix:`, `tests:`, `docs:`) —
+  please follow suit.
+
+## Reporting bugs & requesting features
+
+Open a GitHub issue using one of the templates in
+[`.github/ISSUE_TEMPLATE/`](.github/ISSUE_TEMPLATE). For anything that could be
+a security issue, follow [`SECURITY.md`](SECURITY.md) instead.
+
+## Code of conduct
+
+Participation in this project is governed by the
+[Contributor Covenant](CODE_OF_CONDUCT.md).
+
+## License
+
+By contributing, you agree that your contributions are licensed under the
+project's [MIT License](LICENSE).

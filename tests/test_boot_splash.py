@@ -87,6 +87,27 @@ def test_main_pushes_one_frame_and_lights_backlight(monkeypatch):
     assert panel.exited is True
 
 
+def test_main_passes_configured_spi_chip_select(monkeypatch):
+    fake_driver = types.ModuleType("display_1_inch_69.LCD_1inch69")
+    created = {}
+
+    def _record(*args, **kwargs):
+        created["kwargs"] = kwargs
+        return _FakePanel(*args, **kwargs)
+
+    fake_driver.LCD_1inch69 = _record
+    monkeypatch.setitem(sys.modules, "display_1_inch_69.LCD_1inch69", fake_driver)
+    monkeypatch.setattr(
+        boot_splash,
+        "_read_display_conf",
+        lambda: {"display": {"spi_bus": 0, "spi_device": 1}},
+    )
+
+    assert boot_splash.main() == 0
+    assert created["kwargs"]["spi_bus"] == 0
+    assert created["kwargs"]["spi_device"] == 1
+
+
 def test_main_never_raises_and_returns_zero(monkeypatch):
     # A driver that explodes on Init must not propagate: main() swallows it and
     # still returns 0 so the splash can never block boot.

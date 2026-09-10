@@ -6,11 +6,22 @@ from time import sleep
 from typing import List, Optional
 
 from music_source import Metadata, MusicSource
-from utilities import UtilityLibrary
+from utilities import MANAGED_CONFIG_DIR, UtilityLibrary
 
 logger = logging.getLogger(__name__)
 
 utility = UtilityLibrary()
+
+
+def _logo_path(module_location: str, filename: str) -> str:
+    """Resolve a managed uploaded logo before the immutable shipped asset."""
+    name = os.path.basename(filename)
+    if not name or name != filename:
+        return ""
+    managed = os.path.join(MANAGED_CONFIG_DIR, "logos", name)
+    if os.path.isfile(managed):
+        return managed
+    return os.path.join(module_location, "logos", name)
 
 class MPDService(MusicSource):
     """Internet-radio playback backend driven by MPD via the ``mpc`` CLI.
@@ -24,7 +35,10 @@ class MPDService(MusicSource):
         """Load preset stations and start the play-state watchdog thread."""
         self.name = "mpd"
         self.module_location = os.path.dirname(os.path.abspath(__file__))
-        conf = utility.read_config(f'{self.module_location}/stations.conf')
+        conf = utility.read_config_preferred(
+            os.path.join(MANAGED_CONFIG_DIR, 'stations.ini'),
+            f'{self.module_location}/stations.conf',
+        )
         self.stations: List[dict] = [{'name': item, 'url': conf[item]['url'], 'logo': conf[item]['logo']} for item in conf]
         self.current_station = 0
         self.desired_play_state = False
@@ -135,7 +149,9 @@ class MPDService(MusicSource):
             Metadata: The current stream metadata.
         """
         self.metadata.title = ""
-        self.metadata.cover = f"{self.module_location}/logos/{self.stations[self.current_station]['logo']}"
+        self.metadata.cover = _logo_path(
+            self.module_location, self.stations[self.current_station]["logo"]
+        )
         self.metadata.name = self.stations[self.current_station]['name']
         self.metadata.state = self.get_play_state()
 

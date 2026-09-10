@@ -60,3 +60,80 @@ class TestReadConfig:
         missing = str(tmp_path / "does-not-exist.conf")
         with pytest.raises(SystemExit):
             UtilityLibrary.read_config(missing)
+
+
+class TestReadConfigLayered:
+    def test_override_key_wins_and_others_preserved(self, tmp_path):
+        default = tmp_path / "default.conf"
+        default.write_text(
+            "[mpd]\nhost = localhost\nport = 6600\n[gpio]\namp = 26\n"
+        )
+        override = tmp_path / "device.ini"
+        override.write_text("[mpd]\nhost = radio.local\n")
+        conf = UtilityLibrary.read_config_layered(str(default), str(override))
+        # Overridden key wins ...
+        assert conf["mpd"]["host"] == "radio.local"
+        # ... while untouched keys in the same section and other sections stay.
+        assert conf["mpd"]["port"] == 6600
+        assert conf["gpio"]["amp"] == 26
+
+    def test_override_can_add_new_section(self, tmp_path):
+        default = tmp_path / "default.conf"
+        default.write_text("[mpd]\nhost = localhost\n")
+        override = tmp_path / "device.ini"
+        override.write_text("[extra]\nkey = value\n")
+        conf = UtilityLibrary.read_config_layered(str(default), str(override))
+        assert conf["mpd"]["host"] == "localhost"
+        assert conf["extra"]["key"] == "value"
+
+    def test_absent_override_is_noop(self, tmp_path):
+        default = tmp_path / "default.conf"
+        default.write_text("[mpd]\nhost = localhost\nport = 6600\n")
+        missing = str(tmp_path / "no-override.ini")
+        conf = UtilityLibrary.read_config_layered(str(default), missing)
+        assert conf == {"mpd": {"host": "localhost", "port": 6600}}
+
+    def test_none_override_is_noop(self, tmp_path):
+        default = tmp_path / "default.conf"
+        default.write_text("[mpd]\nhost = localhost\n")
+        conf = UtilityLibrary.read_config_layered(str(default), None)
+        assert conf == {"mpd": {"host": "localhost"}}
+
+    def test_coercion_preserved_through_override(self, tmp_path):
+        default = tmp_path / "default.conf"
+        default.write_text("[flags]\nenabled = false\ncount = 1\n")
+        override = tmp_path / "device.ini"
+        override.write_text("[flags]\nenabled = true\ncount = 42\n")
+        conf = UtilityLibrary.read_config_layered(str(default), str(override))
+        assert conf["flags"]["enabled"] is True
+        assert conf["flags"]["count"] == 42
+        assert isinstance(conf["flags"]["count"], int)
+
+    def test_missing_default_exits(self, tmp_path):
+        missing_default = str(tmp_path / "does-not-exist.conf")
+        with pytest.raises(SystemExit):
+            UtilityLibrary.read_config_layered(missing_default, None)
+
+
+class TestReadConfigPreferred:
+    def test_override_present_replaces_default(self, tmp_path):
+        default = tmp_path / "stations.conf"
+        default.write_text("[one]\nurl = http://default\n")
+        override = tmp_path / "stations.ini"
+        override.write_text("[two]\nurl = http://override\n")
+        conf = UtilityLibrary.read_config_preferred(str(override), str(default))
+        # Whole-file replacement: the default section is gone entirely.
+        assert conf == {"two": {"url": "http://override"}}
+
+    def test_override_absent_uses_default(self, tmp_path):
+        default = tmp_path / "stations.conf"
+        default.write_text("[one]\nurl = http://default\n")
+        missing = str(tmp_path / "no-stations.ini")
+        conf = UtilityLibrary.read_config_preferred(missing, str(default))
+        assert conf == {"one": {"url": "http://default"}}
+
+    def test_missing_default_exits_when_no_override(self, tmp_path):
+        missing_override = str(tmp_path / "no-stations.ini")
+        missing_default = str(tmp_path / "does-not-exist.conf")
+        with pytest.raises(SystemExit):
+            UtilityLibrary.read_config_preferred(missing_override, missing_default)

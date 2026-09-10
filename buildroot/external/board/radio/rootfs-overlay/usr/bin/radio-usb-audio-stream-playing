@@ -1,0 +1,20 @@
+#!/bin/sh
+INHIBIT_FILE="${RADIO_USB_AUDIO_INHIBIT_FILE:-/run/usb-audio-inhibited}"
+
+[ ! -e "$INHIBIT_FILE" ] || {
+	printf '%s\n' False
+	exit 0
+}
+
+mode=$(sed -n 's/^mode[[:space:]]*=[[:space:]]*\(uac[12]\)[[:space:]]*$/\1/p' \
+	/etc/radio/usb_audio.ini 2>/dev/null | head -n 1)
+card="${RADIO_USB_AUDIO_CARD:-UAC1Gadget}"
+[ "${mode:-uac1}" != uac2 ] || card=UAC2Gadget
+rate=$(/usr/bin/amixer -c "$card" \
+	cget "iface=PCM,name='Capture Rate'" 2>/dev/null \
+	| sed -n 's/^  : values=\([0-9][0-9]*\).*$/\1/p')
+case ${rate:-0} in
+	*[!0-9]*|'') printf '%s\n' False ;;
+	0) printf '%s\n' False ;;
+	*) printf '%s\n' True ;;
+esac

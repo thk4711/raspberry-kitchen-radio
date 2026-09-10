@@ -1,6 +1,8 @@
 import base64
 import hashlib
+import os
 import re
+import tempfile
 from typing import Dict, Optional, TextIO, Tuple, Union
 
 
@@ -9,15 +11,16 @@ class AirplayMetadataProcessor:
     Processes metadata from an named pipe, extracting track information,
     album art, and other details, while detecting changes to the metadata.
     """
+
     def __init__(self) -> None:
         """Initialise the current and previous metadata dictionaries."""
         self.meta_data = {
-            'track': '',
-            'album': '',
-            'artist': '',
-            'filetype': '',
-            'md5': '',
-            'filename': ''
+            "track": "",
+            "album": "",
+            "artist": "",
+            "filetype": "",
+            "md5": "",
+            "filename": "",
         }
         self.old_meta_data = self.meta_data.copy()
 
@@ -55,7 +58,7 @@ class AirplayMetadataProcessor:
         :return: Decoded data as a string or bytes.
         """
         try:
-            data = base64.b64decode(line.split('</data>')[0])
+            data = base64.b64decode(line.split("</data>")[0])
             return data.decode() if decode else data
         except Exception:
             return ""
@@ -67,11 +70,11 @@ class AirplayMetadataProcessor:
         :param magic: The first few bytes of the image data.
         :return: The image MIME type ('jpg' or 'png').
         """
-        if magic.startswith(b'\xff\xd8'):
-            return 'jpg'
-        if magic.startswith(b'\x89PNG\r\n\x1a\r'):
-            return 'png'
-        return 'jpg'
+        if magic.startswith(b"\xff\xd8"):
+            return "jpg"
+        if magic.startswith(b"\x89PNG\r\n\x1a\n"):
+            return "png"
+        return "jpg"
 
     def update_metadata(self) -> Optional[Dict[str, str]]:
         """
@@ -103,22 +106,27 @@ class AirplayMetadataProcessor:
 
         if item_type == "core":
             if item_code == "asal":
-                self.meta_data['album'] = data
+                self.meta_data["album"] = data
             elif item_code == "asar":
-                self.meta_data['artist'] = data
+                self.meta_data["artist"] = data
             elif item_code == "minm":
-                self.meta_data['track'] = data
+                self.meta_data["track"] = data
 
         if item_type == "ssnc" and item_code == "PICT" and data:
             file_type = self.guess_image_mime(data)
-            filename = f'/tmp/shairport-image.{file_type}'
-            with open(filename, 'wb') as file:
-                file.write(data)
-            self.meta_data.update({
-                'filetype': file_type,
-                'md5': hashlib.md5(data).hexdigest(),
-                'filename': filename
-            })
+            filename = f"/tmp/shairport-image.{file_type}"
+            fd, temporary = tempfile.mkstemp(dir="/tmp", prefix="shairport-image-")
+            try:
+                with os.fdopen(fd, "wb") as file:
+                    file.write(data)
+                os.chmod(temporary, 0o644)
+                os.replace(temporary, filename)
+            finally:
+                if os.path.exists(temporary):
+                    os.unlink(temporary)
+            self.meta_data.update(
+                {"filetype": file_type, "md5": hashlib.md5(data).hexdigest(), "filename": filename}
+            )
 
         if item_type == "ssnc" and item_code in {"pfls", "pend", "mden"}:
             return self.update_metadata()

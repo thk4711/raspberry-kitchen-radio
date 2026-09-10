@@ -2,5 +2,7 @@ menu "Raspberry Kitchen Radio packages"
 
 source "$BR2_EXTERNAL_RADIO_PATH/package/go-librespot/Config.in"
 source "$BR2_EXTERNAL_RADIO_PATH/package/radio-app/Config.in"
+source "$BR2_EXTERNAL_RADIO_PATH/package/radio-equalizer/Config.in"
+source "$BR2_EXTERNAL_RADIO_PATH/package/radio-swupdate-progress/Config.in"
 
 endmenu

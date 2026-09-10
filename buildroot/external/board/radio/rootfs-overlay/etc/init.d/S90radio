@@ -31,6 +31,45 @@ HEARTBEAT_TIMEOUT="${RADIO_HEARTBEAT_TIMEOUT:-30}"
 WATCH_WRAP=/run/radio-freeze-watch.sh
 WATCH_PIDFILE=/run/radio-freeze-watch.pid
 
+# Kill ONLY the supervised player (the supervisor wrapper shell recorded in
+# $PIDFILE plus its radio.py child), scoped by process group. This must never
+# use "killall python3", because OTHER unrelated Python services now run on the
+# box (S80radio-web and the root-owned S79radio-helper); a blanket kill would
+# take them down on every radio stop/restart and on every freeze recovery.
+#
+# start-stop-daemon -b backgrounds the wrapper as its own process-group leader,
+# so the wrapper PID equals its PGID and radio.py inherits that group. We read
+# the group id from field 5 (pgrp) of /proc/<pid>/stat — robust even when the
+# process comm contains spaces/parentheses, by parsing after the trailing ')'.
+# If the group cannot be resolved we fall back to killing the recorded PID
+# directly. The media backends are handled separately by name (they have no
+# other legitimate owner on the box).
+kill_supervised_player() {
+	_kp_pid=$(cat "$PIDFILE" 2>/dev/null) || return 0
+	[ -n "$_kp_pid" ] || return 0
+	# stat format: "pid (comm) state ppid pgrp ...". comm may contain spaces
+	# and ')'. Strip everything up to and including the last ')' then read the
+	# fields after it: state(1) ppid(2) pgrp(3).
+	_kp_pgid=""
+	_kp_stat=$(cat "/proc/$_kp_pid/stat" 2>/dev/null || echo "")
+	if [ -n "$_kp_stat" ]; then
+		_kp_rest=${_kp_stat##*) }
+		# _kp_rest = "state ppid pgrp ..."; pgrp is the 3rd field.
+		_kp_pgid=$(echo "$_kp_rest" | cut -d' ' -f3)
+	fi
+	if [ -n "$_kp_pgid" ] && [ "$_kp_pgid" -gt 1 ] 2>/dev/null; then
+		kill -TERM "-$_kp_pgid" 2>/dev/null || true
+		sleep 1
+		kill -KILL "-$_kp_pgid" 2>/dev/null || true
+	else
+		# Could not resolve the process group: kill the recorded PID directly so
+		# a stop/restart still stops the player.
+		kill -TERM "$_kp_pid" 2>/dev/null || true
+		sleep 1
+		kill -KILL "$_kp_pid" 2>/dev/null || true
+	fi
+}
+
 start_supervisor() {
 	cat > "$WRAP" <<EOF
 #!/bin/sh
@@ -122,6 +161,32 @@ start_freeze_watcher() {
 #!/bin/sh
 HEARTBEAT="$HEARTBEAT"
 TIMEOUT="$HEARTBEAT_TIMEOUT"
+PIDFILE="$PIDFILE"
+
+# Kill only the supervised player by process group (never "killall python3",
+# which would also kill the unrelated S80radio-web / S79radio-helper services).
+# Resolve the group
+# from /proc/<pid>/stat field pgrp; fall back to the recorded PID.
+kill_supervised_player() {
+	_kp_pid=\$(cat "\$PIDFILE" 2>/dev/null) || return 0
+	[ -n "\$_kp_pid" ] || return 0
+	_kp_pgid=""
+	_kp_stat=\$(cat "/proc/\$_kp_pid/stat" 2>/dev/null || echo "")
+	if [ -n "\$_kp_stat" ]; then
+		_kp_rest=\${_kp_stat##*) }
+		_kp_pgid=\$(echo "\$_kp_rest" | cut -d' ' -f3)
+	fi
+	if [ -n "\$_kp_pgid" ] && [ "\$_kp_pgid" -gt 1 ] 2>/dev/null; then
+		kill -TERM "-\$_kp_pgid" 2>/dev/null || true
+		sleep 1
+		kill -KILL "-\$_kp_pgid" 2>/dev/null || true
+	else
+		kill -TERM "\$_kp_pid" 2>/dev/null || true
+		sleep 1
+		kill -KILL "\$_kp_pid" 2>/dev/null || true
+	fi
+}
+
 while true; do
 	sleep 10
 	# No heartbeat file yet: the app has not started/armed it. The supervisor's
@@ -134,9 +199,9 @@ while true; do
 	age=\$((now - mtime))
 	if [ "\$age" -gt "\$TIMEOUT" ]; then
 		echo "radio.py heartbeat stale (\${age}s > \${TIMEOUT}s); killing frozen app" >&2
-		# Kill the python app so the supervisor respawns it. Drop the stale
-		# heartbeat so we do not immediately kill the fresh instance.
-		killall python3 2>/dev/null || true
+		# Kill only the supervised player so the supervisor respawns it. Drop the
+		# stale heartbeat so we do not immediately kill the fresh instance.
+		kill_supervised_player
 		rm -f "\$HEARTBEAT" 2>/dev/null || true
 		sleep "\$TIMEOUT"
 	fi
@@ -162,14 +227,23 @@ case "$1" in
 		printf 'Stopping radio: '
 		# Stop the freeze-watcher first so it cannot restart the app mid-stop.
 		start-stop-daemon -K -q -p "$WATCH_PIDFILE" 2>/dev/null
+		# Stop the supervised player (wrapper + radio.py child) by process
+		# group first — never "killall python3", which would also kill the
+		# separate S80radio-web service. Do this BEFORE start-stop-daemon -K on
+		# the wrapper PID: kill_supervised_player must read the wrapper's pgrp
+		# from /proc while it is still alive so the whole group (incl. radio.py)
+		# is caught in one shot.
+		kill_supervised_player
+		# Redundant cleanup of the recorded wrapper PID in case it outlived the
+		# group kill (e.g. pgid could not be resolved).
 		start-stop-daemon -K -q -p "$PIDFILE" 2>/dev/null
 		sleep 1
-		# Also stop the child python + media backends. They are normally owned by
-		# the Python app, but clean up explicitly so repeated manual restarts cannot
+		# Also stop the media backends by name. They are normally owned by the
+		# Python app, but clean up explicitly so repeated manual restarts cannot
 		# leave duplicate nqptp/shairport-sync/go-librespot processes around.
-		killall python3 shairport-sync nqptp go-librespot 2>/dev/null
+		killall shairport-sync nqptp go-librespot 2>/dev/null
 		sleep 1
-		killall -9 python3 shairport-sync nqptp go-librespot 2>/dev/null || true
+		killall -9 shairport-sync nqptp go-librespot 2>/dev/null || true
 		rm -f "$PIDFILE" "$WATCH_PIDFILE" "$HEARTBEAT"
 		echo "OK"
 		;;

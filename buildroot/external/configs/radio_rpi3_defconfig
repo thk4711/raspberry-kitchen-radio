@@ -28,7 +28,9 @@ BR2_TOOLCHAIN_EXTERNAL=y
 BR2_TOOLCHAIN_EXTERNAL_BOOTLIN=y
 BR2_TOOLCHAIN_EXTERNAL_BOOTLIN_ARMV7_EABIHF_GLIBC_BLEEDING_EDGE=y
 
-BR2_GLOBAL_PATCH_DIR="board/raspberrypi/patches"
+# Keep Buildroot's Raspberry Pi patches and add appliance-specific kernel
+# patches (currently the host-visible UAC1 interface-name correction).
+BR2_GLOBAL_PATCH_DIR="board/raspberrypi/patches $(BR2_EXTERNAL_RADIO_PATH)/board/radio/patches"
 # --- Download integrity ------------------------------------------------------
 # BR2_DOWNLOAD_FORCE_CHECK_HASHES is intentionally NOT enabled. The go-librespot
 # package (external tree) is a golang package: Buildroot runs `go mod vendor`
@@ -50,27 +52,50 @@ BR2_LINUX_KERNEL_CUSTOM_TARBALL=y
 BR2_LINUX_KERNEL_CUSTOM_TARBALL_LOCATION="$(call github,raspberrypi,linux,21b410140c47ffab5668399f6f143c7d7b935c8b)/linux-21b410140c47ffab5668399f6f143c7d7b935c8b.tar.gz"
 BR2_LINUX_KERNEL_DEFCONFIG="bcm2709"
 BR2_LINUX_KERNEL_DTS_SUPPORT=y
+BR2_LINUX_KERNEL_INSTALL_TARGET=y
 # Keep the upstream raspberrypi3_defconfig DTB set while recovering the
 # bootable checkpoint. The 3A+ auto-loads bcm2710-rpi-3-b-plus.dtb, but there is
 # no benefit to narrowing the proven set while diagnosing boot.
 BR2_LINUX_KERNEL_INTREE_DTS_NAME="broadcom/bcm2710-rpi-3-b broadcom/bcm2710-rpi-3-b-plus broadcom/bcm2710-rpi-cm3"
 BR2_LINUX_KERNEL_NEEDS_HOST_OPENSSL=y
 
-# Two tiny positive-only kernel fragments are applied:
+# Small positive-only kernel fragments are applied:
 #   * linux-i2c.fragment      guarantees the ADS1115 I2C bus is exposed to
 #                             userspace as /dev/i2c-1.
 #   * linux-watchdog.fragment enables the BCM2835 hardware watchdog
 #                             (/dev/watchdog) and zram (compressed RAM swap)
 #                             for appliance self-recovery. See the fragment
 #                             file and the S13zram / S14watchdog init scripts.
+#   * linux-bluetooth.fragment guarantees the UART-attached Bluetooth stack.
+#   * linux-usb-audio.fragment guarantees DWC2 and ConfigFS UAC1/UAC2 gadget support.
 # No broad kernel trim is used: the image keeps the framebuffer/DRM console and
-# other drivers for debuggability. Both fragments only ADD options.
-BR2_LINUX_KERNEL_CONFIG_FRAGMENT_FILES="$(BR2_EXTERNAL_RADIO_PATH)/board/radio/linux-i2c.fragment $(BR2_EXTERNAL_RADIO_PATH)/board/radio/linux-watchdog.fragment $(BR2_EXTERNAL_RADIO_PATH)/board/radio/linux-bluetooth.fragment"
+# other drivers for debuggability. All fragments only ADD options.
+BR2_LINUX_KERNEL_CONFIG_FRAGMENT_FILES="$(BR2_EXTERNAL_RADIO_PATH)/board/radio/linux-i2c.fragment $(BR2_EXTERNAL_RADIO_PATH)/board/radio/linux-i2s-audio.fragment $(BR2_EXTERNAL_RADIO_PATH)/board/radio/linux-watchdog.fragment $(BR2_EXTERNAL_RADIO_PATH)/board/radio/linux-bluetooth.fragment $(BR2_EXTERNAL_RADIO_PATH)/board/radio/linux-usb-audio.fragment"
 
 # Firmware / bootloader for the Pi (kept from proven base).
 BR2_PACKAGE_RPI_FIRMWARE=y
 BR2_PACKAGE_RPI_FIRMWARE_VARIANT_PI=y
 BR2_PACKAGE_RPI_FIRMWARE_BOOTCODE_BIN=y
+# The audio catalog uses Raspberry Pi HAT overlays. Install the firmware
+# repository's complete overlay set; post-image.sh verifies every selected
+# overlay against the finished images directory before assembling sdcard.img.
+BR2_PACKAGE_RPI_FIRMWARE_INSTALL_DTB_OVERLAYS=y
+
+# Raspberry Pi firmware starts U-Boot, which applies the fixed A/B policy from
+# boot.scr and loads /boot/zImage from the selected ext4 slot.
+BR2_TARGET_UBOOT=y
+BR2_TARGET_UBOOT_BUILD_SYSTEM_KCONFIG=y
+BR2_TARGET_UBOOT_USE_DEFCONFIG=y
+BR2_TARGET_UBOOT_BOARD_DEFCONFIG="rpi_3_32b"
+BR2_TARGET_UBOOT_CONFIG_FRAGMENT_FILES="$(BR2_EXTERNAL_RADIO_PATH)/board/radio/uboot.fragment"
+BR2_TARGET_UBOOT_FORMAT_BIN=y
+BR2_PACKAGE_HOST_UBOOT_TOOLS=y
+BR2_PACKAGE_HOST_UBOOT_TOOLS_ENVIMAGE=y
+BR2_PACKAGE_HOST_UBOOT_TOOLS_ENVIMAGE_SOURCE="$(BR2_EXTERNAL_RADIO_PATH)/board/radio/uboot-env.txt"
+BR2_PACKAGE_HOST_UBOOT_TOOLS_ENVIMAGE_SIZE="0x10000"
+BR2_PACKAGE_HOST_UBOOT_TOOLS_ENVIMAGE_REDUNDANT=y
+BR2_PACKAGE_HOST_UBOOT_TOOLS_BOOT_SCRIPT=y
+BR2_PACKAGE_HOST_UBOOT_TOOLS_BOOT_SCRIPT_SOURCE="$(BR2_EXTERNAL_RADIO_PATH)/board/radio/boot.cmd"
 # Required so Buildroot may install the full kmod module tools instead of
 # BusyBox modutils applets. The Raspberry Pi kernel installs compressed
 # modules (*.ko.xz); BusyBox modprobe can hand those compressed files directly
@@ -96,17 +121,21 @@ BR2_PACKAGE_HOST_MTOOLS=y
 # BusyBox init (fastest boot; systemd intentionally NOT used).
 BR2_INIT_BUSYBOX=y
 BR2_ROOTFS_DEVICE_CREATION_DYNAMIC_MDEV=y
-BR2_TARGET_GENERIC_HOSTNAME="kuechenradio"
+# provision-from-boot uses BusyBox chpasswd to apply root_password= from the
+# SD-card radio-config.txt. The fragment is merged into BusyBox's config.
+BR2_PACKAGE_BUSYBOX_CONFIG_FRAGMENT_FILES="$(BR2_EXTERNAL_RADIO_PATH)/board/radio/busybox.fragment"
+BR2_TARGET_GENERIC_HOSTNAME="changeme"
 BR2_TARGET_GENERIC_ISSUE="Raspberry Kitchen Radio"
-BR2_TARGET_GENERIC_ROOT_PASSWD="radio"
+BR2_TARGET_GENERIC_ROOT_PASSWD="changeme"
 # No Ethernet on the Pi 3A+ — WiFi is brought up via the overlay (S41wlan +
 # /etc/network/interfaces), so disable the default eth0 DHCP from the base.
 BR2_SYSTEM_DHCP=""
 # Buildroot's generic getty is overridden by the overlay inittab. The optimized
-# appliance keeps a tty1 HDMI/USB keyboard getty and no serial getty.
+# appliance keeps a tty1 HDMI getty and no serial getty. The USB port is
+# dedicated to the audio gadget, so interactive recovery is over SSH.
 BR2_TARGET_GENERIC_GETTY_PORT="console"
 
-# Rootfs size: python + numpy + pillow need room (proven base was 120M).
+# Rootfs payload is copied into two fixed 768 MiB firmware slots by post-image.
 BR2_TARGET_ROOTFS_EXT2_SIZE="450M"
 
 # --- Radio deltas: board hooks -----------------------------------------------
@@ -114,10 +143,12 @@ BR2_TARGET_ROOTFS_EXT2_SIZE="450M"
 # radio board files.
 BR2_ROOTFS_OVERLAY="$(BR2_EXTERNAL_RADIO_PATH)/board/radio/rootfs-overlay"
 BR2_ROOTFS_POST_BUILD_SCRIPT="$(BR2_EXTERNAL_RADIO_PATH)/board/radio/post-build.sh"
+# Apply target ownership under fakeroot. The standard table retains Buildroot's
+# baseline permissions; the radio table adds the web-writable managed dirs.
+BR2_ROOTFS_DEVICE_TABLE="system/device_table.txt $(BR2_EXTERNAL_RADIO_PATH)/board/radio/device_table.txt"
 # Self-contained post-image script: assembles the image with genimage and copies
-# radio-config.txt.example onto the FAT boot partition, so a user who
-# flashes the prebuilt image can rename it to radio-config.txt and edit WiFi /
-# hostname / etc. without rebuilding (read at boot by /usr/sbin/provision-from-boot).
+# radio-config.txt onto the FAT boot partition, so a user can edit WiFi /
+# hostname / etc. before first boot (read once by /usr/sbin/provision-from-boot).
 BR2_ROOTFS_POST_IMAGE_SCRIPT="$(BR2_EXTERNAL_RADIO_PATH)/board/radio/post-image.sh"
 BR2_PACKAGE_RPI_FIRMWARE_CONFIG_FILE="$(BR2_EXTERNAL_RADIO_PATH)/board/radio/config.txt"
 # Custom optimized kernel command line: tty1 console, quiet logging, no serial
@@ -163,6 +194,19 @@ BR2_PACKAGE_WPA_SUPPLICANT_AUTOSCAN=y
 BR2_PACKAGE_CA_CERTIFICATES=y
 BR2_PACKAGE_CHRONY=y
 
+# --- Firmware update target support ------------------------------------------
+# SWUpdate is invoked locally by the privileged radio update path. Its embedded
+# web server is deliberately disabled: S80radio-web remains the only web entry.
+BR2_PACKAGE_LIBCONFIG=y
+BR2_PACKAGE_OPENSSL=y
+BR2_PACKAGE_ZLIB=y
+BR2_PACKAGE_LIBUBOOTENV=y
+BR2_PACKAGE_SWUPDATE=y
+BR2_PACKAGE_SWUPDATE_CONFIG="$(BR2_EXTERNAL_RADIO_PATH)/board/radio/swupdate.config"
+BR2_PACKAGE_RADIO_SWUPDATE_PROGRESS=y
+# BR2_PACKAGE_SWUPDATE_WEBSERVER is not set
+# BR2_PACKAGE_SWUPDATE_INSTALL_WEBSITE is not set
+
 # Time-zone database + /etc/localtime handling. Enables the SD-card
 # radio-config.txt "timezone=" key (applied by /usr/sbin/provision-from-boot),
 # which symlinks /etc/localtime to the matching /usr/share/zoneinfo entry.
@@ -186,7 +230,10 @@ BR2_PACKAGE_ALSA_UTILS=y
 BR2_PACKAGE_ALSA_UTILS_ALSAMIXER=y
 BR2_PACKAGE_ALSA_UTILS_APLAY=y
 BR2_PACKAGE_ALSA_UTILS_AMIXER=y
+BR2_PACKAGE_ALSA_UTILS_ALSALOOP=y
+BR2_PACKAGE_LIBSAMPLERATE=y
 BR2_PACKAGE_ALSA_PLUGINS=y
+BR2_PACKAGE_RADIO_EQUALIZER=y
 
 # MPD + mpc for internet radio. (Upstream renamed the mpc CLI client to the
 # "mpd-mpc" package / BR2_PACKAGE_MPD_MPC; plain BR2_PACKAGE_MPC is now the GNU
@@ -212,7 +259,7 @@ BR2_PACKAGE_SHAIRPORT_SYNC_AIRPLAY2=y
 # Spotify Connect: go-librespot (our BR2_EXTERNAL package).
 BR2_PACKAGE_GO_LIBRESPOT=y
 
-# Bluetooth A2DP audio source (fourth music source). BlueZ provides the stack,
+# Bluetooth A2DP audio source. BlueZ provides the stack,
 # the org.bluez D-Bus API (AVRCP track metadata the radio app reads) and
 # bluetoothctl; the audio plugins add A2DP + AVRCP profiles; the CLI client is
 # used by S42bluetooth's auto-pairing/discoverable setup. bluez-alsa's
@@ -251,9 +298,9 @@ BR2_PACKAGE_PYTHON_SMBUS2=y
 BR2_PACKAGE_RADIO_APP=y
 
 # --- Remote access -----------------------------------------------------------
-# Dropbear SSH server (ships /etc/init.d/S50dropbear; root+password login on by
-# default — see board/radio/rootfs-overlay/etc/default/dropbear). Root password
-# set above via BR2_TARGET_GENERIC_ROOT_PASSWD.
+# Dropbear SSH server (ships /etc/init.d/S50dropbear), disabled by default until
+# explicitly enabled in radio-config.txt or the web UI. Root password is set
+# above via BR2_TARGET_GENERIC_ROOT_PASSWD.
 BR2_PACKAGE_DROPBEAR=y
 BR2_PACKAGE_DROPBEAR_CLIENT=y
 

@@ -1,0 +1,55 @@
+#!/bin/sh
+# Install the fixed root-owned SWU into the unambiguously inactive slot.
+set -eu
+
+PACKAGE=/data/update/queue/firmware.swu
+
+if [ "$#" -ne 0 ]; then
+	echo "usage: radio-swupdate-inactive" >&2
+	exit 2
+fi
+
+if [ ! -f "$PACKAGE" ] || [ -L "$PACKAGE" ]; then
+	echo "radio-swupdate-inactive: fixed queued package is unavailable" >&2
+	exit 1
+fi
+
+active_slot=
+root_device=
+slot_count=0
+root_count=0
+for argument in $(cat /proc/cmdline); do
+	case "$argument" in
+		radio.slot=*)
+			active_slot=${argument#radio.slot=}
+			slot_count=$((slot_count + 1))
+			;;
+		root=*)
+			root_device=${argument#root=}
+			root_count=$((root_count + 1))
+			;;
+	esac
+done
+
+if [ "$slot_count" -ne 1 ] || [ "$root_count" -ne 1 ]; then
+	echo "radio-swupdate-inactive: kernel command line must contain one slot and root" >&2
+	exit 1
+fi
+
+case "$active_slot" in
+	A)
+		[ "$root_device" = /dev/mmcblk0p2 ] || exit 1
+		selection=slot-b
+		;;
+	B)
+		[ "$root_device" = /dev/mmcblk0p3 ] || exit 1
+		selection=slot-a
+		;;
+	*)
+		echo "radio-swupdate-inactive: invalid radio.slot value" >&2
+		exit 1
+		;;
+esac
+
+mkdir -p /run/swupdate
+exec /usr/bin/swupdate -i "$PACKAGE" -e "stable,$selection"

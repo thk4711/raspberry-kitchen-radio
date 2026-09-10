@@ -219,6 +219,12 @@ pairing_mode_loop() {
 }
 
 start_bt() {
+	# Feature flag gate: the web UI can disable the
+	# Bluetooth source in /etc/radio/sources.ini. When disabled, do nothing.
+	if ! /usr/sbin/radio-source-enabled bluetooth; then
+		log "bluetooth disabled via sources.ini; not starting"
+		return 0
+	fi
 	: > "$LOG"
 	log "starting bluetooth"
 	# bluetoothd is owned by S40bluetoothd (started earlier). Just wait for the

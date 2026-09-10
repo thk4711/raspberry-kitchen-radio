@@ -7,12 +7,10 @@
 start_file=start.elf
 fixup_file=fixup.dat
 
-# Name the kernel image on the FAT boot partition. Our board/radio/post-image.sh
-# reads this `kernel=` line (like Buildroot's stock RPi post-image) to know which
-# file to place on boot.vfat; without it the generated genimage file list gets an
-# empty entry that makes mcopy try to copy the whole images dir into the vfat
-# ("Disk full"). 32-bit build ships a zImage (not the 64-bit Image).
-kernel=zImage
+# The stable FAT partition launches U-Boot. U-Boot then loads the selected
+# slot's own /boot/zImage, so an update never combines a new rootfs with an old
+# kernel. Raspberry Pi firmware supplies the overlay-adjusted device tree.
+kernel=u-boot.bin
 
 # Keep the HDMI/framebuffer path debuggable until boot + SSH are proven.
 disable_overscan=1
@@ -37,9 +35,14 @@ gpu_mem_512=100
 # so it is intentionally NOT set.)
 enable_uart=1
 
+# Use the Pi 3A+ USB-A data port as a USB Audio peripheral. This disables USB
+# host mode on that connector; see doc/hardware.md for the required data-only
+# D+/D-/GND wiring (VBUS/+5 V must not be connected).
+dtoverlay=dwc2,dr_mode=peripheral
+
 # Hardware interfaces the radio needs.
 dtparam=i2c_arm=on      # ADS1115 ADC (volume / switch / buttons)
-dtparam=i2s=on          # I2S DAC
+#dtparam=i2s=on         # enable when selecting an external I2S DAC
 dtparam=spi=on          # ST7789 display
 
 # Hardware watchdog (BCM2835): exposes /dev/watchdog so the BusyBox `watchdog`
@@ -48,12 +51,21 @@ dtparam=spi=on          # ST7789 display
 # kernel via board/radio/linux-watchdog.fragment (CONFIG_BCM2835_WDT).
 dtparam=watchdog=on
 
-# On-board audio off; an I2S DAC/amp is used instead
-dtparam=audio=off
+# The built-in headphone output is the default because it is always available.
+dtparam=audio=on
 
-# Active DAC overlay — change to match your board.
-dtoverlay=iqaudio-dacplus
+# Optional external DAC overlays — select one with the web interface. Selecting
+# one disables on-board audio and applies the matching userspace configuration.
+#dtoverlay=iqaudio-dacplus
 #dtoverlay=hifiberry-dacplus
+#dtoverlay=hifiberry-dac
+#dtoverlay=hifiberry-dacplus-std
+#dtoverlay=hifiberry-dacplus-pro
+#dtoverlay=max98357a,no-sdmode
+#dtoverlay=allo-boss-dac-pcm512x-audio
+#dtoverlay=i-sabre-q2m
+#dtoverlay=allo-katana-dac-audio
+#dtoverlay=justboom-dac
 #dtoverlay=merus-amp
 
 # No device_tree= line: this is a 32-bit build and the VideoCore firmware

@@ -24,12 +24,13 @@
 # The file on the FAT partition is a simple key=value text file
 # (radio-config.txt). It is parsed with a strict whitelist — the file is NEVER
 # sourced/eval'd, because a FAT partition is trivially editable. The partition
-# is mounted READ-ONLY and the file is never modified: it stays the single
-# source of truth, re-applied on every boot (idempotent).
+# is mounted read-write only for this early provisioning step. Successfully
+# consumed key=value lines are commented out, so settings are applied once. A
+# user can edit and uncomment a line on the FAT partition to apply it again.
 #
-# Settings on the SD card OVERRIDE the values baked in at build time by
-# buildroot/configure.sh. If the file (or the FAT partition) is absent, this is
-# a silent no-op and the built-in defaults are used.
+# Settings on the SD card override the generic image defaults. If the file (or
+# the FAT partition) is absent, this is a silent no-op and those defaults are
+# used.
 #
 # All failures are non-fatal: the script always exits 0 so a bad file can never
 # block boot.
@@ -40,17 +41,54 @@ BOOT_MNT=/mnt/boot
 CONFIG_NAME=radio-config.txt
 LOG=/tmp/provision-from-boot.log
 WPA_CONF=/etc/wpa_supplicant.conf
-HOSTNAME_FILE=/etc/hostname
-HOSTS_FILE=/etc/hosts
-CHRONY_CONF=/etc/chrony.conf
 SSH_DISABLE_FLAG=/run/provision-disable-ssh
+DEVICE_CONFIG=/etc/radio/device.ini
+# Marker written when the SD card set the hostname, so the web UI can lock the
+# device-name field: while radio-config.txt sets the
+# hostname it wins over any web edit on the next boot. On tmpfs (/run), so it is
+# re-derived every boot and never persists.
+HOSTNAME_LOCK_MARKER=/run/provision-hostname-locked
 # WiFi regulatory domain handoff: this script validates wifi_country= and writes
-# the code here; S41wlan reads it at bring-up and runs `iw reg set`. On tmpfs so
-# the FAT radio-config.txt stays the single source of truth (re-derived each boot).
-WIFI_COUNTRY_FILE=/run/wifi-country
+# the code here; S41wlan reads it at bring-up and runs `iw reg set`. It persists
+# after the one-shot SD-card setting has been commented out.
+WIFI_COUNTRY_FILE=/etc/radio/wifi-country
+# Static-IP handoff: provision-from-boot validates the ip_* keys and writes this
+# env file; S41wlan reads it at bring-up and applies a static address instead of
+# DHCP. Absent -> DHCP (today's behaviour). Shares the same shape as
+# /var/lib/wlan-last-lease.env (IP/PREFIX/
+# ROUTER/DNS) so S41wlan can reuse its apply logic.
+WLAN_STATIC_FILE=/etc/radio/wlan-static.env
 
 log() {
 	echo "provision-from-boot: $*" >> "$LOG" 2>/dev/null || true
+}
+
+# Resolve a path to its final target so an atomic rename writes the persistent
+# file behind a compatibility symlink (e.g. /etc/wpa_supplicant.conf ->
+# /data/network/wpa_supplicant.conf) instead of replacing the symlink itself.
+# Falls back to the original path when no resolver is available.
+resolve_target() {
+	if command -v realpath >/dev/null 2>&1; then
+		realpath "$1" 2>/dev/null || printf '%s' "$1"
+	elif readlink -f / >/dev/null 2>&1; then
+		readlink -f "$1" 2>/dev/null || printf '%s' "$1"
+	else
+		printf '%s' "$1"
+	fi
+}
+
+# Only assignments recorded here are commented on the FAT partition.  A failed
+# persistent write must leave its source line active so the next boot can retry
+# it; otherwise a one-shot provisioning failure would silently become permanent.
+CONSUMED_KEYS=""
+
+mark_consumed() {
+	for key in "$@"; do
+		case " $CONSUMED_KEYS " in
+			*" $key "*) ;;
+			*) CONSUMED_KEYS="${CONSUMED_KEYS:+$CONSUMED_KEYS }$key" ;;
+		esac
+	done
 }
 
 # --- Locate the FAT boot partition -------------------------------------------
@@ -123,8 +161,11 @@ apply_wifi() {
 	psk_e=$(wpa_escape "$psk")
 
 	umask 077
-	tmp="${WPA_CONF}.tmp.$$"
-	{
+	# Write into the persistent target directory so mv stays on one filesystem
+	# and updates /data behind the /etc compatibility symlink.
+	wpa_target=$(resolve_target "$WPA_CONF")
+	tmp="${wpa_target}.tmp.$$"
+	if {
 		echo "# Generated at boot by /usr/sbin/provision-from-boot from ${CONFIG_NAME}."
 		echo "# The target wpa_supplicant is built without CONFIG_CTRL_IFACE, so only"
 		echo "# a bare network={...} block with key_mgmt=WPA-PSK is allowed."
@@ -133,8 +174,13 @@ apply_wifi() {
 		printf '    psk="%s"\n' "$psk_e"
 		echo "    key_mgmt=WPA-PSK"
 		echo "}"
-	} > "$tmp" 2>/dev/null && mv "$tmp" "$WPA_CONF" && chmod 0600 "$WPA_CONF"
-	log "wifi: wrote $WPA_CONF for ssid=$ssid"
+	} > "$tmp" 2>/dev/null && mv "$tmp" "$wpa_target" && chmod 0600 "$wpa_target"; then
+		mark_consumed wifi_ssid wifi_psk
+		log "wifi: wrote $wpa_target (via $WPA_CONF) for ssid=$ssid"
+	else
+		rm -f "$tmp" 2>/dev/null || true
+		log "wifi: could not persist $WPA_CONF; settings will retry next boot"
+	fi
 }
 
 # Validate and persist the WiFi regulatory domain for S41wlan. Accepts an
@@ -143,44 +189,122 @@ apply_wifi() {
 # anything else is logged and ignored. Never blocks boot.
 apply_wifi_country() {
 	cc=$1
-	if [ -z "$cc" ]; then
-		rm -f "$WIFI_COUNTRY_FILE" 2>/dev/null || true
-		return
-	fi
+	[ -n "$cc" ] || return
 	# Uppercase without relying on non-POSIX ${var^^}.
 	cc=$(printf '%s' "$cc" | tr '[:lower:]' '[:upper:]')
 	case "$cc" in
 		[A-Z][A-Z]) ;;
 		*) log "wifi_country: invalid '$1' ignored (need a 2-letter code, e.g. DE)"; return ;;
 	esac
+	# $WIFI_COUNTRY_FILE is under /etc/radio, a symlink to /data/radio. A
+	# truncating (>) write follows that directory symlink into /data and
+	# persists correctly; wifi_country writes in place, with no rename.
 	if printf '%s\n' "$cc" > "$WIFI_COUNTRY_FILE" 2>/dev/null; then
+		mark_consumed wifi_country
 		log "wifi_country: set to $cc (S41wlan will apply via iw reg set)"
 	else
 		log "wifi_country: cannot write $WIFI_COUNTRY_FILE"
 	fi
 }
 
+# Validate and persist an optional static IPv4 configuration for S41wlan. All
+# four inputs are dotted-quad IPv4 (address/gateway/dns) plus a 1..32 CIDR
+# prefix. A missing address leaves the persistent setting unchanged. Anything
+# malformed is logged and ignored (DHCP is used). Never blocks
+# boot. Written in the same IP/PREFIX/ROUTER/DNS shape S41wlan already applies.
+valid_ipv4_str() {
+	echo "$1" | grep -Eq '^([0-9]{1,3}\.){3}[0-9]{1,3}$' || return 1
+	# Range-check each octet (0..255) without bc/awk dependencies.
+	oldifs=$IFS
+	IFS='.'
+	# shellcheck disable=SC2086 # deliberate split on '.' into positional params.
+	set -- $1
+	IFS=$oldifs
+	for o in "$@"; do
+		[ "$o" -ge 0 ] 2>/dev/null && [ "$o" -le 255 ] 2>/dev/null || return 1
+	done
+	return 0
+}
+
+apply_static_ip() {
+	addr=$1
+	prefix=$2
+	gw=$3
+	dns=$4
+	[ -n "$addr" ] || return
+	if ! valid_ipv4_str "$addr"; then
+		log "ip_address: invalid '$addr' ignored; keeping previous network configuration"
+		return
+	fi
+	[ -n "$prefix" ] || prefix=24
+	case "$prefix" in
+		''|*[!0-9]*) log "ip_prefix: invalid '$prefix'; using 24"; prefix=24 ;;
+	esac
+	if [ "$prefix" -lt 1 ] || [ "$prefix" -gt 32 ]; then
+		log "ip_prefix: out of range '$prefix'; using 24"; prefix=24
+	fi
+	# Build the env file. Gateway/DNS are optional and validated when present.
+	tmp="${WLAN_STATIC_FILE}.tmp.$$"
+	{
+		echo "# Generated at boot by provision-from-boot from ${CONFIG_NAME}."
+		printf 'IP="%s"\n' "$addr"
+		printf 'PREFIX="%s"\n' "$prefix"
+	} > "$tmp" 2>/dev/null || { log "ip_address: cannot write $WLAN_STATIC_FILE"; return; }
+	if [ -n "$gw" ]; then
+		if valid_ipv4_str "$gw"; then
+			printf 'ROUTER="%s"\n' "$gw" >> "$tmp"
+		else
+			log "ip_gateway: invalid '$gw' ignored"
+		fi
+	fi
+	if [ -n "$dns" ]; then
+		clean_dns=""
+		for d in $dns; do
+			if valid_ipv4_str "$d"; then
+				clean_dns="${clean_dns:+$clean_dns }$d"
+			else
+				log "ip_dns: invalid '$d' ignored"
+			fi
+		done
+		[ -n "$clean_dns" ] && printf 'DNS="%s"\n' "$clean_dns" >> "$tmp"
+	fi
+	# $tmp and $WLAN_STATIC_FILE are both under /etc/radio (a directory
+	# symlink to /data/radio), so this rename stays inside that directory
+	# and updates /data without disturbing the /etc/radio symlink itself.
+	if mv "$tmp" "$WLAN_STATIC_FILE" 2>/dev/null; then
+		mark_consumed ip_address ip_prefix ip_gateway ip_dns
+		log "ip_address: static ${addr}/${prefix} (S41wlan will apply)"
+	else
+		rm -f "$tmp" 2>/dev/null || true
+		log "ip_address: could not persist $WLAN_STATIC_FILE; settings will retry next boot"
+	fi
+}
+
 apply_hostname() {
 	name=$1
-	[ -n "$name" ] || return
+	# No hostname on the card: clear any stale lock marker so the web UI's
+	# device-name field is editable.
+	if [ -z "$name" ]; then
+		rm -f "$HOSTNAME_LOCK_MARKER" 2>/dev/null || true
+		return
+	fi
 	# Basic sanity: hostnames are letters, digits and hyphens.
 	case "$name" in
-		*[!A-Za-z0-9-]*) log "hostname: invalid '$name' ignored"; return ;;
+		*[!A-Za-z0-9-]*)
+			log "hostname: invalid '$name' ignored"
+			rm -f "$HOSTNAME_LOCK_MARKER" 2>/dev/null || true
+			return
+			;;
 	esac
 
-	old=$(cat "$HOSTNAME_FILE" 2>/dev/null)
-	printf '%s\n' "$name" > "$HOSTNAME_FILE" 2>/dev/null || {
-		log "hostname: cannot write $HOSTNAME_FILE"
+	if ! /usr/sbin/radio-persistent-config set-device name "$name" 2>>"$LOG"; then
+		log "hostname: cannot persist $name"
 		return
-	}
-
-	# Keep /etc/hosts in sync so local name resolution matches.
-	if [ -f "$HOSTS_FILE" ] && [ -n "$old" ]; then
-		tmp="${HOSTS_FILE}.tmp.$$"
-		sed "s/[[:space:]]${old}\$/ ${name}/; s/[[:space:]]${old}[[:space:]]/ ${name} /g" \
-			"$HOSTS_FILE" > "$tmp" 2>/dev/null && mv "$tmp" "$HOSTS_FILE"
 	fi
-	log "hostname: set to $name (was ${old:-unset})"
+	# Record that the SD card owns the hostname this boot (web UI locks it).
+	: > "$HOSTNAME_LOCK_MARKER" 2>/dev/null || true
+	mark_consumed hostname
+	log "hostname: persisted $name; web UI locked"
 	# hostname -F /etc/hostname runs next in sysinit and applies this live.
 }
 
@@ -189,7 +313,12 @@ apply_root_password() {
 	[ -n "$pw" ] || return
 	if command -v chpasswd >/dev/null 2>&1; then
 		if printf 'root:%s\n' "$pw" | chpasswd >/dev/null 2>&1; then
-			log "root_password: updated"
+			if /usr/sbin/radio-persistent-config capture-root-password 2>>"$LOG"; then
+				mark_consumed root_password
+				log "root_password: updated and hash persisted"
+			else
+				log "root_password: updated but hash persistence failed"
+			fi
 		else
 			log "root_password: chpasswd failed"
 		fi
@@ -200,44 +329,88 @@ apply_root_password() {
 
 apply_enable_ssh() {
 	val=$1
+	[ -n "$val" ] || return
+	mkdir -p "$(dirname "$DEVICE_CONFIG")" 2>/dev/null || true
 	case "$val" in
 		0|no|false|off)
 			: > "$SSH_DISABLE_FLAG" 2>/dev/null || true
-			log "enable_ssh: disabled (S50dropbear will not start)"
+			ssh_value=false
 			;;
-		1|yes|true|on|"")
+		1|yes|true|on)
 			rm -f "$SSH_DISABLE_FLAG" 2>/dev/null || true
-			[ -n "$val" ] && log "enable_ssh: enabled"
+			ssh_value=true
 			;;
 		*)
 			log "enable_ssh: unrecognised value '$val' ignored"
+			return
 			;;
 	esac
+	if /usr/sbin/radio-persistent-config set-device ssh_enabled "$ssh_value" 2>>"$LOG"; then
+		mark_consumed enable_ssh
+		if [ "$ssh_value" = true ]; then
+			log "enable_ssh: enabled and persisted"
+		else
+			log "enable_ssh: disabled and persisted (S50dropbear will not start)"
+		fi
+	else
+		# Never leave SSH apparently enabled when Dropbear cannot read the durable
+		# setting that authorises it.
+		: > "$SSH_DISABLE_FLAG" 2>/dev/null || true
+		log "enable_ssh: cannot persist setting; SSH kept disabled"
+	fi
+}
+
+# Comment every active, recognised provisioning assignment after it has been
+# consumed. Comments, blank lines and unknown keys are preserved verbatim. The
+# temporary file and rename happen on the FAT filesystem; if either step fails,
+# the original active lines remain so provisioning can retry on the next boot.
+comment_consumed_settings() {
+	[ -n "$CONSUMED_KEYS" ] || {
+		log "no settings persisted; leaving active assignments for retry"
+		return
+	}
+	tmp="${CONFIG_FILE}.tmp"
+	if awk -v consumed=" $CONSUMED_KEYS " '
+		/^[[:space:]]*($|#)/ { print; next }
+		{
+			line = $0
+			key = line
+			sub(/=.*/, "", key)
+			gsub(/^[[:space:]]+|[[:space:]]+$/, "", key)
+			if (index(consumed, " " key " ") > 0) {
+				print "# " line
+			} else {
+				print line
+			}
+		}
+	' "$CONFIG_FILE" > "$tmp" 2>>"$LOG" && mv "$tmp" "$CONFIG_FILE" 2>>"$LOG"; then
+		log "commented consumed settings in $CONFIG_NAME"
+	else
+		rm -f "$tmp" 2>/dev/null || true
+		log "could not comment $CONFIG_NAME; active settings will retry next boot"
+	fi
 }
 
 apply_timezone() {
 	tz=$1
 	[ -n "$tz" ] || return
-	zi="/usr/share/zoneinfo/$tz"
-	if [ -f "$zi" ]; then
-		ln -sf "$zi" /etc/localtime 2>/dev/null && \
-			printf '%s\n' "$tz" > /etc/timezone 2>/dev/null
-		log "timezone: set to $tz"
+	if /usr/sbin/radio-persistent-config set-device timezone "$tz" 2>>"$LOG"; then
+		mark_consumed timezone
+		log "timezone: persisted $tz"
 	else
-		log "timezone: zoneinfo for '$tz' not present in image; ignored"
+		log "timezone: invalid or unavailable '$tz'"
 	fi
 }
 
 apply_ntp_server() {
 	server=$1
 	[ -n "$server" ] || return
-	[ -f "$CHRONY_CONF" ] || { log "ntp_server: $CHRONY_CONF missing"; return; }
-	tmp="${CHRONY_CONF}.tmp.$$"
-	# Drop existing pool/server lines, then add the requested server.
-	grep -vE '^[[:space:]]*(pool|server)[[:space:]]' "$CHRONY_CONF" > "$tmp" 2>/dev/null || cp "$CHRONY_CONF" "$tmp"
-	printf 'server %s iburst\n' "$server" >> "$tmp"
-	mv "$tmp" "$CHRONY_CONF" 2>/dev/null && log "ntp_server: set to $server"
-	# S49chronyd starts later in rcS and reads this file.
+	if /usr/sbin/radio-persistent-config set-device ntp_server "$server" 2>>"$LOG"; then
+		mark_consumed ntp_server
+		log "ntp_server: persisted $server"
+	else
+		log "ntp_server: invalid '$server'"
+	fi
 }
 
 # --- Main --------------------------------------------------------------------
@@ -251,8 +424,8 @@ BOOT_DEV=$(find_boot_dev) || {
 log "boot partition: $BOOT_DEV"
 
 mkdir -p "$BOOT_MNT" 2>/dev/null || true
-if ! mount -t vfat -o ro "$BOOT_DEV" "$BOOT_MNT" 2>>"$LOG"; then
-	log "could not mount $BOOT_DEV read-only; nothing to do"
+if ! mount -t vfat -o rw "$BOOT_DEV" "$BOOT_MNT" 2>>"$LOG"; then
+	log "could not mount $BOOT_DEV read-write; nothing to do"
 	exit 0
 fi
 
@@ -272,6 +445,10 @@ p_root_password=""
 p_enable_ssh=""
 p_timezone=""
 p_ntp_server=""
+p_ip_address=""
+p_ip_prefix=""
+p_ip_gateway=""
+p_ip_dns=""
 
 # Parse line by line. Whitelist keys only; never eval the file.
 while IFS= read -r line || [ -n "$line" ]; do
@@ -296,20 +473,24 @@ while IFS= read -r line || [ -n "$line" ]; do
 		enable_ssh)     p_enable_ssh=$val ;;
 		timezone)       p_timezone=$val ;;
 		ntp_server)     p_ntp_server=$val ;;
+		ip_address)     p_ip_address=$val ;;
+		ip_prefix)      p_ip_prefix=$val ;;
+		ip_gateway)     p_ip_gateway=$val ;;
+		ip_dns)         p_ip_dns=$val ;;
 		*)              log "unknown key '$key' ignored" ;;
 	esac
 done < "$CONFIG_FILE"
 
-# Parsing is done; release the read-only mount before applying.
-umount "$BOOT_MNT" 2>/dev/null || true
-
 apply_wifi "$p_wifi_ssid" "$p_wifi_psk"
 apply_wifi_country "$p_wifi_country"
+apply_static_ip "$p_ip_address" "$p_ip_prefix" "$p_ip_gateway" "$p_ip_dns"
 apply_hostname "$p_hostname"
 apply_root_password "$p_root_password"
 apply_enable_ssh "$p_enable_ssh"
 apply_timezone "$p_timezone"
 apply_ntp_server "$p_ntp_server"
+comment_consumed_settings
+umount "$BOOT_MNT" 2>/dev/null || true
 
 log "done"
 exit 0

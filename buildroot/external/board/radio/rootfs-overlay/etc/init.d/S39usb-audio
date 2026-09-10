@@ -1,0 +1,53 @@
+#!/bin/sh
+# USB Audio Class gadget and adaptive ALSA-to-I2S bridge.
+GADGET=/usr/sbin/radio-usb-audio-gadget
+BRIDGE=/usr/sbin/radio-usb-audio-bridge
+PIDFILE=/run/radio-usb-audio-bridge.pid
+INHIBIT_FILE="${RADIO_USB_AUDIO_INHIBIT_FILE:-/run/usb-audio-inhibited}"
+
+start_usb_audio() {
+	# Feature flag gate: the web UI can disable the
+	# USB Audio source in /etc/radio/sources.ini. When disabled, do nothing.
+	if ! /usr/sbin/radio-source-enabled usb_audio; then
+		echo "USB Audio disabled via sources.ini; not starting"
+		return 0
+	fi
+	printf 'Starting USB Audio gadget: '
+	rm -f "$INHIBIT_FILE"
+	if ! "$GADGET" start; then
+		echo "FAIL"
+		return 1
+	fi
+	if start-stop-daemon -S -q -b -m -p "$PIDFILE" -x "$BRIDGE"; then
+		echo "OK"
+	else
+		"$GADGET" stop || true
+		echo "FAIL"
+		return 1
+	fi
+}
+
+stop_usb_audio() {
+	printf 'Stopping USB Audio gadget: '
+	start-stop-daemon -K -q -p "$PIDFILE" 2>/dev/null || true
+	sleep 1
+	killall alsaloop 2>/dev/null || true
+	rm -f "$PIDFILE" "$INHIBIT_FILE"
+	"$GADGET" stop || true
+	echo "OK"
+}
+
+case "$1" in
+	start) start_usb_audio ;;
+	stop) stop_usb_audio ;;
+	restart|reload) stop_usb_audio; start_usb_audio ;;
+	status)
+		if [ -s "$PIDFILE" ] && kill -0 "$(cat "$PIDFILE")" 2>/dev/null; then
+			echo "USB Audio bridge is running"
+		else
+			echo "USB Audio bridge is stopped"
+			exit 3
+		fi
+		;;
+	*) echo "Usage: $0 {start|stop|restart|status}" >&2; exit 1 ;;
+esac

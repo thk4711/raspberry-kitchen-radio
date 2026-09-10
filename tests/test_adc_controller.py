@@ -5,6 +5,7 @@ The ``ADS1x15`` driver and ``alsaaudio`` are stubbed in conftest.py.
 tests either call the static/pure methods directly or build an instance with
 ``__new__`` and inject a mock ADC — no hardware and no background thread.
 """
+
 from unittest import mock
 
 from adc_controller import ADCController
@@ -65,10 +66,25 @@ class TestReadAdcVolume:
         ctrl = _controller_with_mock_ads(3282)
         assert ctrl.read_adc_volume() == 100
 
-    def test_zero_reading_returns_none(self):
-        # `if value:` is falsy for 0, so no reading is returned.
+    def test_zero_reading_is_valid_minimum_volume(self):
         ctrl = _controller_with_mock_ads(0)
-        assert ctrl.read_adc_volume() is None
+        assert ctrl.read_adc_volume() == 0
+
+    def test_initial_volume_explicitly_applies_zero(self):
+        ctrl = _controller_with_mock_ads(0)
+        ctrl.max_volume = 80
+        ctrl.alsa_controller = mock.Mock()
+        assert ctrl.initialize_volume() == 0
+        ctrl.alsa_controller.set_volume.assert_called_once_with(0)
+
+
+class TestMonitoringLifecycle:
+    def test_start_monitoring_is_idempotent(self):
+        ctrl = ADCController.__new__(ADCController)
+        ctrl.adc_thread = mock.Mock()
+        ctrl.adc_thread.is_alive.return_value = True
+        ctrl.start_monitoring()
+        ctrl.adc_thread.start.assert_not_called()
 
 
 class TestReadAdcSwitch:
@@ -80,11 +96,34 @@ class TestReadAdcSwitch:
         ctrl = _controller_with_mock_ads(3000)
         assert ctrl.read_adc_switch() is False
 
+    def test_uses_configured_threshold(self):
+        ctrl = _controller_with_mock_ads(450)
+        ctrl.switch_threshold = 500
+        assert ctrl.read_adc_switch() is True
+
 
 class TestReadAdcButtons:
     def test_uses_configured_calibration(self):
         ctrl = _controller_with_mock_ads(350)  # centre of bucket 1
         assert ctrl.read_adc_buttons() == 1
+
+
+class TestDiagnosticsSnapshot:
+    def test_snapshot_contains_raw_and_interpreted_channels(self):
+        ctrl = _controller_with_mock_ads(0)
+        ctrl.snapshot_callback = mock.Mock()
+        ctrl._last_snapshot_at = 0
+        ctrl._raw_values = {0: 1641, 1: 850, 2: 100, 3: None}
+        ctrl.max_volume = 80
+        ctrl.switch_threshold = 300
+        ctrl.ads.readADCSingleEnded.return_value = 222
+        ctrl._publish_snapshot(49, True, 2)
+        snapshot = ctrl.snapshot_callback.call_args.args[0]
+        assert snapshot["channels"]["0"]["raw_mv"] == 1641
+        assert snapshot["channels"]["1"]["button"] == 2
+        assert snapshot["channels"]["2"]["on"] is True
+        assert snapshot["channels"]["3"]["raw_mv"] == 222
+        assert snapshot["calibration"]["switch_threshold"] == 300
 
 
 class TestVolumeCallback:
@@ -150,3 +189,29 @@ class TestVolumeCallback:
         # The ALSA volume was still applied despite the display callback error.
         ctrl.alsa_controller.set_volume.assert_called_with(30)
         assert ctrl.volume_callback.called
+
+    def test_max_volume_cap_clamps_knob(self):
+        # The knob reading is clamped to the cap before
+        # it is applied, so the output never exceeds the configured ceiling.
+        import adc_controller as adc_mod
+
+        ctrl = self._harness(mock.Mock())
+        ctrl.max_volume = 70
+        ctrl.read_adc_volume = mock.Mock(return_value=95)
+        ctrl.read_adc_switch = mock.Mock(return_value=False)
+        ctrl.read_adc_buttons = mock.Mock(return_value=None)
+
+        calls = {"n": 0}
+
+        def _fake_sleep(*_a, **_k):
+            calls["n"] += 1
+            if calls["n"] > 2:
+                raise KeyboardInterrupt
+
+        with mock.patch.object(adc_mod, "sleep", _fake_sleep):
+            try:
+                ctrl.handle_adc()
+            except KeyboardInterrupt:
+                pass
+
+        ctrl.alsa_controller.set_volume.assert_called_with(70)

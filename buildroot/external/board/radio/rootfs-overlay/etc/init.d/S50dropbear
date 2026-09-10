@@ -3,7 +3,7 @@
 # S50dropbear — Dropbear SSH server for the Raspberry Kitchen Radio appliance.
 #
 # This is an overlay copy of Buildroot's stock dropbear init script with one
-# addition: it honours the /run/provision-disable-ssh flag written by
+# additions: it honours the /run/provision-disable-ssh flag written by
 # /usr/sbin/provision-from-boot when the SD-card radio-config.txt sets
 # "enable_ssh=0". provision-from-boot runs in inittab sysinit, well before this
 # rcS script, so the flag is already in place — no race.
@@ -13,6 +13,7 @@
 NAME="dropbear sshd"
 PIDFILE=/var/run/dropbear.pid
 SSH_DISABLE_FLAG=/run/provision-disable-ssh
+DEVICE_CONFIG=/etc/radio/device.ini
 
 # Read configuration variable file if it is present.
 # shellcheck disable=SC1091 # This target-side file is supplied by the overlay.
@@ -21,6 +22,31 @@ SSH_DISABLE_FLAG=/run/provision-disable-ssh
 start() {
 	if [ -e "$SSH_DISABLE_FLAG" ]; then
 		echo "Not starting dropbear: disabled via radio-config.txt (enable_ssh=0)"
+		return 0
+	fi
+
+	# SSH is device remote-access configuration, not a MusicSource. The web UI
+	# writes [remote_access] ssh_enabled to device.ini. SSH is disabled unless
+	# that file explicitly enables it. The SD-card disable flag above remains the
+	# highest-priority setting.
+	if ! [ -r "$DEVICE_CONFIG" ] || ! awk '
+		BEGIN { section = "" }
+		/^[[:space:]]*#/ { next }
+		/^[[:space:]]*\[/ {
+			section = $0
+			sub(/^[[:space:]]*\[/, "", section)
+			sub(/\][[:space:]]*$/, "", section)
+			next
+		}
+		section == "remote_access" && /^[[:space:]]*ssh_enabled[[:space:]]*=/ {
+			value = $0
+			sub(/^[^=]*=/, "", value)
+			gsub(/^[[:space:]]+|[[:space:]]+$/, "", value)
+			if (value == "true") enabled = 1
+		}
+		END { exit enabled ? 0 : 1 }
+	' "$DEVICE_CONFIG"; then
+		echo "Not starting dropbear: SSH is disabled by default/device settings"
 		return 0
 	fi
 

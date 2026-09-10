@@ -52,6 +52,17 @@ selects, reorder the sections in `stations.conf`.
 3. Rebuild/reflash the image (or, on a running target, restart the radio with
    `/etc/init.d/S90radio restart`) so `MPDService` re-reads the config.
 
+## Web UI logos
+
+The **Radio stations** page has a Logo dropdown containing every valid built-in
+logo and prior upload; choose **No logo** to use the generated initials tile.
+Use the single **Upload a logo** control at the bottom of the page to upload a
+PNG or JPEG. Uploads are converted to transparent PNG and scaled down (aspect
+preserved) to at most 512×512 *before* they are stored under `/etc/radio/logos/`.
+The new logo then appears in every preset dropdown. Choose it, click **Save** on
+the required preset, then **Apply and restart radio** to make the display reload
+it.
+
 ## Logos & licensing
 
 The bundled station logos are broadcaster trademarks included only to identify

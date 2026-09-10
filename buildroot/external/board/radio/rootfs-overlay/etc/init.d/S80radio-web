@@ -1,0 +1,71 @@
+#!/bin/sh
+#
+# S80radio-web — Raspberry Kitchen Radio web administration interface.
+#
+# Serves the admin UI (`python3 -m radio_web`) from the application directory.
+# The privilege split: this service
+# now runs as the dedicated, unprivileged 'radio-web' user (see post-build.sh).
+# The few privileged operations (restart services, set hostname, reboot) are
+# delegated to the root-owned helper (S79radio-helper) over a local unix socket.
+#
+# Key invariants (established in Phase 2) still hold:
+#   * It starts BEFORE S90radio (S80 < S90) and AFTER S79radio-helper, and is
+#     NOT a child of the S90radio supervisor — it has its own PID file
+#     (/run/radio-web.pid).
+#   * S90radio restart / stop and its freeze-watcher kill only the supervised
+#     *player's* process group, so this service (and the helper) survive them.
+#   * Stopping this service must not disturb radio.py or the helper.
+#
+# The server binds to the wlan0 LAN address and to 127.0.0.1 on port 8080
+# (127.0.0.1 on port 8080).
+#
+APP_DIR=/opt/raspberry-kitchen-radio
+PYTHON=/usr/bin/python3
+PIDFILE=/run/radio-web.pid
+WEB_USER=radio-web
+LOGFILE=/tmp/radio-web.log
+
+case "$1" in
+	start)
+		printf 'Starting radio-web: '
+		# -b backgrounds it, -m records the PID in PIDFILE, -d sets the working
+		# directory so `python3 -m radio_web` resolves the package and can read
+		# lib/_version.py. -c drops to the unprivileged radio-web user. It is
+		# intentionally its own process, not a child of the S90radio supervisor.
+		if start-stop-daemon -S -q -b -m -p "$PIDFILE" \
+			-c "$WEB_USER" \
+			-d "$APP_DIR" \
+			-O "$LOGFILE" \
+			-x "$PYTHON" -- -m radio_web; then
+			echo "OK"
+		else
+			echo "FAIL"
+		fi
+		;;
+
+	stop)
+		printf 'Stopping radio-web: '
+		# Stop ONLY our own recorded process; never touch radio.py.
+		start-stop-daemon -K -q -p "$PIDFILE" 2>/dev/null || true
+		rm -f "$PIDFILE"
+		echo "OK"
+		;;
+	restart|reload)
+		"$0" stop
+		sleep 1
+		"$0" start
+		;;
+	status)
+		if [ -s "$PIDFILE" ] && kill -0 "$(cat "$PIDFILE")" 2>/dev/null; then
+			echo "radio-web is running"
+		else
+			echo "radio-web is stopped"
+			exit 3
+		fi
+		;;
+	*)
+		echo "Usage: $0 {start|stop|restart|status}" >&2
+		exit 1
+		;;
+esac
+exit 0

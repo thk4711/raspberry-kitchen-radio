@@ -25,6 +25,11 @@ appliance image as-is, so on a running radio the logos live at
 `/opt/raspberry-kitchen-radio/lib/mpd_service/logos/`. **Nothing is fetched from
 the internet at runtime** — the display always reads the logo from local disk.
 
+The web station editor can also upload PNG or JPEG logos. It converts them to
+PNG, proportionally scales them down to 512×512 or smaller, and saves them in
+`/etc/radio/logos/`. That managed directory takes precedence over the shipped
+directory and its files appear in the Logo dropdown.
+
 ## How a logo becomes screen art
 
 A logo only appears in **radio mode** — i.e. when an internet-radio (MPD) station

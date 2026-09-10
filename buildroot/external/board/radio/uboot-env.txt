@@ -1,0 +1,9 @@
+active_slot=A
+previous_slot=B
+upgrade_available=0
+bootcount=0
+bootlimit=3
+rollback_from=none
+scriptaddr=0x05400000
+kernel_addr_r=0x00080000
+bootcmd=fatload mmc 0:1 ${scriptaddr} boot.scr; source ${scriptaddr}

@@ -1,0 +1,74 @@
+#!/bin/sh
+#
+# radio-source-enabled — is a given music source enabled?
+#
+# Single source of truth for the source feature flags.
+# The web UI writes /etc/radio/sources.ini ([sources] key = true/false); the
+# shipped default is /opt/raspberry-kitchen-radio/sources.conf (all enabled).
+# radio.py reads the same file via read_config_layered; this script lets the
+# POSIX-sh init scripts (S42bluetooth, S39usb-audio, S50mpd, S50dropbear) ask
+# the identical question without duplicating parser logic.
+#
+# Usage:  radio-source-enabled <key>
+#   <key> is one of: internet_radio airplay spotify bluetooth usb_audio ssh
+#
+# Exit status:
+#   0  the source is enabled (this is also the default when the file, the
+#      [sources] section or the key is absent, or the value is unrecognised —
+#      "fail open" so a fresh image behaves exactly as today)
+#   1  the source is explicitly disabled (key = false/0/no/off)
+#
+# Reads the managed override first, then the shipped default. Never writes.
+
+MANAGED=/etc/radio/sources.ini
+DEFAULT=/opt/raspberry-kitchen-radio/sources.conf
+
+key=$1
+if [ -z "$key" ]; then
+	echo "Usage: $0 <source-key>" >&2
+	exit 2
+fi
+
+# Extract the raw value of "key" from the [sources] section of $file, or empty.
+# POSIX awk only: track the current section header, print the first matching
+# key's value (right of the first '='), trimmed of surrounding whitespace.
+read_flag() {
+	_file=$1
+	[ -r "$_file" ] || return 1
+	awk -v want="$key" '
+		/^[[:space:]]*#/ { next }
+		/^[[:space:]]*\[/ {
+			s = $0
+			sub(/^[[:space:]]*\[/, "", s)
+			sub(/\][[:space:]]*$/, "", s)
+			section = s
+			next
+		}
+		{
+			line = $0
+			eq = index(line, "=")
+			if (eq == 0) next
+			k = substr(line, 1, eq - 1)
+			v = substr(line, eq + 1)
+			gsub(/^[[:space:]]+|[[:space:]]+$/, "", k)
+			gsub(/^[[:space:]]+|[[:space:]]+$/, "", v)
+			if (section == "sources" && k == want) { print v; exit }
+		}
+	' "$_file"
+}
+
+val=$(read_flag "$MANAGED")
+[ -n "$val" ] || val=$(read_flag "$DEFAULT")
+
+# Normalise to lower case for the comparison.
+val=$(printf '%s' "$val" | tr 'A-Z' 'a-z')
+
+case "$val" in
+	false|0|no|off)
+		exit 1
+		;;
+	*)
+		# true/1/yes/on, empty, or anything unrecognised -> enabled.
+		exit 0
+		;;
+esac

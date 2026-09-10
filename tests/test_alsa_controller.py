@@ -4,6 +4,7 @@ The ``alsaaudio`` module is stubbed in conftest.py. Covers the pure
 linear->log volume mapping and the clamping / re-open behaviour of set_volume
 with a mocked mixer.
 """
+
 from unittest import mock
 
 import alsaaudio  # stubbed via conftest
@@ -37,6 +38,12 @@ def _controller_with_mock_mixer():
 
 
 class TestSetVolume:
+    def test_applies_profile_mixer_ceiling(self):
+        ctrl = _controller_with_mock_mixer()
+        ctrl.mixer_max_percent = 80
+        ctrl.set_volume(100)
+        ctrl.mixer.setvolume.assert_called_once_with(80)
+
     def test_clamps_below_zero(self):
         ctrl = _controller_with_mock_mixer()
         ctrl.set_volume(-20)

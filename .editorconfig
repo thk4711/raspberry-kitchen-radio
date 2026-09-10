@@ -1,0 +1,33 @@
+# EditorConfig — https://editorconfig.org
+# Formalizes the hygiene rules scripts/check-repository.sh enforces
+# (no CRLF, final newline) plus the project's indentation conventions.
+root = true
+
+[*]
+charset = utf-8
+end_of_line = lf
+insert_final_newline = true
+trim_trailing_whitespace = true
+
+[*.py]
+indent_style = space
+indent_size = 4
+max_line_length = 100
+
+[*.{yml,yaml,toml,json}]
+indent_style = space
+indent_size = 2
+
+[*.md]
+# Markdown can use trailing whitespace for hard line breaks.
+trim_trailing_whitespace = false
+
+[Makefile]
+indent_style = tab
+
+# Buildroot .mk files and init scripts use tabs for recipe/command bodies.
+[*.mk]
+indent_style = tab
+
+[buildroot/external/board/radio/rootfs-overlay/etc/init.d/*]
+indent_style = tab

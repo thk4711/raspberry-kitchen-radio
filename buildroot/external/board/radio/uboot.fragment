@@ -1,0 +1,15 @@
+# Redundant environment copies live in the raw 8 MiB reservation before p1.
+CONFIG_ENV_SIZE=0x10000
+CONFIG_ENV_IS_IN_MMC=y
+# CONFIG_ENV_IS_IN_FAT is not set
+CONFIG_ENV_OFFSET=0x100000
+CONFIG_ENV_REDUNDANT=y
+CONFIG_ENV_OFFSET_REDUND=0x200000
+
+# The fixed boot script loads each slot's own kernel from its ext4 filesystem.
+CONFIG_CMD_EXT4=y
+CONFIG_CMD_EXT4_WRITE=y
+CONFIG_CMD_FS_GENERIC=y
+CONFIG_CMD_SETEXPR=y
+CONFIG_CMD_SOURCE=y
+CONFIG_CMD_SAVEENV=y

@@ -1,31 +1,41 @@
 # Hardware & wiring
 
-> **Status:** the pin/overlay/ADS1115 information below reflects the shipped
+> **Status:** the base-radio pin and ADS1115 information below reflects the shipped
 > `buildroot/external/board/radio/config.txt`, `radio.conf`, `display.conf` and
-> the code. A text wiring diagram and GPIO pinout are included. No 3D-printable
+> the code. A text wiring diagram and base pin summary are included. No 3D-printable
 > case files are part of this repository.
 
 ## GPIO pinout & wiring overview
 
-All pin numbers below are **BCM** (Broadcom) numbering — the scheme
-`radio.py` uses (`GPIO.setmode(GPIO.BCM)`).
+GPIO numbers below are **BCM** (Broadcom) numbers — the scheme `radio.py` uses
+(`GPIO.setmode(GPIO.BCM)`). **Physical pin** numbers refer to positions on the
+40-pin header and are not interchangeable with BCM numbers.
 
 | Function | Signal | BCM pin | Physical pin | Source |
 | --- | --- | --- | --- | --- |
-| Amplifier enable | GPIO out | **26** | 37 | `radio.conf [gpio] amp` |
+| Amplifier enable | Optional GPIO out | **26** | 37 | Profile-dependent; see sound-device pinout |
 | Display reset | GPIO out (RST) | **24** | 18 | `display.conf rst` |
 | Display data/command | GPIO out (DC) | **25** | 22 | `display.conf dc` |
 | Display backlight | GPIO out (BL) | **22** | 15 | `display.conf bl` |
 | Display SPI | MOSI | **10** | 19 | SPI0 (`dtparam=spi=on`) |
 | Display SPI | SCLK | **11** | 23 | SPI0 |
-| Display SPI | CE0 | **8** | 24 | SPI0 |
+| Display SPI chip select | CE0 (default) | **8** | 24 | `display.conf spi_device = 0` |
 | ADS1115 (ADC) | I2C1 SDA | **2** | 3 | `dtparam=i2c_arm=on` |
 | ADS1115 (ADC) | I2C1 SCL | **3** | 5 | `dtparam=i2c_arm=on` |
-| DAC / amp audio | I2S | — | — | `dtparam=i2s=on` + DAC overlay |
+| Sound device | Profile-dependent | See [device pinouts](sound-devices.md#device-pinouts) | See device guide | Selected overlay |
+| USB Audio input | USB D− / D+ / GND | — | USB-A contacts 2 / 3 / 4 | DWC2 / UAC1 gadget |
 | Power / ground | 3V3 / 5V / GND | — | 1 / 2 / 6 (etc.) | — |
 
-The I2S DAC uses the dedicated I2S pins claimed by its overlay
-(`iqaudio-dacplus` by default); the amplifier is switched on/off via BCM 26.
+The shipped default uses the Pi's built-in headphone output and drives no
+amplifier-enable GPIO. External sound devices can claim I2S, I2C and additional
+GPIO. Complete 40-pin maps are therefore configuration-dependent. Choose a
+profile first, then use its color-coded map in
+[`sound-devices.md`](sound-devices.md#device-pinouts); do not infer a HAT's
+wiring from this generic summary.
+
+The GPIO pins use **3.3 V logic and are not 5 V tolerant**. Switch off all power
+before wiring the header. The listed 5 V pins are power rails, not logic outputs;
+do not use them to drive a GPIO signal.
 
 ### Block diagram
 
@@ -38,12 +48,12 @@ The I2S DAC uses the dedicated I2S pins claimed by its overlay
   Power switch  AIN2 ─┘   |                           |  (0x48)
                           |                           |
                           |  SPI0 (MOSI=10, SCLK=11,  |
-  ST7789 1.69" display ───┼── CE0=8) + RST=24, DC=25, |
-                          |          BL=22            |
+  ST7789 1.69" display ───┼── CE0=8) + RST=24,        |
+                          |  DC=25, BL=22              |
                           |                           |
   Amplifier enable  ──────┼── GPIO 26                 |
                           |                           |
-  I2S DAC / amp   ────────┼── I2S (overlay)           |
+  Sound device    ────────┼── profile-dependent       |
                           +--------------------------+
 ```
 
@@ -55,45 +65,65 @@ graph LR
     ADS -->|I2C1 SDA=2 SCL=3| PI[Raspberry Pi]
     PI -->|SPI0 MOSI=10 SCLK=11 CE0=8; RST=24 DC=25 BL=22| LCD[ST7789 1.69 display]
     PI -->|GPIO 26| AMP[Amplifier enable]
-    PI -->|I2S overlay| DAC[I2S DAC / amp]
+    PI -->|selected profile| DAC[Sound device]
+    HOST[USB host] -->|D- / D+ / GND only; no VBUS| PI
 ```
 
 
-## Audio output (DAC / amplifier)
+## USB audio gadget wiring
 
-The shipped `buildroot/external/board/radio/config.txt` enables the required
-interfaces and loads an I2S DAC overlay:
+The Pi 3A+ USB-A connector is used in **peripheral** mode so a computer, phone
+or tablet sees the radio as a USB sound card. This installation deliberately
+uses a three-wire, data-only connection. **Do not connect USB power/VBUS.**
 
+| USB 2.0 Type-A contact | Signal | Connection |
+| --- | --- | --- |
+| 1 | VBUS / +5 V | **Do not connect; leave disconnected and insulated** |
+| 2 | D− | Host D− to Pi D− |
+| 3 | D+ | Host D+ to Pi D+ |
+| 4 | GND | Host GND to Pi GND |
+
+```text
+USB host                         Raspberry Pi 3A+ USB-A port
+--------                         ----------------------------
+VBUS / +5 V  (contact 1)   X     DO NOT CONNECT
+D-           (contact 2)  ------ D-
+D+           (contact 3)  ------ D+
+GND          (contact 4)  ------ GND
 ```
-dtparam=i2c_arm=on
-dtparam=i2s=on
-dtparam=spi=on
-dtparam=audio=off          # on-board audio disabled; the DAC/amp is used instead
-dtoverlay=iqaudio-dacplus  # active DAC overlay (others are commented out)
-```
 
-Other DAC overlays are present but commented out in `config.txt`
-(`merus-amp`, `hifiberry-dacplus`) — enable the one matching your board.
+The radio must continue to be powered through its intended, independent power
+input. Connecting the host's VBUS to the independently powered Pi could
+back-feed either supply. Use a purpose-made data-only cable/adapter or physically
+remove and individually insulate the VBUS conductor. Never use an unmodified
+USB-A-to-USB-A cable for this connection.
 
-The ALSA mixer control the software drives is set in `radio.conf`:
+Do not identify conductors from color alone: colors are conventional, not a
+guarantee. Verify the contacts and the absence of VBUS continuity with a
+multimeter before connecting either powered device. Connector numbering also
+looks mirrored between the contact and solder sides, so follow the signal names
+and verify continuity rather than relying on an orientation sketch. Keep D+ and
+D− together as a short twisted pair where practical; the common GND connection
+is required for reliable signaling.
 
-```
-[audio]
-mixer = Digital
-```
+The boot setting `dtoverlay=dwc2,dr_mode=peripheral` dedicates the Pi 3A+ USB-A
+connector to this gadget. It can no longer host a keyboard, storage device or
+hub. Use WiFi/SSH (or a separately configured serial console) for recovery. See
+[`usb-audio.md`](usb-audio.md) for operation and validation.
 
-The Buildroot image ships a plain-passthrough `/etc/asound.conf` (dmix → DAC),
-so no ALSA plugin needs to be installed.
 
-## Amplifier enable (GPIO)
+## Audio output
 
-`radio.conf` controls a GPIO used to switch the amplifier on/off with the power
-switch:
+The built-in headphone jack is the default. The web interface's **Audio** page
+(`/audio-hardware`) selects an external DAC or amplifier profile and updates its
+overlay, ALSA route, mixer and optional amplifier-enable GPIO together; reboot
+after applying it.
 
-```
-[gpio]
-amp = 26      # BCM pin toggled high when the radio is "on"
-```
+Start with [`sound-devices.md`](sound-devices.md): it has one self-contained
+pinout table for every selectable device, including power guidance, GPIO
+ownership, display/ADS1115 compatibility, expected ALSA card and mixer, and any
+required rewiring. The longer manual recovery procedure for returning to the
+built-in output is in [`analog-audio.md`](analog-audio.md).
 
 ## Controls via ADS1115 (I2C ADC)
 
@@ -131,6 +161,7 @@ volume_max_input = 3282       # AIN0 reading (mV) mapped to volume 100
 button_min = 100              # low end (mV) of the AIN1 button ladder
 button_max = 3100             # high end (mV) of the AIN1 button ladder
 button_tolerance = 150        # ± window (mV) for accepting a button band
+switch_threshold = 300        # AIN2 is ON at or below this reading
 ```
 
 The button ladder is divided into six equal bands between `button_min` and
@@ -138,11 +169,21 @@ The button ladder is divided into six equal bands between `button_min` and
 that button (`ADCController.find_button`). Adjust `button_tolerance` if presses
 are missed or mis-detected.
 
+The authenticated web interface provides a live **ADC debug & calibration** page
+at `/debug/adc`. It streams AIN0–AIN3 raw millivolt readings and the player's
+volume/button/power interpretation over a same-origin WebSocket. Captured values
+are stored in `/etc/radio/adc.ini` and take effect after restarting the player.
+
 ## SPI display (1.69" ST7789)
 
 The 240×280 SPI display is driven by `lib/display_1_inch_69/`. SPI must be
 enabled (`dtparam=spi=on`, above). The SPI clock is configurable via
-`lib/display_1_inch_69/display.conf` (`spi_freq`).
+`lib/display_1_inch_69/display.conf` (`spi_freq`). `spi_bus` and `spi_device`
+select the spidev endpoint. The shipped values `spi_bus = 0` and
+`spi_device = 0` use `/dev/spidev0.0` (CE0/BCM 8). A sound-device profile may
+require another chip select; follow its dedicated table in
+[`sound-devices.md`](sound-devices.md#device-pinouts). `spi_device` selects a
+hardware chip-select and is not an arbitrary BCM GPIO number.
 
 ## 3D-printable case
 

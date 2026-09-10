@@ -1,8 +1,16 @@
+import os
 import time
 from unittest import mock
 
 import dbus
 from airplay_service.airplay_service import AirplayService
+
+AIRPLAY_CONF = os.path.join(
+    os.path.dirname(os.path.dirname(__file__)),
+    "lib",
+    "airplay_service",
+    "airplay.conf",
+)
 
 
 def _wait_until(predicate, timeout=1.0):
@@ -12,6 +20,13 @@ def _wait_until(predicate, timeout=1.0):
             return True
         time.sleep(0.01)
     return False
+
+
+def test_config_advertises_exact_system_hostname():
+    with open(AIRPLAY_CONF, encoding="utf-8") as handle:
+        config = handle.read()
+    assert 'name = "%h";' in config
+    assert 'name = "%H";' not in config
 
 
 def test_constructor_does_not_wait_for_absent_dbus(monkeypatch, tmp_path):

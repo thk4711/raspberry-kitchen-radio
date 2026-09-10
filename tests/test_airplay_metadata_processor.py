@@ -4,8 +4,10 @@ Covers the pure parsing/decoding logic: XML <item> parsing, base64 data
 detection and decoding, image MIME sniffing by magic number, change detection,
 and a full process_line flow using a fake pipe.
 """
+
 import base64
 import io
+import stat
 
 from airplay_service.airplay_metadata_processor import AirplayMetadataProcessor
 
@@ -64,7 +66,7 @@ class TestGuessImageMime:
 
     def test_png_magic(self):
         proc = AirplayMetadataProcessor()
-        assert proc.guess_image_mime(b"\x89PNG\r\n\x1a\rrest") == "png"
+        assert proc.guess_image_mime(b"\x89PNG\r\n\x1a\nrest") == "png"
 
     def test_default_is_jpg(self):
         proc = AirplayMetadataProcessor()
@@ -94,10 +96,7 @@ class TestProcessLine:
     def test_core_track_update_sets_state(self):
         proc = AirplayMetadataProcessor()
         track_b64 = base64.b64encode(b"My Song").decode()
-        line = (
-            f"<item><type>{_hex('core')}</type>"
-            f"<code>{_hex('minm')}</code><length>7</length>"
-        )
+        line = f"<item><type>{_hex('core')}</type><code>{_hex('minm')}</code><length>7</length>"
         # process_line reads the next two lines off the pipe: the <data ...>
         # header, then the base64 payload.
         pipe = io.StringIO(f'<data encoding="base64">\n{track_b64}</data>\n')
@@ -109,11 +108,26 @@ class TestProcessLine:
         proc = AirplayMetadataProcessor()
         proc.meta_data["track"] = "Cached Track"
         # ssnc/pfls with length 0 triggers update_metadata() and a flush.
-        line = (
-            f"<item><type>{_hex('ssnc')}</type>"
-            f"<code>{_hex('pfls')}</code><length>0</length>"
-        )
+        line = f"<item><type>{_hex('ssnc')}</type><code>{_hex('pfls')}</code><length>0</length>"
         pipe = io.StringIO("")
         result = proc.process_line(line, pipe)
         assert result is not None
         assert result["track"] == "Cached Track"
+
+    def test_picture_is_written_world_readable(self, monkeypatch, tmp_path):
+        proc = AirplayMetadataProcessor()
+        real_mkstemp = __import__("tempfile").mkstemp
+        monkeypatch.setattr("tempfile.mkstemp", lambda **_kw: real_mkstemp(dir=tmp_path))
+        target = tmp_path / "shairport-image.png"
+        real_replace = __import__("os").replace
+        monkeypatch.setattr("os.replace", lambda source, _destination: real_replace(source, target))
+        image = b"\x89PNG\r\n\x1a\ndata"
+        payload = base64.b64encode(image).decode()
+        line = (
+            f"<item><type>{_hex('ssnc')}</type>"
+            f"<code>{_hex('PICT')}</code><length>{len(image)}</length>"
+        )
+        pipe = io.StringIO(f'<data encoding="base64">\n{payload}</data>\n')
+        proc.process_line(line, pipe)
+        assert target.read_bytes() == image
+        assert stat.S_IMODE(target.stat().st_mode) == 0o644

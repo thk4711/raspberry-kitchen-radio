@@ -29,6 +29,7 @@ class _FakePanel:
     def __init__(self, *args, **kwargs):
         self.frames = []
         self.backlight = None
+        self.init_kwargs = kwargs
 
     def Init(self):
         pass
@@ -72,6 +73,14 @@ def controller(monkeypatch):
 
     monkeypatch.setattr(dc.threading, "Thread", _InertThread)
 
+    # Pin the monotonic clock to a fixed baseline *before* constructing the
+    # controller so TransientState.last_activity (seeded from monotonic() in
+    # __init__) is host-independent. Without this the seed is the real process
+    # uptime, so idle/screensaver predicates behave differently on a fresh CI
+    # runner (small uptime) than on a long-lived dev box, making some tests
+    # flaky. Individual tests re-patch dc.monotonic to drive their own timeline.
+    monkeypatch.setattr(dc, "monotonic", lambda: 0.0)
+
     ctrl = dc.DisplayController()
     return ctrl
 
@@ -80,6 +89,11 @@ def test_initial_frame_is_full_240x280(controller):
     frame = controller._render_frame()
     assert frame.size == (controller.width, controller.height) == (240, 280)
     assert frame.mode == "RGB"
+
+
+def test_shipped_display_uses_spi0_ce0(controller):
+    assert controller.disp.init_kwargs["spi_bus"] == 0
+    assert controller.disp.init_kwargs["spi_device"] == 0
 
 
 def test_init_pushes_exactly_one_full_frame(controller):
@@ -522,6 +536,12 @@ def test_crossfade_clears_after_window(controller, monkeypatch):
     import display_1_inch_69.display_control as dc
     t = {"now": 9000.0}
     monkeypatch.setattr(dc, "monotonic", lambda: t["now"])
+    # Keep the idle screensaver deterministically OFF: seed the activity
+    # baseline to "now" so _render_frame composes the now-playing frame (which
+    # clears a finished crossfade) instead of the screensaver branch, which is
+    # what this test asserts. See test_screensaver_activates_after_idle_timeout
+    # for the same explicit-baseline pattern.
+    controller._transient.last_activity = 9000.0
     controller.update_metadata("A", "", "", "md5-a", art_mode="radio")
     controller._build_art_layer()
     controller.update_metadata("B", "", "", "md5-b", art_mode="radio")
@@ -556,15 +576,15 @@ def _controller_with_ui(monkeypatch, ui):
 
     monkeypatch.setattr(dc.threading, "Thread", _InertThread)
 
-    real_read_config = dc.utility.read_config
+    real_read_config_layered = dc.utility.read_config_layered
 
-    def _read_with_ui(path):
-        conf = real_read_config(path)
+    def _read_with_ui(default_path, override_path=None):
+        conf = real_read_config_layered(default_path, override_path)
         if ui is not None:
             conf["ui"] = ui
         return conf
 
-    monkeypatch.setattr(dc.utility, "read_config", _read_with_ui)
+    monkeypatch.setattr(dc.utility, "read_config_layered", _read_with_ui)
     return dc.DisplayController()
 
 

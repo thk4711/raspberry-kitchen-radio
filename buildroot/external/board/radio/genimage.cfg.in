@@ -1,29 +1,49 @@
+# Fixed DOS/MBR layout (512-byte sectors).
+#
+# Bytes 0..8 MiB are reserved for the MBR and redundant U-Boot environments.
+# The environment copies are deliberately outside every partition:
+#   primary:   offset 1 MiB, size 64 KiB
+#   redundant: offset 2 MiB, size 64 KiB
+# Keep these values in sync with image-layout.conf and the layout tests.
 image boot.vfat {
 	vfat {
+		label = "RADIOBOOT"
 		files = {
 #BOOT_FILES#
 		}
 	}
 
-	# FAT boot partition size. Enlarged from Buildroot's stock 32M so the
-	# firmware, kernel (zImage), DTBs, cmdline/config.txt and the shipped
-	# radio-config.txt.example comfortably fit with headroom for the user to
-	# add their own files. Overridable via RADIO_BOOT_VFAT_SIZE in post-image.sh.
-	size = #BOOT_SIZE#
+	size = 128M
 }
 
 image sdcard.img {
 	hdimage {
+		partition-table-type = "dos"
 	}
 
 	partition boot {
 		partition-type = 0xC
 		bootable = "true"
+		offset = 8M
+		size = 128M
 		image = "boot.vfat"
 	}
 
-	partition rootfs {
+	partition rootfs-a {
 		partition-type = 0x83
-		image = "rootfs.ext4"
+		size = 768M
+		image = "rootfs-a.ext4"
+	}
+
+	partition rootfs-b {
+		partition-type = 0x83
+		size = 768M
+		image = "rootfs-b.ext4"
+	}
+
+	partition data {
+		partition-type = 0x83
+		size = 128M
+		image = "data.ext4"
 	}
 }

@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Radio">
+  <defs>
+    <linearGradient id="g" x1="8" y1="8" x2="56" y2="58" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#ffb84d"/>
+      <stop offset="1" stop-color="#ff7a45"/>
+    </linearGradient>
+  </defs>
+  <rect width="64" height="64" rx="18" fill="#132238"/>
+  <path d="M18 20.5 45.5 13a2.5 2.5 0 0 1 1.3 4.8L29 22.7h18a6 6 0 0 1 6 6v17.8a6 6 0 0 1-6 6H17a6 6 0 0 1-6-6V28.7a6 6 0 0 1 6-6h1z" fill="url(#g)"/>
+  <circle cx="40.5" cy="37.5" r="8.5" fill="#132238"/>
+  <circle cx="40.5" cy="37.5" r="4.5" fill="#f5f8fc"/>
+  <path d="M18 32h11M18 38h8M18 44h11" stroke="#132238" stroke-width="3" stroke-linecap="round"/>
+</svg>

@@ -90,6 +90,7 @@ def source_label(source: Optional[str], art_mode: Optional[str] = None) -> str:
         "radio": "RADIO",
         "spotify": "SPOTIFY",
         "airplay": "AIRPLAY",
+        "usb": "USB",
     }
     key = _clean(source).lower()
     if key in mapping:

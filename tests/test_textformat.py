@@ -57,6 +57,7 @@ def test_source_label_known_sources():
     assert textformat.source_label("mpd") == "RADIO"
     assert textformat.source_label("spotify") == "SPOTIFY"
     assert textformat.source_label("airplay") == "AIRPLAY"
+    assert textformat.source_label("usb") == "USB"
 
 
 def test_source_label_case_insensitive():

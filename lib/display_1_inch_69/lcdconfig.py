@@ -36,7 +36,7 @@ from gpiozero import *
 
 
 class RaspberryPi:
-    def __init__(self,spi=spidev.SpiDev(0,0),spi_freq=40000000,rst = 13,dc = 25,bl = 18,bl_freq=1000,i2c=None,i2c_freq=100000):
+    def __init__(self,spi=None,spi_bus=0,spi_device=0,spi_freq=40000000,rst = 13,dc = 25,bl = 18,bl_freq=1000,i2c=None,i2c_freq=100000):
         self.np=np
         self.INPUT = False
         self.OUTPUT = True
@@ -49,8 +49,11 @@ class RaspberryPi:
         self.BL_PIN = self.gpio_pwm(bl)
         self.bl_DutyCycle(0)
 
-        #Initialize SPI
-        self.SPI = spi
+        # Initialize SPI. ``spi_device`` selects the hardware chip-select:
+        # 0 -> SPI0 CE0 (BCM 8), 1 -> SPI0 CE1 (BCM 7). Constructing it here,
+        # rather than as a default argument, avoids sharing one handle between
+        # display instances and makes the chip-select configurable.
+        self.SPI = spi if spi is not None else spidev.SpiDev(spi_bus, spi_device)
         if self.SPI!=None :
             self.SPI.max_speed_hz = spi_freq
             self.SPI.mode = 0b00

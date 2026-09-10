@@ -156,6 +156,8 @@ def main() -> int:
         rst = int(display.get("rst", 24))
         dc = int(display.get("dc", 25))
         bl = int(display.get("bl", 22))
+        spi_bus = int(display.get("spi_bus", 0))
+        spi_device = int(display.get("spi_device", 0))
         spi_freq = int(display.get("spi_freq", 40_000_000))
         theme = theme_mod.build_theme(conf.get("ui") if isinstance(conf, dict) else None)
 
@@ -166,7 +168,14 @@ def main() -> int:
         # importable (for tests / --help style use) without spidev/gpiozero.
         from display_1_inch_69 import LCD_1inch69  # noqa: PLC0415
 
-        disp = LCD_1inch69.LCD_1inch69(rst=rst, dc=dc, bl=bl, spi_freq=spi_freq)
+        disp = LCD_1inch69.LCD_1inch69(
+            rst=rst,
+            dc=dc,
+            bl=bl,
+            spi_bus=spi_bus,
+            spi_device=spi_device,
+            spi_freq=spi_freq,
+        )
         try:
             disp.Init()
             disp.ShowFullFrame(pix)

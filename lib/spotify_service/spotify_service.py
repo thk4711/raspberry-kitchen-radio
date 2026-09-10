@@ -14,6 +14,7 @@ logger = logging.getLogger(__name__)
 
 utility = UtilityLibrary()
 
+
 class SpotifyService(MusicSource):
     """
     A controller class to manage Spotify playback.
@@ -30,17 +31,22 @@ class SpotifyService(MusicSource):
         metadata_thread (threading.Thread): A thread that continuously reads metadata from Spotify.
     """
 
-    def __init__(self, host: str = "localhost", port: int = 3678) -> None:
+    def __init__(
+        self, host: str = "localhost", port: int = 3678, start_binary: bool = True
+    ) -> None:
         """Generate the go-librespot config, start it, and read its metadata.
 
         Args:
             host (str): Hostname where the go-librespot API is reachable.
             port (int): Port of the go-librespot API/server.
+            start_binary (bool): Launch the go-librespot binary when True. The
+                radio passes ``False`` when the Spotify source is disabled via
+                the managed feature flags.
         """
         self.name = "spotify"
         self.spotify_host = host
         self.spotify_port = port
-        self.start_binary = True
+        self.start_binary = start_binary
         self.spotify_url = f"http://{self.spotify_host}:{self.spotify_port}"
         self.metadata = Metadata(name="", title="", cover="", md5="", state=False)
         self._metadata_lock = threading.RLock()
@@ -54,9 +60,8 @@ class SpotifyService(MusicSource):
         # Buildroot-built "go-librespot" on PATH. go-librespot uses
         # --config_dir with a directory containing config.yaml/config.yml.
         self.config_path = self._resolve_config_path()
-        self.binary = os.environ.get('RADIO_SPOTIFY_BINARY', 'go-librespot')
-        self.config_arg = os.environ.get('RADIO_SPOTIFY_CONFIG_ARG',
-                                         '--config_path')
+        self.binary = os.environ.get("RADIO_SPOTIFY_BINARY", "go-librespot")
+        self.config_arg = os.environ.get("RADIO_SPOTIFY_CONFIG_ARG", "--config_path")
 
         # Create configuration file
         self.create_config_yml()
@@ -79,7 +84,7 @@ class SpotifyService(MusicSource):
         directory (dev / read-write installs), then ``/tmp`` (read-only
         rootfs appliance image).
         """
-        override = os.environ.get('RADIO_SPOTIFY_CONF')
+        override = os.environ.get("RADIO_SPOTIFY_CONF")
         if override:
             return override
         module_conf = f"{self.module_location}/spotify.conf"
@@ -92,27 +97,27 @@ class SpotifyService(MusicSource):
         Creates the configuration YAML file required by the Spotify client.
         """
         cfg_data: Dict[str, Any] = {
-            'device_name': socket.gethostname(),
-            'credentials': {'type': 'zeroconf'},
-            'server': {'enabled': True, 'port': self.spotify_port},
-            'audio_backend': 'alsa',
-            'audio_device': 'default',
+            "device_name": socket.gethostname(),
+            "credentials": {"type": "zeroconf"},
+            "server": {"enabled": True, "port": self.spotify_port},
+            "audio_backend": "alsa",
+            "audio_device": "default",
             # Appliance policy: keep go-librespot quiet. "error" is the quietest
             # level upstream supports (trace/debug/info/warn/error) and dropping
             # timestamps trims each line, so no routine log growth is produced.
-            'log_level': 'error',
-            'log_disable_timestamp': True,
+            "log_level": "error",
+            "log_disable_timestamp": True,
         }
         config_dir = os.path.dirname(self.config_path)
         if config_dir:
             os.makedirs(config_dir, exist_ok=True)
-        with open(self.config_path, 'w') as file:
+        with open(self.config_path, "w") as file:
             yaml.dump(cfg_data, file)
 
     def _config_arg_value(self) -> str:
         """Return the value to pass after the configured config argument."""
-        if self.config_arg == '--config_dir':
-            return os.path.dirname(self.config_path) or '.'
+        if self.config_arg == "--config_dir":
+            return os.path.dirname(self.config_path) or "."
         return self.config_path
 
     def metadata_reader(self) -> None:
@@ -121,36 +126,32 @@ class SpotifyService(MusicSource):
         """
         while True:
             try:
-                json_data = utility.request_json(f'{self.spotify_url}/status')
-                track = json_data.get('track') if json_data else None
+                json_data = utility.request_json(f"{self.spotify_url}/status")
+                track = json_data.get("track") if json_data else None
                 valid_track = (
                     isinstance(track, dict)
-                    and isinstance(track.get('artist_names'), list)
-                    and isinstance(track.get('name'), str)
+                    and isinstance(track.get("artist_names"), list)
+                    and isinstance(track.get("name"), str)
                 )
                 if valid_track:
                     with self._metadata_lock:
-                        self.metadata.name = " ".join(
-                            str(item) for item in track['artist_names']
-                        )
-                        self.metadata.title = track['name']
+                        self.metadata.name = " ".join(str(item) for item in track["artist_names"])
+                        self.metadata.title = track["name"]
                         self.metadata.state = not (
-                            json_data.get('paused') or json_data.get('stopped')
+                            json_data.get("paused") or json_data.get("stopped")
                         )
 
                     # Update album cover only if it has changed
-                    album_cover_url = track.get('album_cover_url')
-                    if (isinstance(album_cover_url, str)
-                            and self.metadata.md5 != album_cover_url):
+                    album_cover_url = track.get("album_cover_url")
+                    if isinstance(album_cover_url, str) and self.metadata.md5 != album_cover_url:
                         image_data = utility.request_image(album_cover_url)
-                        cover_path = '/tmp/spotify_cover.jpg'
+                        cover_path = "/tmp/spotify_cover.jpg"
                         if image_data:
-                            fd, temporary = tempfile.mkstemp(
-                                dir='/tmp', prefix='spotify-cover-'
-                            )
+                            fd, temporary = tempfile.mkstemp(dir="/tmp", prefix="spotify-cover-")
                             try:
-                                with os.fdopen(fd, 'wb') as file:
+                                with os.fdopen(fd, "wb") as file:
                                     file.write(image_data)
+                                os.chmod(temporary, 0o644)
                                 os.replace(temporary, cover_path)
                             finally:
                                 if os.path.exists(temporary):
@@ -196,10 +197,8 @@ class SpotifyService(MusicSource):
             bool: True if the request was sent successfully, False otherwise.
         """
         try:
-            endpoint = 'play' if state else 'pause'
-            result = utility.make_request(
-                f'{self.spotify_url}/player/{endpoint}', method='POST'
-            )
+            endpoint = "play" if state else "pause"
+            result = utility.make_request(f"{self.spotify_url}/player/{endpoint}", method="POST")
             return result is not None
         except Exception as e:
             logger.error(f"Unable to set Spotify play state: {e}")

@@ -1,0 +1,47 @@
+From 5cb6631cc45751d86a1ed88d64b53c945141e97f Mon Sep 17 00:00:00 2001
+From: Raspberry Kitchen Radio <radio@localhost>
+Date: Fri, 4 Sep 2026 13:15:00 +0200
+Subject: [PATCH] usb: gadget: uac1: use function name for playback interfaces
+
+Some hosts, notably iOS, present the currently selected AudioStreaming
+alternate-setting string as the output-device name.  The generic labels
+"Playback Inactive" and "Playback Active" then hide the ConfigFS gadget's
+product and function identity from the user.
+
+Set the appliance's UAC1 function name as its default and use that name for both
+playback alternate settings.  This keeps the displayed route stable while
+preserving altsetting zero/one as the actual inactive/active indication.  A
+kernel default is used because updating this ConfigFS string during a gadget
+service restart can block while an old function instance is still being freed.
+
+Signed-off-by: Raspberry Kitchen Radio <radio@localhost>
+---
+ drivers/usb/gadget/function/f_uac1.c | 6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
+
+diff --git a/drivers/usb/gadget/function/f_uac1.c b/drivers/usb/gadget/function/f_uac1.c
+index d17690b60504..252b35026d73 100644
+--- a/drivers/usb/gadget/function/f_uac1.c
++++ b/drivers/usb/gadget/function/f_uac1.c
+@@ -1255,8 +1255,8 @@ static int f_audio_bind(struct usb_configuration *c, struct usb_function *f)
+ 	strings_uac1[STR_USB_OUT_IT_CH_NAMES].s = audio_opts->c_it_ch_name;
+ 	strings_uac1[STR_IO_OUT_OT].s = audio_opts->c_ot_name;
+ 	strings_uac1[STR_FU_OUT].s = audio_opts->c_fu_vol_name;
+-	strings_uac1[STR_AS_OUT_IF_ALT0].s = "Playback Inactive";
+-	strings_uac1[STR_AS_OUT_IF_ALT1].s = "Playback Active";
++	strings_uac1[STR_AS_OUT_IF_ALT0].s = audio_opts->function_name;
++	strings_uac1[STR_AS_OUT_IF_ALT1].s = audio_opts->function_name;
+ 
+ 	strings_uac1[STR_IO_IN_IT].s = audio_opts->p_it_name;
+ 	strings_uac1[STR_IO_IN_IT_CH_NAMES].s = audio_opts->p_it_ch_name;
+@@ -1779,7 +1779,7 @@ static struct usb_function_instance *f_audio_alloc_inst(void)
+ 
+ 	opts->req_number = UAC1_DEF_REQ_NUM;
+ 
+-	scnprintf(opts->function_name, sizeof(opts->function_name), "AC Interface");
++	scnprintf(opts->function_name, sizeof(opts->function_name), "Raspberry Radio USB Audio");
+ 
+ 	scnprintf(opts->p_it_name, sizeof(opts->p_it_name), "Capture Input terminal");
+ 	scnprintf(opts->p_it_ch_name, sizeof(opts->p_it_ch_name), "Capture Channels");
+-- 
+2.51.0

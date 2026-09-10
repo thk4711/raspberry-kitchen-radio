@@ -1,0 +1,52 @@
+software = {
+    version = "@FIRMWARE_VERSION@";
+    description = "Raspberry Kitchen Radio firmware";
+    hardware-compatibility: [ "1" ];
+    persistent_schema = @PERSISTENT_SCHEMA@;
+    persistent_reader_schema = @PERSISTENT_READER_SCHEMA@;
+    minimum_rollback_reader_schema = @MINIMUM_ROLLBACK_READER_SCHEMA@;
+
+    stable: {
+        slot-a: {
+            images: (
+                {
+                    filename = "rootfs.ext4.gz";
+                    type = "raw";
+                    device = "/dev/mmcblk0p2";
+                    compressed = "zlib";
+                    installed-directly = true;
+                    size = @ROOTFS_ARCHIVE_SIZE@;
+                    sha256 = "@ROOTFS_ARCHIVE_SHA256@";
+                }
+            );
+            bootenv: (
+                { name = "previous_slot"; value = "B"; },
+                { name = "active_slot"; value = "A"; },
+                { name = "bootcount"; value = "0"; },
+                { name = "bootlimit"; value = "3"; },
+                { name = "upgrade_available"; value = "1"; }
+            );
+        };
+
+        slot-b: {
+            images: (
+                {
+                    filename = "rootfs.ext4.gz";
+                    type = "raw";
+                    device = "/dev/mmcblk0p3";
+                    compressed = "zlib";
+                    installed-directly = true;
+                    size = @ROOTFS_ARCHIVE_SIZE@;
+                    sha256 = "@ROOTFS_ARCHIVE_SHA256@";
+                }
+            );
+            bootenv: (
+                { name = "previous_slot"; value = "A"; },
+                { name = "active_slot"; value = "B"; },
+                { name = "bootcount"; value = "0"; },
+                { name = "bootlimit"; value = "3"; },
+                { name = "upgrade_available"; value = "1"; }
+            );
+        };
+    };
+};

@@ -1,0 +1,75 @@
+#!/bin/sh
+#
+# S79radio-helper — root-owned privileged helper for the web admin interface.
+#
+# The privilege split: the web UI (S80radio-web)
+# runs as the unprivileged 'radio-web' user and cannot restart services, set the
+# hostname or reboot the board on its own. This helper — which MUST run as root
+# — owns those few operations and exposes ONLY a fixed whitelist of action ids
+# over a local unix socket (/run/radio-helper.sock). The web process connects to
+# that socket; the helper validates every request and performs one hard-coded,
+# shell=False operation per action id.
+#
+# Invariants (mirror S80radio-web / S90radio):
+#   * Starts BEFORE S80radio-web (S79 < S80) so the socket exists when the web
+#     process comes up.
+#   * Its own PID file (/run/radio-helper.pid); it is NOT a child of the
+#     S90radio supervisor. Stop touches only its recorded PID — never a
+#     by-name kill (a third Python service now runs on the box).
+#   * The socket is chowned root:radio-web and chmod 0660 after start, so only
+#     the radio-web user's group can connect.
+#
+APP_DIR=/opt/raspberry-kitchen-radio
+PYTHON=/usr/bin/python3
+PIDFILE=/run/radio-helper.pid
+SOCKET=/run/radio-helper.sock
+
+case "$1" in
+	start)
+		printf 'Starting radio-helper: '
+		# -b backgrounds it, -m records the PID, -d sets the working dir so
+		# `python3 -m radio_web.helper` resolves the package. Runs as root.
+		if start-stop-daemon -S -q -b -m -p "$PIDFILE" \
+			-d "$APP_DIR" \
+			-x "$PYTHON" -- -m radio_web.helper; then
+			# Wait briefly for the socket, then lock it down to root:radio-web.
+			i=0
+			while [ ! -S "$SOCKET" ] && [ "$i" -lt 20 ]; do
+				sleep 0.1
+				i=$((i + 1))
+			done
+			if [ -S "$SOCKET" ]; then
+				chown root:radio-web "$SOCKET" 2>/dev/null || true
+				chmod 0660 "$SOCKET" 2>/dev/null || true
+			fi
+			echo "OK"
+		else
+			echo "FAIL"
+		fi
+		;;
+	stop)
+		printf 'Stopping radio-helper: '
+		# Stop ONLY our own recorded process; never a by-name kill.
+		start-stop-daemon -K -q -p "$PIDFILE" 2>/dev/null || true
+		rm -f "$PIDFILE" "$SOCKET"
+		echo "OK"
+		;;
+	restart|reload)
+		"$0" stop
+		sleep 1
+		"$0" start
+		;;
+	status)
+		if [ -s "$PIDFILE" ] && kill -0 "$(cat "$PIDFILE")" 2>/dev/null; then
+			echo "radio-helper is running"
+		else
+			echo "radio-helper is stopped"
+			exit 3
+		fi
+		;;
+	*)
+		echo "Usage: $0 {start|stop|restart|status}" >&2
+		exit 1
+		;;
+esac
+exit 0

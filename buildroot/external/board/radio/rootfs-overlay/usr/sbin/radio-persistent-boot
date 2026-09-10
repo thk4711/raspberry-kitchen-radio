@@ -1,0 +1,18 @@
+#!/bin/sh
+# Fail-closed coordinator for all early users of shared persistent state.
+set -eu
+
+fail() {
+	echo "radio-persistent-boot: $*; persistent provisioning skipped" >&2
+	exit 1
+}
+
+if ! awk '$1 ~ /^\/dev\/mmcblk[0-9]+p4$/ && $2 == "/data" && $3 == "ext4" && $4 ~ /(^|,)rw(,|$)/ { found = 1 }
+	END { exit found ? 0 : 1 }' /proc/mounts; then
+	fail "/data is not writable ext4 on SD-card partition 4"
+fi
+
+/usr/sbin/radio-persistent-paths || fail "cannot establish persistent paths"
+/usr/sbin/radio-persistent-config prepare || fail "persistent preparation failed"
+/usr/sbin/provision-from-boot || fail "SD-card provisioning failed"
+/usr/sbin/radio-persistent-config render || fail "runtime configuration rendering failed"
