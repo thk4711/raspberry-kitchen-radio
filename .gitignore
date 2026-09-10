@@ -45,6 +45,9 @@ secrets.*
 # Generated at runtime by SpotifyService.create_config_yml() — not committed
 lib/spotify_service/spotify.conf
 
+# Generated from doc/sound-devices.md by scripts/generate-pinout-html.py
+doc/sound-devices.html
+
 # Buildroot: runtime WiFi credentials must NOT be committed. Generic images
 # create an empty target file during post-build and populate it at first boot.
 buildroot/external/board/radio/rootfs-overlay/etc/wpa_supplicant.conf

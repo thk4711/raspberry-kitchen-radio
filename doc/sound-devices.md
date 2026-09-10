@@ -62,6 +62,18 @@ The markers identify the Pi signal category and always include a text label:
 required jumper-wire colors. “Available” means not claimed by this documented
 radio configuration; check electrically before adding other hardware.
 
+The description text inside each cell is further color-coded by owning
+subsystem in the generated HTML (`doc/sound-devices.html`):
+`<!-- device:display -->` **SPI display** (blue) ·
+`<!-- device:adc -->` **ADC / ADS1115** (amber) ·
+`<!-- device:sound -->` **Sound card I2S/PCM** (green) ·
+`<!-- device:amp-gpio -->` **Amp GPIO controls** (gold) ·
+`<!-- device:uart -->` **UART** (red) ·
+`<!-- device:free -->` **Free / available** (grey).
+Run `python3 scripts/generate-pinout-html.py` to rebuild the HTML.
+
+
+
 The normal display uses BCM 10/11/8 for SPI and BCM 24/25/12 for RST/DC/BL. The
 ADS1115 uses I2C1 on BCM 2/3 at `0x48`. USB Audio does not consume a header pin.
 
@@ -74,26 +86,26 @@ This is the shipped safe default. It uses the Pi's 3.5 mm connector and no
 
 | BCM | Signal / radio connection | Physical pin (odd) | Physical pin (even) | Signal / radio connection | BCM |
 | ---: | --- | ---: | :--- | --- | :--- |
-| — | 3V3 — ADS1115 VDD; available; module use must match its manual | 🟧 **1** | **2** 🟥 | 5V — available; module use must match its manual | — |
-| **2** | I2C1 SDA — ADS1115 | 🟦 **3** | **4** 🟥 | 5V — available; module use must match its manual | — |
-| **3** | I2C1 SCL — ADS1115 | 🟦 **5** | **6** ⬛ | GND — common radio ground | — |
-| **4** | GPIO — available | 🟩 **7** | **8** 🟫 | UART0 TX — no external radio connection | **14** |
-| — | GND — common radio ground | ⬛ **9** | **10** 🟫 | UART0 RX — no external radio connection | **15** |
-| **17** | GPIO — available | 🟩 **11** | **12** 🟩 | GPIO — available | **18** |
-| **27** | GPIO — available | 🟩 **13** | **14** ⬛ | GND — common radio ground | — |
-| **22** | GPIO — available | 🟩 **15** | **16** 🟩 | GPIO — available | **23** |
-| — | 3V3 — available; module use must match its manual | 🟧 **17** | **18** 🟩 | GPIO — display RST | **24** |
-| **10** | SPI0 MOSI — display DIN / MOSI | 🟪 **19** | **20** ⬛ | GND — common radio ground | — |
-| **9** | SPI0 MISO — unused; display is write-only | 🟪 **21** | **22** 🟩 | GPIO — display DC | **25** |
-| **11** | SPI0 SCLK — display CLK / SCLK | 🟪 **23** | **24** 🟪 | SPI0 CE0 — display CS | **8** |
-| — | GND — common radio ground | ⬛ **25** | **26** 🟪 | SPI0 CE1 — available | **7** |
+| — | 3V3 — <!-- device:free -->ADS1115 VDD; available; module use must match its manual | 🟧 **1** | **2** 🟥 | 5V — <!-- device:free -->available; module use must match its manual | — |
+| **2** | <!-- device:adc -->I2C1 SDA — ADS1115 | 🟦 **3** | **4** 🟥 | 5V — <!-- device:free -->available; module use must match its manual | — |
+| **3** | <!-- device:adc -->I2C1 SCL — ADS1115 | 🟦 **5** | **6** ⬛ | GND — common radio ground | — |
+| **4** | GPIO — <!-- device:free -->available | 🟩 **7** | **8** 🟫 | <!-- device:uart -->UART0 TX — no external radio connection | **14** |
+| — | GND — common radio ground | ⬛ **9** | **10** 🟫 | <!-- device:uart -->UART0 RX — no external radio connection | **15** |
+| **17** | GPIO — <!-- device:free -->available | 🟩 **11** | **12** 🟩 | GPIO — <!-- device:free -->available | **18** |
+| **27** | GPIO — <!-- device:free -->available | 🟩 **13** | **14** ⬛ | GND — common radio ground | — |
+| **22** | GPIO — <!-- device:free -->available | 🟩 **15** | **16** 🟩 | GPIO — <!-- device:free -->available | **23** |
+| — | 3V3 — <!-- device:free -->available; module use must match its manual | 🟧 **17** | **18** 🟩 | GPIO — <!-- device:display -->display RST | **24** |
+| **10** | SPI0 MOSI — <!-- device:display -->display DIN / MOSI | 🟪 **19** | **20** ⬛ | GND — common radio ground | — |
+| **9** | SPI0 MISO — <!-- device:display -->unused; display is write-only | 🟪 **21** | **22** 🟩 | GPIO — <!-- device:display -->display DC | **25** |
+| **11** | SPI0 SCLK — <!-- device:display -->display CLK / SCLK | 🟪 **23** | **24** 🟪 | SPI0 CE0 — <!-- device:display -->display CS | **8** |
+| — | GND — common radio ground | ⬛ **25** | **26** 🟪 | SPI0 CE1 — <!-- device:free -->available | **7** |
 | **0** | ID_SD — reserve for HAT ID EEPROM | ⬜ **27** | **28** ⬜ | ID_SC — reserve for HAT ID EEPROM | **1** |
-| **5** | GPIO — available | 🟩 **29** | **30** ⬛ | GND — common radio ground | — |
-| **6** | GPIO — available | 🟩 **31** | **32** 🟩 | GPIO — display BL | **12** |
-| **13** | GPIO — available | 🟩 **33** | **34** ⬛ | GND — common radio ground | — |
-| **19** | GPIO — available | 🟩 **35** | **36** 🟩 | GPIO — available | **16** |
-| **26** | GPIO — available; not driven by profile | 🟩 **37** | **38** 🟩 | GPIO — available | **20** |
-| — | GND — common radio ground | ⬛ **39** | **40** 🟩 | GPIO — available | **21** |
+| **5** | GPIO — <!-- device:free -->available | 🟩 **29** | **30** ⬛ | GND — common radio ground | — |
+| **6** | GPIO — <!-- device:free -->available | 🟩 **31** | **32** 🟩 | GPIO — <!-- device:display -->display BL | **12** |
+| **13** | GPIO — <!-- device:free -->available | 🟩 **33** | **34** ⬛ | GND — common radio ground | — |
+| **19** | GPIO — <!-- device:free -->available | 🟩 **35** | **36** 🟩 | GPIO — <!-- device:free -->available | **16** |
+| **26** | GPIO — <!-- device:free -->available; not driven by profile | 🟩 **37** | **38** 🟩 | GPIO — <!-- device:free -->available | **20** |
+| — | GND — common radio ground | ⬛ **39** | **40** 🟩 | GPIO — <!-- device:free -->available | **21** |
 
 **Outside the 40-pin header:** connect the external amplifier or powered
 speakers to the Pi's 3.5 mm headphone jack. This profile has no sound-device
@@ -107,38 +119,33 @@ directly to it. Expected card/mixer: `Headphones` / `PCM`.
 ### IQaudIO DAC+ / DAC Pro
 
 Fit the HAT to the complete 40-pin header. The overlay controls a PCM5122 at
-I2C address `0x4c` and associates BCM 22 with amplifier mute. With the display
-backlight on BCM 12 (physical pin 32) this no longer conflicts; BCM 22 is free
-for the overlay's mute line.
+I2C address `0x4c` and associates BCM 22 with amplifier mute.
 
 | BCM | Signal / radio connection | Physical pin (odd) | Physical pin (even) | Signal / radio connection | BCM |
 | ---: | --- | ---: | :--- | --- | :--- |
 | — | 3V3 — ADS1115 VDD; used by fitted HAT as required | 🟧 **1** | **2** 🟥 | 5V — used by fitted HAT as required | — |
-| **2** | I2C1 SDA — ADS1115; shared with IQaudIO PCM5122 `0x4c` | 🟦 **3** | **4** 🟥 | 5V — used by fitted HAT as required | — |
-| **3** | I2C1 SCL — ADS1115; shared with IQaudIO PCM5122 `0x4c` | 🟦 **5** | **6** ⬛ | GND — common radio ground and HAT ground | — |
-| **4** | GPIO — available | 🟩 **7** | **8** 🟫 | UART0 TX — no external radio connection | **14** |
-| — | GND — common radio ground and HAT ground | ⬛ **9** | **10** 🟫 | UART0 RX — no external radio connection | **15** |
-| **17** | GPIO — available | 🟩 **11** | **12** 🟨 | PCM CLK — sound-device bit clock | **18** |
-| **27** | GPIO — available | 🟩 **13** | **14** ⬛ | GND — common radio ground and HAT ground | — |
-| **22** | GPIO — IQaudIO amplifier mute; free now that BL moved to BCM 12 | 🟩 **15** | **16** 🟩 | GPIO — available | **23** |
-| — | 3V3 — used by fitted HAT as required | 🟧 **17** | **18** 🟩 | GPIO — display RST | **24** |
-| **10** | SPI0 MOSI — display DIN / MOSI | 🟪 **19** | **20** ⬛ | GND — common radio ground and HAT ground | — |
-| **9** | SPI0 MISO — unused; display is write-only | 🟪 **21** | **22** 🟩 | GPIO — display DC | **25** |
-| **11** | SPI0 SCLK — display CLK / SCLK | 🟪 **23** | **24** 🟪 | SPI0 CE0 — display CS | **8** |
-| — | GND — common radio ground and HAT ground | ⬛ **25** | **26** 🟪 | SPI0 CE1 — available | **7** |
+| **2** | <!-- device:adc -->I2C1 SDA — ADS1115; shared with IQaudIO PCM5122 `0x4c` | 🟦 **3** | **4** 🟥 | 5V — used by fitted HAT as required | — |
+| **3** | <!-- device:adc -->I2C1 SCL — ADS1115; shared with IQaudIO PCM5122 `0x4c` | 🟦 **5** | **6** ⬛ | GND — common radio ground and HAT ground | — |
+| **4** | GPIO — <!-- device:free -->available | 🟩 **7** | **8** 🟫 | <!-- device:uart -->UART0 TX — no external radio connection | **14** |
+| — | GND — common radio ground and HAT ground | ⬛ **9** | **10** 🟫 | <!-- device:uart -->UART0 RX — no external radio connection | **15** |
+| **17** | GPIO — <!-- device:free -->available | 🟩 **11** | **12** 🟨 | <!-- device:sound -->PCM CLK — sound-device bit clock | **18** |
+| **27** | GPIO — <!-- device:free -->available | 🟩 **13** | **14** ⬛ | GND — common radio ground and HAT ground | — |
+| **22** | GPIO — <!-- device:amp-gpio -->IQaudIO amplifier mute | 🟩 **15** | **16** 🟩 | GPIO — <!-- device:free -->available | **23** |
+| — | 3V3 — used by fitted HAT as required | 🟧 **17** | **18** 🟩 | GPIO — <!-- device:display -->display RST | **24** |
+| **10** | SPI0 MOSI — <!-- device:display -->display DIN / MOSI | 🟪 **19** | **20** ⬛ | GND — common radio ground and HAT ground | — |
+| **9** | SPI0 MISO — <!-- device:display -->unused; display is write-only | 🟪 **21** | **22** 🟩 | GPIO — <!-- device:display -->display DC | **25** |
+| **11** | SPI0 SCLK — <!-- device:display -->display CLK / SCLK | 🟪 **23** | **24** 🟪 | SPI0 CE0 — <!-- device:display -->display CS | **8** |
+| — | GND — common radio ground and HAT ground | ⬛ **25** | **26** 🟪 | SPI0 CE1 — <!-- device:free -->available | **7** |
 | **0** | ID_SD — reserve for HAT ID EEPROM | ⬜ **27** | **28** ⬜ | ID_SC — reserve for HAT ID EEPROM | **1** |
-| **5** | GPIO — available | 🟩 **29** | **30** ⬛ | GND — common radio ground and HAT ground | — |
-| **6** | GPIO — available | 🟩 **31** | **32** 🟩 | GPIO — display BL | **12** |
-| **13** | GPIO — available | 🟩 **33** | **34** ⬛ | GND — common radio ground and HAT ground | — |
-| **19** | PCM FS — sound-device frame / word clock | 🟨 **35** | **36** 🟩 | GPIO — available | **16** |
-| **26** | GPIO — radio external-amplifier enable | 🟩 **37** | **38** 🟨 | PCM DIN — reserved with I2S; unused for playback | **20** |
-| — | GND — common radio ground and HAT ground | ⬛ **39** | **40** 🟨 | PCM DOUT — Pi audio data to sound device | **21** |
+| **5** | GPIO — <!-- device:free -->available | 🟩 **29** | **30** ⬛ | GND — common radio ground and HAT ground | — |
+| **6** | GPIO — <!-- device:free -->available | 🟩 **31** | **32** 🟩 | GPIO — <!-- device:display -->display BL | **12** |
+| **13** | GPIO — <!-- device:free -->available | 🟩 **33** | **34** ⬛ | GND — common radio ground and HAT ground | — |
+| **19** | <!-- device:sound -->PCM FS — sound-device frame / word clock | 🟨 **35** | **36** 🟩 | GPIO — <!-- device:free -->available | **16** |
+| **26** | GPIO — <!-- device:amp-gpio -->radio external-amplifier enable | 🟩 **37** | **38** 🟨 | <!-- device:sound -->PCM DIN — reserved with I2S; unused for playback | **20** |
+| — | GND — common radio ground and HAT ground | ⬛ **39** | **40** 🟨 | <!-- device:sound -->PCM DOUT — Pi audio data to sound device | **21** |
 
 
-**Required radio action:** none for the display when using the shipped backlight
-pin. The display backlight is on BCM 12 (physical pin 32), which does not clash
-with the IQaudIO mute line on BCM 22, so the display's wires remain unchanged.
-Expected card/mixer: `IQaudIODAC` / `Digital`.
+**Required radio action:** none. Expected card/mixer: `IQaudIODAC` / `Digital`.
 
 <!-- audio-profile: generic_pcm510x -->
 ### Generic PCM5102A / PCM510x-compatible DAC
@@ -148,26 +155,26 @@ vary; match signals, not connector position or wire color.
 
 | BCM | Signal / radio connection | Physical pin (odd) | Physical pin (even) | Signal / radio connection | BCM |
 | ---: | --- | ---: | :--- | --- | :--- |
-| — | 3V3 — ADS1115 VDD; available; module use must match its manual | 🟧 **1** | **2** 🟥 | 5V — available; module use must match its manual | — |
-| **2** | I2C1 SDA — ADS1115 | 🟦 **3** | **4** 🟥 | 5V — available; module use must match its manual | — |
-| **3** | I2C1 SCL — ADS1115 | 🟦 **5** | **6** ⬛ | GND — common radio ground | — |
-| **4** | GPIO — available | 🟩 **7** | **8** 🟫 | UART0 TX — no external radio connection | **14** |
-| — | GND — common radio ground | ⬛ **9** | **10** 🟫 | UART0 RX — no external radio connection | **15** |
-| **17** | GPIO — available | 🟩 **11** | **12** 🟨 | PCM CLK — sound-device bit clock | **18** |
-| **27** | GPIO — available | 🟩 **13** | **14** ⬛ | GND — common radio ground | — |
-| **22** | GPIO — available | 🟩 **15** | **16** 🟩 | GPIO — available | **23** |
-| — | 3V3 — available; module use must match its manual | 🟧 **17** | **18** 🟩 | GPIO — display RST | **24** |
-| **10** | SPI0 MOSI — display DIN / MOSI | 🟪 **19** | **20** ⬛ | GND — common radio ground | — |
-| **9** | SPI0 MISO — unused; display is write-only | 🟪 **21** | **22** 🟩 | GPIO — display DC | **25** |
-| **11** | SPI0 SCLK — display CLK / SCLK | 🟪 **23** | **24** 🟪 | SPI0 CE0 — display CS | **8** |
-| — | GND — common radio ground | ⬛ **25** | **26** 🟪 | SPI0 CE1 — available | **7** |
+| — | 3V3 — <!-- device:free -->ADS1115 VDD; available; module use must match its manual | 🟧 **1** | **2** 🟥 | 5V — <!-- device:free -->available; module use must match its manual | — |
+| **2** | <!-- device:adc -->I2C1 SDA — ADS1115 | 🟦 **3** | **4** 🟥 | 5V — <!-- device:free -->available; module use must match its manual | — |
+| **3** | <!-- device:adc -->I2C1 SCL — ADS1115 | 🟦 **5** | **6** ⬛ | GND — common radio ground | — |
+| **4** | GPIO — <!-- device:free -->available | 🟩 **7** | **8** 🟫 | <!-- device:uart -->UART0 TX — no external radio connection | **14** |
+| — | GND — common radio ground | ⬛ **9** | **10** 🟫 | <!-- device:uart -->UART0 RX — no external radio connection | **15** |
+| **17** | GPIO — <!-- device:free -->available | 🟩 **11** | **12** 🟨 | <!-- device:sound -->PCM CLK — sound-device bit clock | **18** |
+| **27** | GPIO — <!-- device:free -->available | 🟩 **13** | **14** ⬛ | GND — common radio ground | — |
+| **22** | GPIO — <!-- device:free -->available | 🟩 **15** | **16** 🟩 | GPIO — <!-- device:free -->available | **23** |
+| — | 3V3 — <!-- device:free -->available; module use must match its manual | 🟧 **17** | **18** 🟩 | GPIO — <!-- device:display -->display RST | **24** |
+| **10** | SPI0 MOSI — <!-- device:display -->display DIN / MOSI | 🟪 **19** | **20** ⬛ | GND — common radio ground | — |
+| **9** | SPI0 MISO — <!-- device:display -->unused; display is write-only | 🟪 **21** | **22** 🟩 | GPIO — <!-- device:display -->display DC | **25** |
+| **11** | SPI0 SCLK — <!-- device:display -->display CLK / SCLK | 🟪 **23** | **24** 🟪 | SPI0 CE0 — <!-- device:display -->display CS | **8** |
+| — | GND — common radio ground | ⬛ **25** | **26** 🟪 | SPI0 CE1 — <!-- device:free -->available | **7** |
 | **0** | ID_SD — reserve for HAT ID EEPROM | ⬜ **27** | **28** ⬜ | ID_SC — reserve for HAT ID EEPROM | **1** |
-| **5** | GPIO — available | 🟩 **29** | **30** ⬛ | GND — common radio ground | — |
-| **6** | GPIO — available | 🟩 **31** | **32** 🟩 | GPIO — display BL | **12** |
-| **13** | GPIO — available | 🟩 **33** | **34** ⬛ | GND — common radio ground | — |
-| **19** | PCM FS — sound-device frame / word clock | 🟨 **35** | **36** 🟩 | GPIO — available | **16** |
-| **26** | GPIO — available; not driven by profile | 🟩 **37** | **38** 🟨 | PCM DIN — reserved with I2S; unused for playback | **20** |
-| — | GND — common radio ground | ⬛ **39** | **40** 🟨 | PCM DOUT — Pi audio data to sound device | **21** |
+| **5** | GPIO — <!-- device:free -->available | 🟩 **29** | **30** ⬛ | GND — common radio ground | — |
+| **6** | GPIO — <!-- device:free -->available | 🟩 **31** | **32** 🟩 | GPIO — <!-- device:display -->display BL | **12** |
+| **13** | GPIO — <!-- device:free -->available | 🟩 **33** | **34** ⬛ | GND — common radio ground | — |
+| **19** | <!-- device:sound -->PCM FS — sound-device frame / word clock | 🟨 **35** | **36** 🟩 | GPIO — <!-- device:free -->available | **16** |
+| **26** | GPIO — <!-- device:free -->available; not driven by profile | 🟩 **37** | **38** 🟨 | <!-- device:sound -->PCM DIN — reserved with I2S; unused for playback | **20** |
+| — | GND — common radio ground | ⬛ **39** | **40** 🟨 | <!-- device:sound -->PCM DOUT — Pi audio data to sound device | **21** |
 
 **Module wiring:** connect `BCK`/`BCLK` to physical pin 12, `LCK`/`LRCK`/`WSEL`
 to pin 35, `DIN` to pin 40, and module ground to any ground pin. The overlay
@@ -189,26 +196,26 @@ This is a mono digital-input power-amplifier profile. The selected overlay uses
 
 | BCM | Signal / radio connection | Physical pin (odd) | Physical pin (even) | Signal / radio connection | BCM |
 | ---: | --- | ---: | :--- | --- | :--- |
-| — | 3V3 — ADS1115 VDD; available; module use must match its manual | 🟧 **1** | **2** 🟥 | 5V — available; module use must match its manual | — |
-| **2** | I2C1 SDA — ADS1115 | 🟦 **3** | **4** 🟥 | 5V — available; module use must match its manual | — |
-| **3** | I2C1 SCL — ADS1115 | 🟦 **5** | **6** ⬛ | GND — common radio ground | — |
-| **4** | GPIO — available | 🟩 **7** | **8** 🟫 | UART0 TX — no external radio connection | **14** |
-| — | GND — common radio ground | ⬛ **9** | **10** 🟫 | UART0 RX — no external radio connection | **15** |
-| **17** | GPIO — available | 🟩 **11** | **12** 🟨 | PCM CLK — sound-device bit clock | **18** |
-| **27** | GPIO — available | 🟩 **13** | **14** ⬛ | GND — common radio ground | — |
-| **22** | GPIO — available | 🟩 **15** | **16** 🟩 | GPIO — available | **23** |
-| — | 3V3 — available; module use must match its manual | 🟧 **17** | **18** 🟩 | GPIO — display RST | **24** |
-| **10** | SPI0 MOSI — display DIN / MOSI | 🟪 **19** | **20** ⬛ | GND — common radio ground | — |
-| **9** | SPI0 MISO — unused; display is write-only | 🟪 **21** | **22** 🟩 | GPIO — display DC | **25** |
-| **11** | SPI0 SCLK — display CLK / SCLK | 🟪 **23** | **24** 🟪 | SPI0 CE0 — display CS | **8** |
-| — | GND — common radio ground | ⬛ **25** | **26** 🟪 | SPI0 CE1 — available | **7** |
+| — | 3V3 — <!-- device:free -->ADS1115 VDD; available; module use must match its manual | 🟧 **1** | **2** 🟥 | 5V — <!-- device:free -->available; module use must match its manual | — |
+| **2** | <!-- device:adc -->I2C1 SDA — ADS1115 | 🟦 **3** | **4** 🟥 | 5V — <!-- device:free -->available; module use must match its manual | — |
+| **3** | <!-- device:adc -->I2C1 SCL — ADS1115 | 🟦 **5** | **6** ⬛ | GND — common radio ground | — |
+| **4** | GPIO — <!-- device:free -->available | 🟩 **7** | **8** 🟫 | <!-- device:uart -->UART0 TX — no external radio connection | **14** |
+| — | GND — common radio ground | ⬛ **9** | **10** 🟫 | <!-- device:uart -->UART0 RX — no external radio connection | **15** |
+| **17** | GPIO — <!-- device:free -->available | 🟩 **11** | **12** 🟨 | <!-- device:sound -->PCM CLK — sound-device bit clock | **18** |
+| **27** | GPIO — <!-- device:free -->available | 🟩 **13** | **14** ⬛ | GND — common radio ground | — |
+| **22** | GPIO — <!-- device:free -->available | 🟩 **15** | **16** 🟩 | GPIO — <!-- device:free -->available | **23** |
+| — | 3V3 — <!-- device:free -->available; module use must match its manual | 🟧 **17** | **18** 🟩 | GPIO — <!-- device:display -->display RST | **24** |
+| **10** | SPI0 MOSI — <!-- device:display -->display DIN / MOSI | 🟪 **19** | **20** ⬛ | GND — common radio ground | — |
+| **9** | SPI0 MISO — <!-- device:display -->unused; display is write-only | 🟪 **21** | **22** 🟩 | GPIO — <!-- device:display -->display DC | **25** |
+| **11** | SPI0 SCLK — <!-- device:display -->display CLK / SCLK | 🟪 **23** | **24** 🟪 | SPI0 CE0 — <!-- device:display -->display CS | **8** |
+| — | GND — common radio ground | ⬛ **25** | **26** 🟪 | SPI0 CE1 — <!-- device:free -->available | **7** |
 | **0** | ID_SD — reserve for HAT ID EEPROM | ⬜ **27** | **28** ⬜ | ID_SC — reserve for HAT ID EEPROM | **1** |
-| **5** | GPIO — available | 🟩 **29** | **30** ⬛ | GND — common radio ground | — |
-| **6** | GPIO — available | 🟩 **31** | **32** 🟩 | GPIO — display BL | **12** |
-| **13** | GPIO — available | 🟩 **33** | **34** ⬛ | GND — common radio ground | — |
-| **19** | PCM FS — sound-device frame / word clock | 🟨 **35** | **36** 🟩 | GPIO — available | **16** |
-| **26** | GPIO — available; not driven by profile | 🟩 **37** | **38** 🟨 | PCM DIN — reserved with I2S; unused for playback | **20** |
-| — | GND — common radio ground | ⬛ **39** | **40** 🟨 | PCM DOUT — Pi audio data to sound device | **21** |
+| **5** | GPIO — <!-- device:free -->available | 🟩 **29** | **30** ⬛ | GND — common radio ground | — |
+| **6** | GPIO — <!-- device:free -->available | 🟩 **31** | **32** 🟩 | GPIO — <!-- device:display -->display BL | **12** |
+| **13** | GPIO — <!-- device:free -->available | 🟩 **33** | **34** ⬛ | GND — common radio ground | — |
+| **19** | <!-- device:sound -->PCM FS — sound-device frame / word clock | 🟨 **35** | **36** 🟩 | GPIO — <!-- device:free -->available | **16** |
+| **26** | GPIO — <!-- device:free -->available; not driven by profile | 🟩 **37** | **38** 🟨 | <!-- device:sound -->PCM DIN — reserved with I2S; unused for playback | **20** |
+| — | GND — common radio ground | ⬛ **39** | **40** 🟨 | <!-- device:sound -->PCM DOUT — Pi audio data to sound device | **21** |
 
 **Module wiring:** connect `BCLK` to physical pin 12, `LRC`/`LRCLK` to pin 35,
 `DIN` to pin 40, and module ground to any ground pin. Connect `VIN` only to the
@@ -232,25 +239,25 @@ control.
 | BCM | Signal / radio connection | Physical pin (odd) | Physical pin (even) | Signal / radio connection | BCM |
 | ---: | --- | ---: | :--- | --- | :--- |
 | — | 3V3 — ADS1115 VDD; used by fitted HAT as required | 🟧 **1** | **2** 🟥 | 5V — used by fitted HAT as required | — |
-| **2** | I2C1 SDA — ADS1115 | 🟦 **3** | **4** 🟥 | 5V — used by fitted HAT as required | — |
-| **3** | I2C1 SCL — ADS1115 | 🟦 **5** | **6** ⬛ | GND — common radio ground and HAT ground | — |
-| **4** | GPIO — available | 🟩 **7** | **8** 🟫 | UART0 TX — no external radio connection | **14** |
-| — | GND — common radio ground and HAT ground | ⬛ **9** | **10** 🟫 | UART0 RX — no external radio connection | **15** |
-| **17** | GPIO — available | 🟩 **11** | **12** 🟨 | PCM CLK — sound-device bit clock | **18** |
-| **27** | GPIO — available | 🟩 **13** | **14** ⬛ | GND — common radio ground and HAT ground | — |
-| **22** | GPIO — available | 🟩 **15** | **16** 🟩 | GPIO — available | **23** |
-| — | 3V3 — used by fitted HAT as required | 🟧 **17** | **18** 🟩 | GPIO — display RST | **24** |
-| **10** | SPI0 MOSI — display DIN / MOSI | 🟪 **19** | **20** ⬛ | GND — common radio ground and HAT ground | — |
-| **9** | SPI0 MISO — unused; display is write-only | 🟪 **21** | **22** 🟩 | GPIO — display DC | **25** |
-| **11** | SPI0 SCLK — display CLK / SCLK | 🟪 **23** | **24** 🟪 | SPI0 CE0 — display CS | **8** |
-| — | GND — common radio ground and HAT ground | ⬛ **25** | **26** 🟪 | SPI0 CE1 — available | **7** |
+| **2** | <!-- device:adc -->I2C1 SDA — ADS1115 | 🟦 **3** | **4** 🟥 | 5V — used by fitted HAT as required | — |
+| **3** | <!-- device:adc -->I2C1 SCL — ADS1115 | 🟦 **5** | **6** ⬛ | GND — common radio ground and HAT ground | — |
+| **4** | GPIO — <!-- device:free -->available | 🟩 **7** | **8** 🟫 | <!-- device:uart -->UART0 TX — no external radio connection | **14** |
+| — | GND — common radio ground and HAT ground | ⬛ **9** | **10** 🟫 | <!-- device:uart -->UART0 RX — no external radio connection | **15** |
+| **17** | GPIO — <!-- device:free -->available | 🟩 **11** | **12** 🟨 | <!-- device:sound -->PCM CLK — sound-device bit clock | **18** |
+| **27** | GPIO — <!-- device:free -->available | 🟩 **13** | **14** ⬛ | GND — common radio ground and HAT ground | — |
+| **22** | GPIO — <!-- device:free -->available | 🟩 **15** | **16** 🟩 | GPIO — <!-- device:free -->available | **23** |
+| — | 3V3 — used by fitted HAT as required | 🟧 **17** | **18** 🟩 | GPIO — <!-- device:display -->display RST | **24** |
+| **10** | SPI0 MOSI — <!-- device:display -->display DIN / MOSI | 🟪 **19** | **20** ⬛ | GND — common radio ground and HAT ground | — |
+| **9** | SPI0 MISO — <!-- device:display -->unused; display is write-only | 🟪 **21** | **22** 🟩 | GPIO — <!-- device:display -->display DC | **25** |
+| **11** | SPI0 SCLK — <!-- device:display -->display CLK / SCLK | 🟪 **23** | **24** 🟪 | SPI0 CE0 — <!-- device:display -->display CS | **8** |
+| — | GND — common radio ground and HAT ground | ⬛ **25** | **26** 🟪 | SPI0 CE1 — <!-- device:free -->available | **7** |
 | **0** | ID_SD — reserve for HAT ID EEPROM | ⬜ **27** | **28** ⬜ | ID_SC — reserve for HAT ID EEPROM | **1** |
-| **5** | GPIO — available | 🟩 **29** | **30** ⬛ | GND — common radio ground and HAT ground | — |
-| **6** | GPIO — available | 🟩 **31** | **32** 🟩 | GPIO — display BL | **12** |
-| **13** | GPIO — available | 🟩 **33** | **34** ⬛ | GND — common radio ground and HAT ground | — |
-| **19** | PCM FS — sound-device frame / word clock | 🟨 **35** | **36** 🟩 | GPIO — available | **16** |
-| **26** | GPIO — available; not driven by profile | 🟩 **37** | **38** 🟨 | PCM DIN — reserved with I2S; unused for playback | **20** |
-| — | GND — common radio ground and HAT ground | ⬛ **39** | **40** 🟨 | PCM DOUT — Pi audio data to sound device | **21** |
+| **5** | GPIO — <!-- device:free -->available | 🟩 **29** | **30** ⬛ | GND — common radio ground and HAT ground | — |
+| **6** | GPIO — <!-- device:free -->available | 🟩 **31** | **32** 🟩 | GPIO — <!-- device:display -->display BL | **12** |
+| **13** | GPIO — <!-- device:free -->available | 🟩 **33** | **34** ⬛ | GND — common radio ground and HAT ground | — |
+| **19** | <!-- device:sound -->PCM FS — sound-device frame / word clock | 🟨 **35** | **36** 🟩 | GPIO — <!-- device:free -->available | **16** |
+| **26** | GPIO — <!-- device:free -->available; not driven by profile | 🟩 **37** | **38** 🟨 | <!-- device:sound -->PCM DIN — reserved with I2S; unused for playback | **20** |
+| — | GND — common radio ground and HAT ground | ⬛ **39** | **40** 🟨 | <!-- device:sound -->PCM DOUT — Pi audio data to sound device | **21** |
 
 
 **Radio compatibility:** display and ADS1115 wiring remain unchanged; no I2C
@@ -267,25 +274,25 @@ address `0x4d`.
 | BCM | Signal / radio connection | Physical pin (odd) | Physical pin (even) | Signal / radio connection | BCM |
 | ---: | --- | ---: | :--- | --- | :--- |
 | — | 3V3 — ADS1115 VDD; used by fitted HAT as required | 🟧 **1** | **2** 🟥 | 5V — used by fitted HAT as required | — |
-| **2** | I2C1 SDA — ADS1115; shared with PCM5122 `0x4d` | 🟦 **3** | **4** 🟥 | 5V — used by fitted HAT as required | — |
-| **3** | I2C1 SCL — ADS1115; shared with PCM5122 `0x4d` | 🟦 **5** | **6** ⬛ | GND — common radio ground and HAT ground | — |
-| **4** | GPIO — available | 🟩 **7** | **8** 🟫 | UART0 TX — no external radio connection | **14** |
-| — | GND — common radio ground and HAT ground | ⬛ **9** | **10** 🟫 | UART0 RX — no external radio connection | **15** |
-| **17** | GPIO — available | 🟩 **11** | **12** 🟨 | PCM CLK — sound-device bit clock | **18** |
-| **27** | GPIO — available | 🟩 **13** | **14** ⬛ | GND — common radio ground and HAT ground | — |
-| **22** | GPIO — available | 🟩 **15** | **16** 🟩 | GPIO — available | **23** |
-| — | 3V3 — used by fitted HAT as required | 🟧 **17** | **18** 🟩 | GPIO — display RST | **24** |
-| **10** | SPI0 MOSI — display DIN / MOSI | 🟪 **19** | **20** ⬛ | GND — common radio ground and HAT ground | — |
-| **9** | SPI0 MISO — unused; display is write-only | 🟪 **21** | **22** 🟩 | GPIO — display DC | **25** |
-| **11** | SPI0 SCLK — display CLK / SCLK | 🟪 **23** | **24** 🟪 | SPI0 CE0 — display CS | **8** |
-| — | GND — common radio ground and HAT ground | ⬛ **25** | **26** 🟪 | SPI0 CE1 — available | **7** |
+| **2** | <!-- device:adc -->I2C1 SDA — ADS1115; shared with PCM5122 `0x4d` | 🟦 **3** | **4** 🟥 | 5V — used by fitted HAT as required | — |
+| **3** | <!-- device:adc -->I2C1 SCL — ADS1115; shared with PCM5122 `0x4d` | 🟦 **5** | **6** ⬛ | GND — common radio ground and HAT ground | — |
+| **4** | GPIO — <!-- device:free -->available | 🟩 **7** | **8** 🟫 | <!-- device:uart -->UART0 TX — no external radio connection | **14** |
+| — | GND — common radio ground and HAT ground | ⬛ **9** | **10** 🟫 | <!-- device:uart -->UART0 RX — no external radio connection | **15** |
+| **17** | GPIO — <!-- device:free -->available | 🟩 **11** | **12** 🟨 | <!-- device:sound -->PCM CLK — sound-device bit clock | **18** |
+| **27** | GPIO — <!-- device:free -->available | 🟩 **13** | **14** ⬛ | GND — common radio ground and HAT ground | — |
+| **22** | GPIO — <!-- device:free -->available | 🟩 **15** | **16** 🟩 | GPIO — <!-- device:free -->available | **23** |
+| — | 3V3 — used by fitted HAT as required | 🟧 **17** | **18** 🟩 | GPIO — <!-- device:display -->display RST | **24** |
+| **10** | SPI0 MOSI — <!-- device:display -->display DIN / MOSI | 🟪 **19** | **20** ⬛ | GND — common radio ground and HAT ground | — |
+| **9** | SPI0 MISO — <!-- device:display -->unused; display is write-only | 🟪 **21** | **22** 🟩 | GPIO — <!-- device:display -->display DC | **25** |
+| **11** | SPI0 SCLK — <!-- device:display -->display CLK / SCLK | 🟪 **23** | **24** 🟪 | SPI0 CE0 — <!-- device:display -->display CS | **8** |
+| — | GND — common radio ground and HAT ground | ⬛ **25** | **26** 🟪 | SPI0 CE1 — <!-- device:free -->available | **7** |
 | **0** | ID_SD — reserve for HAT ID EEPROM | ⬜ **27** | **28** ⬜ | ID_SC — reserve for HAT ID EEPROM | **1** |
-| **5** | GPIO — available | 🟩 **29** | **30** ⬛ | GND — common radio ground and HAT ground | — |
-| **6** | GPIO — available | 🟩 **31** | **32** 🟩 | GPIO — display BL | **12** |
-| **13** | GPIO — available | 🟩 **33** | **34** ⬛ | GND — common radio ground and HAT ground | — |
-| **19** | PCM FS — sound-device frame / word clock | 🟨 **35** | **36** 🟩 | GPIO — available | **16** |
-| **26** | GPIO — available; not driven by profile | 🟩 **37** | **38** 🟨 | PCM DIN — reserved with I2S; unused for playback | **20** |
-| — | GND — common radio ground and HAT ground | ⬛ **39** | **40** 🟨 | PCM DOUT — Pi audio data to sound device | **21** |
+| **5** | GPIO — <!-- device:free -->available | 🟩 **29** | **30** ⬛ | GND — common radio ground and HAT ground | — |
+| **6** | GPIO — <!-- device:free -->available | 🟩 **31** | **32** 🟩 | GPIO — <!-- device:display -->display BL | **12** |
+| **13** | GPIO — <!-- device:free -->available | 🟩 **33** | **34** ⬛ | GND — common radio ground and HAT ground | — |
+| **19** | <!-- device:sound -->PCM FS — sound-device frame / word clock | 🟨 **35** | **36** 🟩 | GPIO — <!-- device:free -->available | **16** |
+| **26** | GPIO — <!-- device:free -->available; not driven by profile | 🟩 **37** | **38** 🟨 | <!-- device:sound -->PCM DIN — reserved with I2S; unused for playback | **20** |
+| — | GND — common radio ground and HAT ground | ⬛ **39** | **40** 🟨 | <!-- device:sound -->PCM DOUT — Pi audio data to sound device | **21** |
 
 
 **Radio compatibility:** display wiring remains unchanged. The ADS1115 at
@@ -301,25 +308,25 @@ PCM5122 on I2C1 at address `0x4d`.
 | BCM | Signal / radio connection | Physical pin (odd) | Physical pin (even) | Signal / radio connection | BCM |
 | ---: | --- | ---: | :--- | --- | :--- |
 | — | 3V3 — ADS1115 VDD; used by fitted HAT as required | 🟧 **1** | **2** 🟥 | 5V — used by fitted HAT as required | — |
-| **2** | I2C1 SDA — ADS1115; shared with PCM5122 `0x4d` | 🟦 **3** | **4** 🟥 | 5V — used by fitted HAT as required | — |
-| **3** | I2C1 SCL — ADS1115; shared with PCM5122 `0x4d` | 🟦 **5** | **6** ⬛ | GND — common radio ground and HAT ground | — |
-| **4** | GPIO — available | 🟩 **7** | **8** 🟫 | UART0 TX — no external radio connection | **14** |
-| — | GND — common radio ground and HAT ground | ⬛ **9** | **10** 🟫 | UART0 RX — no external radio connection | **15** |
-| **17** | GPIO — available | 🟩 **11** | **12** 🟨 | PCM CLK — sound-device bit clock | **18** |
-| **27** | GPIO — available | 🟩 **13** | **14** ⬛ | GND — common radio ground and HAT ground | — |
-| **22** | GPIO — available | 🟩 **15** | **16** 🟩 | GPIO — available | **23** |
-| — | 3V3 — used by fitted HAT as required | 🟧 **17** | **18** 🟩 | GPIO — display RST | **24** |
-| **10** | SPI0 MOSI — display DIN / MOSI | 🟪 **19** | **20** ⬛ | GND — common radio ground and HAT ground | — |
-| **9** | SPI0 MISO — unused; display is write-only | 🟪 **21** | **22** 🟩 | GPIO — display DC | **25** |
-| **11** | SPI0 SCLK — display CLK / SCLK | 🟪 **23** | **24** 🟪 | SPI0 CE0 — display CS | **8** |
-| — | GND — common radio ground and HAT ground | ⬛ **25** | **26** 🟪 | SPI0 CE1 — available | **7** |
+| **2** | <!-- device:adc -->I2C1 SDA — ADS1115; shared with PCM5122 `0x4d` | 🟦 **3** | **4** 🟥 | 5V — used by fitted HAT as required | — |
+| **3** | <!-- device:adc -->I2C1 SCL — ADS1115; shared with PCM5122 `0x4d` | 🟦 **5** | **6** ⬛ | GND — common radio ground and HAT ground | — |
+| **4** | GPIO — <!-- device:free -->available | 🟩 **7** | **8** 🟫 | <!-- device:uart -->UART0 TX — no external radio connection | **14** |
+| — | GND — common radio ground and HAT ground | ⬛ **9** | **10** 🟫 | <!-- device:uart -->UART0 RX — no external radio connection | **15** |
+| **17** | GPIO — <!-- device:free -->available | 🟩 **11** | **12** 🟨 | <!-- device:sound -->PCM CLK — sound-device bit clock | **18** |
+| **27** | GPIO — <!-- device:free -->available | 🟩 **13** | **14** ⬛ | GND — common radio ground and HAT ground | — |
+| **22** | GPIO — <!-- device:free -->available | 🟩 **15** | **16** 🟩 | GPIO — <!-- device:free -->available | **23** |
+| — | 3V3 — used by fitted HAT as required | 🟧 **17** | **18** 🟩 | GPIO — <!-- device:display -->display RST | **24** |
+| **10** | SPI0 MOSI — <!-- device:display -->display DIN / MOSI | 🟪 **19** | **20** ⬛ | GND — common radio ground and HAT ground | — |
+| **9** | SPI0 MISO — <!-- device:display -->unused; display is write-only | 🟪 **21** | **22** 🟩 | GPIO — <!-- device:display -->display DC | **25** |
+| **11** | SPI0 SCLK — <!-- device:display -->display CLK / SCLK | 🟪 **23** | **24** 🟪 | SPI0 CE0 — <!-- device:display -->display CS | **8** |
+| — | GND — common radio ground and HAT ground | ⬛ **25** | **26** 🟪 | SPI0 CE1 — <!-- device:free -->available | **7** |
 | **0** | ID_SD — reserve for HAT ID EEPROM | ⬜ **27** | **28** ⬜ | ID_SC — reserve for HAT ID EEPROM | **1** |
-| **5** | GPIO — available | 🟩 **29** | **30** ⬛ | GND — common radio ground and HAT ground | — |
-| **6** | GPIO — available | 🟩 **31** | **32** 🟩 | GPIO — display BL | **12** |
-| **13** | GPIO — available | 🟩 **33** | **34** ⬛ | GND — common radio ground and HAT ground | — |
-| **19** | PCM FS — sound-device frame / word clock | 🟨 **35** | **36** 🟩 | GPIO — available | **16** |
-| **26** | GPIO — available; not driven by profile | 🟩 **37** | **38** 🟨 | PCM DIN — reserved with I2S; unused for playback | **20** |
-| — | GND — common radio ground and HAT ground | ⬛ **39** | **40** 🟨 | PCM DOUT — Pi audio data to sound device | **21** |
+| **5** | GPIO — <!-- device:free -->available | 🟩 **29** | **30** ⬛ | GND — common radio ground and HAT ground | — |
+| **6** | GPIO — <!-- device:free -->available | 🟩 **31** | **32** 🟩 | GPIO — <!-- device:display -->display BL | **12** |
+| **13** | GPIO — <!-- device:free -->available | 🟩 **33** | **34** ⬛ | GND — common radio ground and HAT ground | — |
+| **19** | <!-- device:sound -->PCM FS — sound-device frame / word clock | 🟨 **35** | **36** 🟩 | GPIO — <!-- device:free -->available | **16** |
+| **26** | GPIO — <!-- device:free -->available; not driven by profile | 🟩 **37** | **38** 🟨 | <!-- device:sound -->PCM DIN — reserved with I2S; unused for playback | **20** |
+| — | GND — common radio ground and HAT ground | ⬛ **39** | **40** 🟨 | <!-- device:sound -->PCM DOUT — Pi audio data to sound device | **21** |
 
 
 **Radio compatibility:** display wiring remains unchanged and the ADS1115 at
@@ -337,25 +344,25 @@ the radio's separate BCM 26 output.
 | BCM | Signal / radio connection | Physical pin (odd) | Physical pin (even) | Signal / radio connection | BCM |
 | ---: | --- | ---: | :--- | --- | :--- |
 | — | 3V3 — ADS1115 VDD; used by fitted HAT as required | 🟧 **1** | **2** 🟥 | 5V — used by fitted HAT as required | — |
-| **2** | I2C1 SDA — ADS1115; shared with PCM5122 `0x4d` | 🟦 **3** | **4** 🟥 | 5V — used by fitted HAT as required | — |
-| **3** | I2C1 SCL — ADS1115; shared with PCM5122 `0x4d` | 🟦 **5** | **6** ⬛ | GND — common radio ground and HAT ground | — |
-| **4** | GPIO — available | 🟩 **7** | **8** 🟫 | UART0 TX — no external radio connection | **14** |
-| — | GND — common radio ground and HAT ground | ⬛ **9** | **10** 🟫 | UART0 RX — no external radio connection | **15** |
-| **17** | GPIO — available | 🟩 **11** | **12** 🟨 | PCM CLK — sound-device bit clock | **18** |
-| **27** | GPIO — available | 🟩 **13** | **14** ⬛ | GND — common radio ground and HAT ground | — |
-| **22** | GPIO — available | 🟩 **15** | **16** 🟩 | GPIO — available | **23** |
-| — | 3V3 — used by fitted HAT as required | 🟧 **17** | **18** 🟩 | GPIO — display RST | **24** |
-| **10** | SPI0 MOSI — display DIN / MOSI | 🟪 **19** | **20** ⬛ | GND — common radio ground and HAT ground | — |
-| **9** | SPI0 MISO — unused; display is write-only | 🟪 **21** | **22** 🟩 | GPIO — display DC | **25** |
-| **11** | SPI0 SCLK — display CLK / SCLK | 🟪 **23** | **24** 🟪 | SPI0 CE0 — display CS | **8** |
-| — | GND — common radio ground and HAT ground | ⬛ **25** | **26** 🟪 | SPI0 CE1 — available | **7** |
+| **2** | <!-- device:adc -->I2C1 SDA — ADS1115; shared with PCM5122 `0x4d` | 🟦 **3** | **4** 🟥 | 5V — used by fitted HAT as required | — |
+| **3** | <!-- device:adc -->I2C1 SCL — ADS1115; shared with PCM5122 `0x4d` | 🟦 **5** | **6** ⬛ | GND — common radio ground and HAT ground | — |
+| **4** | GPIO — <!-- device:free -->available | 🟩 **7** | **8** 🟫 | <!-- device:uart -->UART0 TX — no external radio connection | **14** |
+| — | GND — common radio ground and HAT ground | ⬛ **9** | **10** 🟫 | <!-- device:uart -->UART0 RX — no external radio connection | **15** |
+| **17** | GPIO — <!-- device:free -->available | 🟩 **11** | **12** 🟨 | <!-- device:sound -->PCM CLK — sound-device bit clock | **18** |
+| **27** | GPIO — <!-- device:free -->available | 🟩 **13** | **14** ⬛ | GND — common radio ground and HAT ground | — |
+| **22** | GPIO — <!-- device:free -->available | 🟩 **15** | **16** 🟩 | GPIO — <!-- device:free -->available | **23** |
+| — | 3V3 — used by fitted HAT as required | 🟧 **17** | **18** 🟩 | GPIO — <!-- device:display -->display RST | **24** |
+| **10** | SPI0 MOSI — <!-- device:display -->display DIN / MOSI | 🟪 **19** | **20** ⬛ | GND — common radio ground and HAT ground | — |
+| **9** | SPI0 MISO — <!-- device:display -->unused; display is write-only | 🟪 **21** | **22** 🟩 | GPIO — <!-- device:display -->display DC | **25** |
+| **11** | SPI0 SCLK — <!-- device:display -->display CLK / SCLK | 🟪 **23** | **24** 🟪 | SPI0 CE0 — <!-- device:display -->display CS | **8** |
+| — | GND — common radio ground and HAT ground | ⬛ **25** | **26** 🟪 | SPI0 CE1 — <!-- device:free -->available | **7** |
 | **0** | ID_SD — reserve for HAT ID EEPROM | ⬜ **27** | **28** ⬜ | ID_SC — reserve for HAT ID EEPROM | **1** |
-| **5** | GPIO — available | 🟩 **29** | **30** ⬛ | GND — common radio ground and HAT ground | — |
-| **6** | GPIO — available | 🟩 **31** | **32** 🟩 | GPIO — display BL | **12** |
-| **13** | GPIO — available | 🟩 **33** | **34** ⬛ | GND — common radio ground and HAT ground | — |
-| **19** | PCM FS — sound-device frame / word clock | 🟨 **35** | **36** 🟩 | GPIO — available | **16** |
-| **26** | GPIO — available; not driven by profile | 🟩 **37** | **38** 🟨 | PCM DIN — reserved with I2S; unused for playback | **20** |
-| — | GND — common radio ground and HAT ground | ⬛ **39** | **40** 🟨 | PCM DOUT — Pi audio data to sound device | **21** |
+| **5** | GPIO — <!-- device:free -->available | 🟩 **29** | **30** ⬛ | GND — common radio ground and HAT ground | — |
+| **6** | GPIO — <!-- device:free -->available | 🟩 **31** | **32** 🟩 | GPIO — <!-- device:display -->display BL | **12** |
+| **13** | GPIO — <!-- device:free -->available | 🟩 **33** | **34** ⬛ | GND — common radio ground and HAT ground | — |
+| **19** | <!-- device:sound -->PCM FS — sound-device frame / word clock | 🟨 **35** | **36** 🟩 | GPIO — <!-- device:free -->available | **16** |
+| **26** | GPIO — <!-- device:free -->available; not driven by profile | 🟩 **37** | **38** 🟨 | <!-- device:sound -->PCM DIN — reserved with I2S; unused for playback | **20** |
+| — | GND — common radio ground and HAT ground | ⬛ **39** | **40** 🟨 | <!-- device:sound -->PCM DOUT — Pi audio data to sound device | **21** |
 
 
 **Radio compatibility:** display wiring remains unchanged and the ADS1115 at
@@ -371,25 +378,25 @@ Fit the HAT to the 40-pin header. The overlay controls a PCM5122 at I2C address
 | BCM | Signal / radio connection | Physical pin (odd) | Physical pin (even) | Signal / radio connection | BCM |
 | ---: | --- | ---: | :--- | --- | :--- |
 | — | 3V3 — ADS1115 VDD; used by fitted HAT as required | 🟧 **1** | **2** 🟥 | 5V — used by fitted HAT as required | — |
-| **2** | I2C1 SDA — ADS1115; shared with PCM5122 `0x4d` | 🟦 **3** | **4** 🟥 | 5V — used by fitted HAT as required | — |
-| **3** | I2C1 SCL — ADS1115; shared with PCM5122 `0x4d` | 🟦 **5** | **6** ⬛ | GND — common radio ground and HAT ground | — |
-| **4** | GPIO — available | 🟩 **7** | **8** 🟫 | UART0 TX — no external radio connection | **14** |
-| — | GND — common radio ground and HAT ground | ⬛ **9** | **10** 🟫 | UART0 RX — no external radio connection | **15** |
-| **17** | GPIO — available | 🟩 **11** | **12** 🟨 | PCM CLK — sound-device bit clock | **18** |
-| **27** | GPIO — available | 🟩 **13** | **14** ⬛ | GND — common radio ground and HAT ground | — |
-| **22** | GPIO — available | 🟩 **15** | **16** 🟩 | GPIO — available | **23** |
-| — | 3V3 — used by fitted HAT as required | 🟧 **17** | **18** 🟩 | GPIO — display RST | **24** |
-| **10** | SPI0 MOSI — display DIN / MOSI | 🟪 **19** | **20** ⬛ | GND — common radio ground and HAT ground | — |
-| **9** | SPI0 MISO — unused; display is write-only | 🟪 **21** | **22** 🟩 | GPIO — display DC | **25** |
-| **11** | SPI0 SCLK — display CLK / SCLK | 🟪 **23** | **24** 🟪 | SPI0 CE0 — display CS | **8** |
-| — | GND — common radio ground and HAT ground | ⬛ **25** | **26** 🟪 | SPI0 CE1 — available | **7** |
+| **2** | <!-- device:adc -->I2C1 SDA — ADS1115; shared with PCM5122 `0x4d` | 🟦 **3** | **4** 🟥 | 5V — used by fitted HAT as required | — |
+| **3** | <!-- device:adc -->I2C1 SCL — ADS1115; shared with PCM5122 `0x4d` | 🟦 **5** | **6** ⬛ | GND — common radio ground and HAT ground | — |
+| **4** | GPIO — <!-- device:free -->available | 🟩 **7** | **8** 🟫 | <!-- device:uart -->UART0 TX — no external radio connection | **14** |
+| — | GND — common radio ground and HAT ground | ⬛ **9** | **10** 🟫 | <!-- device:uart -->UART0 RX — no external radio connection | **15** |
+| **17** | GPIO — <!-- device:free -->available | 🟩 **11** | **12** 🟨 | <!-- device:sound -->PCM CLK — sound-device bit clock | **18** |
+| **27** | GPIO — <!-- device:free -->available | 🟩 **13** | **14** ⬛ | GND — common radio ground and HAT ground | — |
+| **22** | GPIO — <!-- device:free -->available | 🟩 **15** | **16** 🟩 | GPIO — <!-- device:free -->available | **23** |
+| — | 3V3 — used by fitted HAT as required | 🟧 **17** | **18** 🟩 | GPIO — <!-- device:display -->display RST | **24** |
+| **10** | SPI0 MOSI — <!-- device:display -->display DIN / MOSI | 🟪 **19** | **20** ⬛ | GND — common radio ground and HAT ground | — |
+| **9** | SPI0 MISO — <!-- device:display -->unused; display is write-only | 🟪 **21** | **22** 🟩 | GPIO — <!-- device:display -->display DC | **25** |
+| **11** | SPI0 SCLK — <!-- device:display -->display CLK / SCLK | 🟪 **23** | **24** 🟪 | SPI0 CE0 — <!-- device:display -->display CS | **8** |
+| — | GND — common radio ground and HAT ground | ⬛ **25** | **26** 🟪 | SPI0 CE1 — <!-- device:free -->available | **7** |
 | **0** | ID_SD — reserve for HAT ID EEPROM | ⬜ **27** | **28** ⬜ | ID_SC — reserve for HAT ID EEPROM | **1** |
-| **5** | GPIO — available | 🟩 **29** | **30** ⬛ | GND — common radio ground and HAT ground | — |
-| **6** | GPIO — Allo BOSS mute, active low | 🟩 **31** | **32** 🟩 | GPIO — display BL | **12** |
-| **13** | GPIO — available | 🟩 **33** | **34** ⬛ | GND — common radio ground and HAT ground | — |
-| **19** | PCM FS — sound-device frame / word clock | 🟨 **35** | **36** 🟩 | GPIO — available | **16** |
-| **26** | GPIO — available; not driven by profile | 🟩 **37** | **38** 🟨 | PCM DIN — reserved with I2S; unused for playback | **20** |
-| — | GND — common radio ground and HAT ground | ⬛ **39** | **40** 🟨 | PCM DOUT — Pi audio data to sound device | **21** |
+| **5** | GPIO — <!-- device:free -->available | 🟩 **29** | **30** ⬛ | GND — common radio ground and HAT ground | — |
+| **6** | GPIO — <!-- device:amp-gpio -->Allo BOSS mute, active low | 🟩 **31** | **32** 🟩 | GPIO — <!-- device:display -->display BL | **12** |
+| **13** | GPIO — <!-- device:free -->available | 🟩 **33** | **34** ⬛ | GND — common radio ground and HAT ground | — |
+| **19** | <!-- device:sound -->PCM FS — sound-device frame / word clock | 🟨 **35** | **36** 🟩 | GPIO — <!-- device:free -->available | **16** |
+| **26** | GPIO — <!-- device:free -->available; not driven by profile | 🟩 **37** | **38** 🟨 | <!-- device:sound -->PCM DIN — reserved with I2S; unused for playback | **20** |
+| — | GND — common radio ground and HAT ground | ⬛ **39** | **40** 🟨 | <!-- device:sound -->PCM DOUT — Pi audio data to sound device | **21** |
 
 
 **Radio compatibility:** the shipped display does not use BCM 6 and can remain
@@ -411,25 +418,25 @@ unused address—for example `ADDR` to VDD selects `0x49`—and change
 | BCM | Signal / radio connection | Physical pin (odd) | Physical pin (even) | Signal / radio connection | BCM |
 | ---: | --- | ---: | :--- | --- | :--- |
 | — | 3V3 — ADS1115 VDD; used by fitted board as required | 🟧 **1** | **2** 🟥 | 5V — used by fitted board as required | — |
-| **2** | I2C1 SDA — I-SABRE `0x48`; relocated ADS1115 (for example `0x49`) | 🟦 **3** | **4** 🟥 | 5V — used by fitted board as required | — |
-| **3** | I2C1 SCL — I-SABRE `0x48`; relocated ADS1115 | 🟦 **5** | **6** ⬛ | GND — common radio ground and board ground | — |
-| **4** | GPIO — available | 🟩 **7** | **8** 🟫 | UART0 TX — no external radio connection | **14** |
-| — | GND — common radio ground and board ground | ⬛ **9** | **10** 🟫 | UART0 RX — no external radio connection | **15** |
-| **17** | GPIO — available | 🟩 **11** | **12** 🟨 | PCM CLK — sound-device bit clock | **18** |
-| **27** | GPIO — available | 🟩 **13** | **14** ⬛ | GND — common radio ground and board ground | — |
-| **22** | GPIO — available | 🟩 **15** | **16** 🟩 | GPIO — available | **23** |
-| — | 3V3 — used by fitted board as required | 🟧 **17** | **18** 🟩 | GPIO — display RST | **24** |
-| **10** | SPI0 MOSI — display DIN / MOSI | 🟪 **19** | **20** ⬛ | GND — common radio ground and board ground | — |
-| **9** | SPI0 MISO — unused; display is write-only | 🟪 **21** | **22** 🟩 | GPIO — display DC | **25** |
-| **11** | SPI0 SCLK — display CLK / SCLK | 🟪 **23** | **24** 🟪 | SPI0 CE0 — display CS | **8** |
-| — | GND — common radio ground and board ground | ⬛ **25** | **26** 🟪 | SPI0 CE1 — available | **7** |
+| **2** | <!-- device:adc -->I2C1 SDA — I-SABRE `0x48`; relocated ADS1115 (for example `0x49`) | 🟦 **3** | **4** 🟥 | 5V — used by fitted board as required | — |
+| **3** | <!-- device:adc -->I2C1 SCL — I-SABRE `0x48`; relocated ADS1115 | 🟦 **5** | **6** ⬛ | GND — common radio ground and board ground | — |
+| **4** | GPIO — <!-- device:free -->available | 🟩 **7** | **8** 🟫 | <!-- device:uart -->UART0 TX — no external radio connection | **14** |
+| — | GND — common radio ground and board ground | ⬛ **9** | **10** 🟫 | <!-- device:uart -->UART0 RX — no external radio connection | **15** |
+| **17** | GPIO — <!-- device:free -->available | 🟩 **11** | **12** 🟨 | <!-- device:sound -->PCM CLK — sound-device bit clock | **18** |
+| **27** | GPIO — <!-- device:free -->available | 🟩 **13** | **14** ⬛ | GND — common radio ground and board ground | — |
+| **22** | GPIO — <!-- device:free -->available | 🟩 **15** | **16** 🟩 | GPIO — <!-- device:free -->available | **23** |
+| — | 3V3 — used by fitted board as required | 🟧 **17** | **18** 🟩 | GPIO — <!-- device:display -->display RST | **24** |
+| **10** | SPI0 MOSI — <!-- device:display -->display DIN / MOSI | 🟪 **19** | **20** ⬛ | GND — common radio ground and board ground | — |
+| **9** | SPI0 MISO — <!-- device:display -->unused; display is write-only | 🟪 **21** | **22** 🟩 | GPIO — <!-- device:display -->display DC | **25** |
+| **11** | SPI0 SCLK — <!-- device:display -->display CLK / SCLK | 🟪 **23** | **24** 🟪 | SPI0 CE0 — <!-- device:display -->display CS | **8** |
+| — | GND — common radio ground and board ground | ⬛ **25** | **26** 🟪 | SPI0 CE1 — <!-- device:free -->available | **7** |
 | **0** | ID_SD — reserve for HAT ID EEPROM | ⬜ **27** | **28** ⬜ | ID_SC — reserve for HAT ID EEPROM | **1** |
-| **5** | GPIO — available | 🟩 **29** | **30** ⬛ | GND — common radio ground and board ground | — |
-| **6** | GPIO — available | 🟩 **31** | **32** 🟩 | GPIO — display BL | **12** |
-| **13** | GPIO — available | 🟩 **33** | **34** ⬛ | GND — common radio ground and board ground | — |
-| **19** | PCM FS — sound-device frame / word clock | 🟨 **35** | **36** 🟩 | GPIO — available | **16** |
-| **26** | GPIO — available; not driven by profile | 🟩 **37** | **38** 🟨 | PCM DIN — reserved with I2S; unused for playback | **20** |
-| — | GND — common radio ground and board ground | ⬛ **39** | **40** 🟨 | PCM DOUT — Pi audio data to sound device | **21** |
+| **5** | GPIO — <!-- device:free -->available | 🟩 **29** | **30** ⬛ | GND — common radio ground and board ground | — |
+| **6** | GPIO — <!-- device:free -->available | 🟩 **31** | **32** 🟩 | GPIO — <!-- device:display -->display BL | **12** |
+| **13** | GPIO — <!-- device:free -->available | 🟩 **33** | **34** ⬛ | GND — common radio ground and board ground | — |
+| **19** | <!-- device:sound -->PCM FS — sound-device frame / word clock | 🟨 **35** | **36** 🟩 | GPIO — <!-- device:free -->available | **16** |
+| **26** | GPIO — <!-- device:free -->available; not driven by profile | 🟩 **37** | **38** 🟨 | <!-- device:sound -->PCM DIN — reserved with I2S; unused for playback | **20** |
+| — | GND — common radio ground and board ground | ⬛ **39** | **40** 🟨 | <!-- device:sound -->PCM DOUT — Pi audio data to sound device | **21** |
 
 **Radio compatibility:** the display wiring remains unchanged, but the ADS1115
 address change is mandatory. Confirm both devices with `i2cdetect -y 1` before
@@ -451,25 +458,25 @@ power supply; do not infer power wiring solely from this signal map.
 | BCM | Signal / radio connection | Physical pin (odd) | Physical pin (even) | Signal / radio connection | BCM |
 | ---: | --- | ---: | :--- | --- | :--- |
 | — | 3V3 — ADS1115 VDD; used by fitted Katana stack as required | 🟧 **1** | **2** 🟥 | 5V — used by Katana stack as documented by Allo | — |
-| **2** | I2C1 SDA at 50 kHz — ADS1115 `0x48`; Katana `0x30` | 🟦 **3** | **4** 🟥 | 5V — used by Katana stack as documented by Allo | — |
-| **3** | I2C1 SCL at 50 kHz — ADS1115 `0x48`; Katana `0x30` | 🟦 **5** | **6** ⬛ | GND — common radio ground and Katana ground | — |
-| **4** | GPIO — available | 🟩 **7** | **8** 🟫 | UART0 TX — no external radio connection | **14** |
-| — | GND — common radio ground and Katana ground | ⬛ **9** | **10** 🟫 | UART0 RX — no external radio connection | **15** |
-| **17** | GPIO — available | 🟩 **11** | **12** 🟨 | PCM CLK — supplied by Katana to Pi | **18** |
-| **27** | GPIO — available | 🟩 **13** | **14** ⬛ | GND — common radio ground and Katana ground | — |
-| **22** | GPIO — available | 🟩 **15** | **16** 🟩 | GPIO — available | **23** |
-| — | 3V3 — used by fitted Katana stack as required | 🟧 **17** | **18** 🟩 | GPIO — display RST | **24** |
-| **10** | SPI0 MOSI — display DIN / MOSI | 🟪 **19** | **20** ⬛ | GND — common radio ground and Katana ground | — |
-| **9** | SPI0 MISO — unused; display is write-only | 🟪 **21** | **22** 🟩 | GPIO — display DC | **25** |
-| **11** | SPI0 SCLK — display CLK / SCLK | 🟪 **23** | **24** 🟪 | SPI0 CE0 — display CS | **8** |
-| — | GND — common radio ground and Katana ground | ⬛ **25** | **26** 🟪 | SPI0 CE1 — available | **7** |
+| **2** | <!-- device:adc -->I2C1 SDA at 50 kHz — ADS1115 `0x48`; Katana `0x30` | 🟦 **3** | **4** 🟥 | 5V — used by Katana stack as documented by Allo | — |
+| **3** | <!-- device:adc -->I2C1 SCL at 50 kHz — ADS1115 `0x48`; Katana `0x30` | 🟦 **5** | **6** ⬛ | GND — common radio ground and Katana ground | — |
+| **4** | GPIO — <!-- device:free -->available | 🟩 **7** | **8** 🟫 | <!-- device:uart -->UART0 TX — no external radio connection | **14** |
+| — | GND — common radio ground and Katana ground | ⬛ **9** | **10** 🟫 | <!-- device:uart -->UART0 RX — no external radio connection | **15** |
+| **17** | GPIO — <!-- device:free -->available | 🟩 **11** | **12** 🟨 | <!-- device:sound -->PCM CLK — supplied by Katana to Pi | **18** |
+| **27** | GPIO — <!-- device:free -->available | 🟩 **13** | **14** ⬛ | GND — common radio ground and Katana ground | — |
+| **22** | GPIO — <!-- device:free -->available | 🟩 **15** | **16** 🟩 | GPIO — <!-- device:free -->available | **23** |
+| — | 3V3 — used by fitted Katana stack as required | 🟧 **17** | **18** 🟩 | GPIO — <!-- device:display -->display RST | **24** |
+| **10** | SPI0 MOSI — <!-- device:display -->display DIN / MOSI | 🟪 **19** | **20** ⬛ | GND — common radio ground and Katana ground | — |
+| **9** | SPI0 MISO — <!-- device:display -->unused; display is write-only | 🟪 **21** | **22** 🟩 | GPIO — <!-- device:display -->display DC | **25** |
+| **11** | SPI0 SCLK — <!-- device:display -->display CLK / SCLK | 🟪 **23** | **24** 🟪 | SPI0 CE0 — <!-- device:display -->display CS | **8** |
+| — | GND — common radio ground and Katana ground | ⬛ **25** | **26** 🟪 | SPI0 CE1 — <!-- device:free -->available | **7** |
 | **0** | ID_SD — reserve for HAT ID EEPROM | ⬜ **27** | **28** ⬜ | ID_SC — reserve for HAT ID EEPROM | **1** |
-| **5** | GPIO — available | 🟩 **29** | **30** ⬛ | GND — common radio ground and Katana ground | — |
-| **6** | GPIO — available | 🟩 **31** | **32** 🟩 | GPIO — display BL | **12** |
-| **13** | GPIO — available | 🟩 **33** | **34** ⬛ | GND — common radio ground and Katana ground | — |
-| **19** | PCM FS — supplied by Katana to Pi | 🟨 **35** | **36** 🟩 | GPIO — available | **16** |
-| **26** | GPIO — available; not driven by profile | 🟩 **37** | **38** 🟨 | PCM DIN — reserved with I2S; unused for playback | **20** |
-| — | GND — common radio ground and Katana ground | ⬛ **39** | **40** 🟨 | PCM DOUT — Pi audio data to Katana | **21** |
+| **5** | GPIO — <!-- device:free -->available | 🟩 **29** | **30** ⬛ | GND — common radio ground and Katana ground | — |
+| **6** | GPIO — <!-- device:free -->available | 🟩 **31** | **32** 🟩 | GPIO — <!-- device:display -->display BL | **12** |
+| **13** | GPIO — <!-- device:free -->available | 🟩 **33** | **34** ⬛ | GND — common radio ground and Katana ground | — |
+| **19** | <!-- device:sound -->PCM FS — supplied by Katana to Pi | 🟨 **35** | **36** 🟩 | GPIO — <!-- device:free -->available | **16** |
+| **26** | GPIO — <!-- device:free -->available; not driven by profile | 🟩 **37** | **38** 🟨 | <!-- device:sound -->PCM DIN — reserved with I2S; unused for playback | **20** |
+| — | GND — common radio ground and Katana ground | ⬛ **39** | **40** 🟨 | <!-- device:sound -->PCM DOUT — Pi audio data to Katana | **21** |
 
 **Radio compatibility:** display wiring remains unchanged and the ADS1115 has
 no address conflict, but its controls must be qualified at the overlay's 50 kHz
@@ -487,25 +494,25 @@ external power and speaker wiring.
 | BCM | Signal / radio connection | Physical pin (odd) | Physical pin (even) | Signal / radio connection | BCM |
 | ---: | --- | ---: | :--- | --- | :--- |
 | — | 3V3 — ADS1115 VDD; used by fitted HAT as required | 🟧 **1** | **2** 🟥 | 5V — used by fitted HAT as required | — |
-| **2** | I2C1 SDA — ADS1115; shared with PCM5122 `0x4d` | 🟦 **3** | **4** 🟥 | 5V — used by fitted HAT as required | — |
-| **3** | I2C1 SCL — ADS1115; shared with PCM5122 `0x4d` | 🟦 **5** | **6** ⬛ | GND — common radio ground and HAT ground | — |
-| **4** | GPIO — available | 🟩 **7** | **8** 🟫 | UART0 TX — no external radio connection | **14** |
-| — | GND — common radio ground and HAT ground | ⬛ **9** | **10** 🟫 | UART0 RX — no external radio connection | **15** |
-| **17** | GPIO — available | 🟩 **11** | **12** 🟨 | PCM CLK — sound-device bit clock | **18** |
-| **27** | GPIO — available | 🟩 **13** | **14** ⬛ | GND — common radio ground and HAT ground | — |
-| **22** | GPIO — available | 🟩 **15** | **16** 🟩 | GPIO — available | **23** |
-| — | 3V3 — used by fitted HAT as required | 🟧 **17** | **18** 🟩 | GPIO — display RST | **24** |
-| **10** | SPI0 MOSI — display DIN / MOSI | 🟪 **19** | **20** ⬛ | GND — common radio ground and HAT ground | — |
-| **9** | SPI0 MISO — unused; display is write-only | 🟪 **21** | **22** 🟩 | GPIO — display DC | **25** |
-| **11** | SPI0 SCLK — display CLK / SCLK | 🟪 **23** | **24** 🟪 | SPI0 CE0 — display CS | **8** |
-| — | GND — common radio ground and HAT ground | ⬛ **25** | **26** 🟪 | SPI0 CE1 — available | **7** |
+| **2** | <!-- device:adc -->I2C1 SDA — ADS1115; shared with PCM5122 `0x4d` | 🟦 **3** | **4** 🟥 | 5V — used by fitted HAT as required | — |
+| **3** | <!-- device:adc -->I2C1 SCL — ADS1115; shared with PCM5122 `0x4d` | 🟦 **5** | **6** ⬛ | GND — common radio ground and HAT ground | — |
+| **4** | GPIO — <!-- device:free -->available | 🟩 **7** | **8** 🟫 | <!-- device:uart -->UART0 TX — no external radio connection | **14** |
+| — | GND — common radio ground and HAT ground | ⬛ **9** | **10** 🟫 | <!-- device:uart -->UART0 RX — no external radio connection | **15** |
+| **17** | GPIO — <!-- device:free -->available | 🟩 **11** | **12** 🟨 | <!-- device:sound -->PCM CLK — sound-device bit clock | **18** |
+| **27** | GPIO — <!-- device:free -->available | 🟩 **13** | **14** ⬛ | GND — common radio ground and HAT ground | — |
+| **22** | GPIO — <!-- device:free -->available | 🟩 **15** | **16** 🟩 | GPIO — <!-- device:free -->available | **23** |
+| — | 3V3 — used by fitted HAT as required | 🟧 **17** | **18** 🟩 | GPIO — <!-- device:display -->display RST | **24** |
+| **10** | SPI0 MOSI — <!-- device:display -->display DIN / MOSI | 🟪 **19** | **20** ⬛ | GND — common radio ground and HAT ground | — |
+| **9** | SPI0 MISO — <!-- device:display -->unused; display is write-only | 🟪 **21** | **22** 🟩 | GPIO — <!-- device:display -->display DC | **25** |
+| **11** | SPI0 SCLK — <!-- device:display -->display CLK / SCLK | 🟪 **23** | **24** 🟪 | SPI0 CE0 — <!-- device:display -->display CS | **8** |
+| — | GND — common radio ground and HAT ground | ⬛ **25** | **26** 🟪 | SPI0 CE1 — <!-- device:free -->available | **7** |
 | **0** | ID_SD — reserve for HAT ID EEPROM | ⬜ **27** | **28** ⬜ | ID_SC — reserve for HAT ID EEPROM | **1** |
-| **5** | GPIO — available | 🟩 **29** | **30** ⬛ | GND — common radio ground and HAT ground | — |
-| **6** | GPIO — available | 🟩 **31** | **32** 🟩 | GPIO — display BL | **12** |
-| **13** | GPIO — available | 🟩 **33** | **34** ⬛ | GND — common radio ground and HAT ground | — |
-| **19** | PCM FS — sound-device frame / word clock | 🟨 **35** | **36** 🟩 | GPIO — available | **16** |
-| **26** | GPIO — available; not driven by profile | 🟩 **37** | **38** 🟨 | PCM DIN — reserved with I2S; unused for playback | **20** |
-| — | GND — common radio ground and HAT ground | ⬛ **39** | **40** 🟨 | PCM DOUT — Pi audio data to sound device | **21** |
+| **5** | GPIO — <!-- device:free -->available | 🟩 **29** | **30** ⬛ | GND — common radio ground and HAT ground | — |
+| **6** | GPIO — <!-- device:free -->available | 🟩 **31** | **32** 🟩 | GPIO — <!-- device:display -->display BL | **12** |
+| **13** | GPIO — <!-- device:free -->available | 🟩 **33** | **34** ⬛ | GND — common radio ground and HAT ground | — |
+| **19** | <!-- device:sound -->PCM FS — sound-device frame / word clock | 🟨 **35** | **36** 🟩 | GPIO — <!-- device:free -->available | **16** |
+| **26** | GPIO — <!-- device:free -->available; not driven by profile | 🟩 **37** | **38** 🟨 | <!-- device:sound -->PCM DIN — reserved with I2S; unused for playback | **20** |
+| — | GND — common radio ground and HAT ground | ⬛ **39** | **40** 🟨 | <!-- device:sound -->PCM DOUT — Pi audio data to sound device | **21** |
 
 
 **Radio compatibility:** display wiring remains unchanged and the ADS1115 at
@@ -522,25 +529,25 @@ and requires a display wiring change. It controls the amplifier at I2C address
 | BCM | Signal / radio connection | Physical pin (odd) | Physical pin (even) | Signal / radio connection | BCM |
 | ---: | --- | ---: | :--- | --- | :--- |
 | — | 3V3 — ADS1115 VDD; used by fitted HAT as required | 🟧 **1** | **2** 🟥 | 5V — used by fitted HAT as required | — |
-| **2** | I2C1 SDA — ADS1115; shared with MERUS amplifier `0x20` | 🟦 **3** | **4** 🟥 | 5V — used by fitted HAT as required | — |
-| **3** | I2C1 SCL — ADS1115; shared with MERUS amplifier `0x20` | 🟦 **5** | **6** ⬛ | GND — common radio ground and HAT ground | — |
-| **4** | GPIO — available | 🟩 **7** | **8** 🟩 | GPIO — MERUS amplifier enable, active high | **14** |
-| — | GND — common radio ground and HAT ground | ⬛ **9** | **10** 🟩 | GPIO — MERUS amplifier mute, active high | **15** |
-| **17** | GPIO — MERUS booster control, active high | 🟩 **11** | **12** 🟨 | PCM CLK — sound-device bit clock | **18** |
-| **27** | GPIO — available | 🟩 **13** | **14** ⬛ | GND — common radio ground and HAT ground | — |
-| **22** | GPIO — available | 🟩 **15** | **16** 🟩 | GPIO — MERUS error input, active high | **23** |
-| — | 3V3 — used by fitted HAT as required | 🟧 **17** | **18** 🟩 | GPIO — display RST | **24** |
-| **10** | SPI0 MOSI — display DIN / MOSI | 🟪 **19** | **20** ⬛ | GND — common radio ground and HAT ground | — |
-| **9** | SPI0 MISO — unused; display is write-only | 🟪 **21** | **22** 🟩 | GPIO — display DC | **25** |
-| **11** | SPI0 SCLK — display CLK / SCLK | 🟪 **23** | **24** 🟩 | GPIO — MERUS overlay; **not display CS** | **8** |
+| **2** | <!-- device:adc -->I2C1 SDA — ADS1115; shared with MERUS amplifier `0x20` | 🟦 **3** | **4** 🟥 | 5V — used by fitted HAT as required | — |
+| **3** | <!-- device:adc -->I2C1 SCL — ADS1115; shared with MERUS amplifier `0x20` | 🟦 **5** | **6** ⬛ | GND — common radio ground and HAT ground | — |
+| **4** | GPIO — <!-- device:free -->available | 🟩 **7** | **8** 🟩 | GPIO — <!-- device:amp-gpio -->MERUS amplifier enable, active high | **14** |
+| — | GND — common radio ground and HAT ground | ⬛ **9** | **10** 🟩 | GPIO — <!-- device:amp-gpio -->MERUS amplifier mute, active high | **15** |
+| **17** | GPIO — <!-- device:amp-gpio -->MERUS booster control, active high | 🟩 **11** | **12** 🟨 | <!-- device:sound -->PCM CLK — sound-device bit clock | **18** |
+| **27** | GPIO — <!-- device:free -->available | 🟩 **13** | **14** ⬛ | GND — common radio ground and HAT ground | — |
+| **22** | GPIO — <!-- device:free -->available | 🟩 **15** | **16** 🟩 | GPIO — <!-- device:amp-gpio -->MERUS error input, active high | **23** |
+| — | 3V3 — used by fitted HAT as required | 🟧 **17** | **18** 🟩 | GPIO — <!-- device:display -->display RST | **24** |
+| **10** | SPI0 MOSI — <!-- device:display -->display DIN / MOSI | 🟪 **19** | **20** ⬛ | GND — common radio ground and HAT ground | — |
+| **9** | SPI0 MISO — <!-- device:display -->unused; display is write-only | 🟪 **21** | **22** 🟩 | GPIO — <!-- device:display -->display DC | **25** |
+| **11** | SPI0 SCLK — <!-- device:display -->display CLK / SCLK | 🟪 **23** | **24** 🟩 | GPIO — <!-- device:amp-gpio -->MERUS overlay; **not display CS** | **8** |
 | — | GND — common radio ground and HAT ground | ⬛ **25** | **26** 🟪 | SPI0 CE1 — display CS; `spi_device = 1` | **7** |
 | **0** | ID_SD — reserve for HAT ID EEPROM | ⬜ **27** | **28** ⬜ | ID_SC — reserve for HAT ID EEPROM | **1** |
-| **5** | GPIO — available | 🟩 **29** | **30** ⬛ | GND — common radio ground and HAT ground | — |
-| **6** | GPIO — available | 🟩 **31** | **32** 🟩 | GPIO — display BL | **12** |
-| **13** | GPIO — available | 🟩 **33** | **34** ⬛ | GND — common radio ground and HAT ground | — |
-| **19** | PCM FS — sound-device frame / word clock | 🟨 **35** | **36** 🟩 | GPIO — available | **16** |
-| **26** | GPIO — available; not driven by profile | 🟩 **37** | **38** 🟨 | PCM DIN — reserved with I2S; unused for playback | **20** |
-| — | GND — common radio ground and HAT ground | ⬛ **39** | **40** 🟨 | PCM DOUT — Pi audio data to sound device | **21** |
+| **5** | GPIO — <!-- device:free -->available | 🟩 **29** | **30** ⬛ | GND — common radio ground and HAT ground | — |
+| **6** | GPIO — <!-- device:free -->available | 🟩 **31** | **32** 🟩 | GPIO — <!-- device:display -->display BL | **12** |
+| **13** | GPIO — <!-- device:free -->available | 🟩 **33** | **34** ⬛ | GND — common radio ground and HAT ground | — |
+| **19** | <!-- device:sound -->PCM FS — sound-device frame / word clock | 🟨 **35** | **36** 🟩 | GPIO — <!-- device:free -->available | **16** |
+| **26** | GPIO — <!-- device:free -->available; not driven by profile | 🟩 **37** | **38** 🟨 | <!-- device:sound -->PCM DIN — reserved with I2S; unused for playback | **20** |
+| — | GND — common radio ground and HAT ground | ⬛ **39** | **40** 🟨 | <!-- device:sound -->PCM DOUT — Pi audio data to sound device | **21** |
 
 
 **Required radio action:** move only display CS from BCM 8 / physical pin 24 to
