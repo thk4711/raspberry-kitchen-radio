@@ -11,7 +11,7 @@ This directory collects the project documentation.
 | [persistent-data.md](persistent-data.md) | **Persistent-data reference.** Complete `/data` inventory, why each item survives, image seeding, p4 mounting, compatibility links, safe runtime writes, update isolation, and deliberately volatile state. |
 | [firmware-updates.md](firmware-updates.md) | **Firmware operator guide.** Preflight, upload, installation, trial acceptance, automatic/manual rollback, and recovery. |
 | [firmware-update-architecture.md](firmware-update-architecture.md) | **Firmware developer reference.** Buildroot, image layout, redundant U-Boot state machine, SWU construction, Linux tooling, fallback, and porting checklist. |
-| [hardware.md](hardware.md) | Base-radio wiring, display, USB gadget, and ADS1115 controls. |
+| [hardware.md](hardware.md) | Base-radio wiring, full schematic, display, USB gadget, and ADS1115 controls. |
 | [analog-audio.md](analog-audio.md) | Switching a development appliance from an I2S DAC to the Raspberry Pi's built-in headphone output. |
 | [sound-devices.md](sound-devices.md) | Every selectable sound device, with a complete color-coded 40-pin map, compatibility actions, routing, and qualification. |
 | [alsa-audio-path.md](alsa-audio-path.md) | **ALSA topology & routing reference.** The single end-to-end picture: how every source converges on ALSA `default`, the layered parametric-EQ and `Radio Volume` softvol/dmix stages, the `bluealsa-aplay` and `alsaloop` bridges, stable-card routing, worked `asound.conf` examples, and verification. |

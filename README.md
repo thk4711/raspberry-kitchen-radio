@@ -83,9 +83,11 @@ A typical build uses:
 - Speaker, enclosure, wiring, and power supply.
 
 Base-radio wiring and ADS1115 controls are documented in
-[`doc/hardware.md`](doc/hardware.md). Every selectable output has a complete,
-color-coded 40-pin map in [`doc/sound-devices.md`](doc/sound-devices.md). No
-3D-printable case or speaker files ship with this repository.
+[`doc/hardware.md`](doc/hardware.md), which also includes a full
+[wiring schematic](doc/hardware.md#schematic). Every selectable output has a
+complete, color-coded 40-pin map in
+[`doc/sound-devices.md`](doc/sound-devices.md). No 3D-printable case or speaker
+files ship with this repository.
 
 ## Getting started
 

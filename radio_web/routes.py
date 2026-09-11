@@ -914,6 +914,7 @@ def _settings_post(req: Request) -> Response:
         for key in (
             "theme_preset",
             "animations",
+            "rotate_180",
             "idle_timeout",
             "crossfade_ms",
             "clock_size",
@@ -921,8 +922,9 @@ def _settings_post(req: Request) -> Response:
             "toast_duration",
         )
     }
-    # An unchecked checkbox is simply absent from the POST body.
+    # Unchecked checkboxes are simply absent from the POST body.
     display_form["animations"] = req.form.get("animations", "")
+    display_form["rotate_180"] = req.form.get("rotate_180", "")
 
     try:
         display_store.save_display(display_form)

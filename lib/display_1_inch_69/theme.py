@@ -105,6 +105,10 @@ class Theme(NamedTuple):
     # Master motion switch. False forces ``crossfade_ms``/``edge_fade_px`` to 0.
     animations: bool = True
 
+    # Rotate the entire rendered frame 180° in PIL before sending to the panel.
+    # Use this when the display is physically mounted upside-down.
+    rotate_180: bool = False
+
 
 # The default instance, reused as the per-key fallback source.
 _DEFAULT = Theme()
@@ -270,6 +274,7 @@ def build_theme(ui: Optional[Mapping[str, Any]]) -> Theme:
         idle_bg_top=parse_color(ui.get("idle_bg_top"), d.idle_bg_top),
         idle_bg_bottom=parse_color(ui.get("idle_bg_bottom"), d.idle_bg_bottom),
         animations=animations,
+        rotate_180=parse_bool(ui.get("rotate_180"), d.rotate_180),
     )
 
 

@@ -945,6 +945,7 @@ def settings_page(
     csrf = csrf_field(csrf_token)
     preset_options = presets or [("default", "Default")]
     animations_on = str(display.get("animations", "true")).lower() == "true"
+    rotate_180_on = str(display.get("rotate_180", "false")).lower() == "true"
     body = (
         "<h1>Display</h1>"
         '<p class="sub">A few safe display options. Changes take '
@@ -957,6 +958,7 @@ def settings_page(
         f"{_select('theme_preset', preset_options, display.get('theme_preset', 'default'))}"
         "</label></p>"
         f"<p>{_checkbox('animations', animations_on, 'Enable animations')}</p>"
+        f"<p>{_checkbox('rotate_180', rotate_180_on, 'Rotate display 180°')}</p>"
         "<p><label>Idle timeout (seconds, 0 disables the clock screensaver)<br>"
         f'<input type="number" name="idle_timeout" min="0" max="86400" '
         f'value="{_esc(display.get("idle_timeout", "30"))}"></label></p>'

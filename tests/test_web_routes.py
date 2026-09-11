@@ -1326,6 +1326,43 @@ class TestSettingsRoutes:
         assert status == 303
         assert ("Location", "/settings?msg=saved") in headers
 
+    def test_settings_get_renders_rotate_180_checkbox(self, monkeypatch, tmp_path):
+        req = self._authed(monkeypatch, tmp_path, "GET", "/settings")
+        _status, _c, body, _h = routes.resolve(req)
+        assert 'name="rotate_180"' in body
+        assert "Rotate display 180" in body
+
+    def test_settings_post_persist_rotate_180(self, monkeypatch, tmp_path):
+        sessions = auth.SessionStore()
+        session = sessions.create()
+        form = {
+            "op": "save",
+            "csrf_token": session.csrf_token,
+            "theme_preset": "default",
+            "animations": "true",
+            "rotate_180": "true",
+            "idle_timeout": "30",
+            "crossfade_ms": "150",
+            "clock_size": "24",
+            "osd_duration": "1.5",
+            "toast_duration": "1.6",
+        }
+        req = self._ctx(
+            monkeypatch,
+            tmp_path,
+            "POST",
+            "/settings",
+            sessions=sessions,
+            session=session,
+            form=form,
+        )
+        status, _c, _b, headers = routes.resolve(req)
+        assert status == 303
+        assert ("Location", "/settings?msg=saved") in headers
+        from radio_web import display_store
+        loaded = display_store.load_display()
+        assert loaded["rotate_180"] == "true"
+
 
 class TestAudioHardwareRoutes:
     """Step 5 sound-card routes: auth + CSRF gating, save → dispatch → confirm."""

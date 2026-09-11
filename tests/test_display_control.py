@@ -637,6 +637,72 @@ def test_ui_animations_off_disables_crossfade(monkeypatch):
     assert themed._crossfade_active() is False
 
 
+# --- rotate_180 ---------------------------------------------------------------
+
+def test_rotate_180_default_is_false(controller):
+    """The shipped default theme must not rotate (backward-compatible default)."""
+    assert controller.theme.rotate_180 is False
+
+
+def test_rotate_180_false_frame_unchanged(monkeypatch):
+    """With rotate_180=false the packed bytes equal a manually non-rotated frame."""
+    import numpy as np
+    from display_1_inch_69 import compositor
+
+    ctrl = _controller_with_ui(monkeypatch, {"rotate_180": "false"})
+    assert ctrl.theme.rotate_180 is False
+    frame = ctrl._render_frame()
+    ctrl.disp.frames.clear()
+    ctrl._last_frame_sig = None
+    ctrl._push_frame(frame, force=True)
+    expected = compositor.pack_rgb565(np.asarray(frame))
+    assert ctrl.disp.frames[-1] == expected
+
+
+def test_rotate_180_true_flips_packed_bytes(monkeypatch):
+    """With rotate_180=true the packed bytes equal those of the 180°-rotated frame."""
+    import numpy as np
+    from display_1_inch_69 import compositor
+
+    ctrl = _controller_with_ui(monkeypatch, {"rotate_180": "true"})
+    assert ctrl.theme.rotate_180 is True
+    frame = ctrl._render_frame()
+    ctrl.disp.frames.clear()
+    ctrl._last_frame_sig = None
+    ctrl._push_frame(frame, force=True)
+    rotated = frame.rotate(180)
+    expected = compositor.pack_rgb565(np.asarray(rotated))
+    assert ctrl.disp.frames[-1] == expected
+
+
+def test_rotate_180_true_differs_from_false(monkeypatch):
+    """Rotating 180° produces different packed bytes for an asymmetric frame."""
+    import numpy as np
+    from display_1_inch_69 import compositor
+
+    ctrl_normal = _controller_with_ui(monkeypatch, {"rotate_180": "false"})
+    ctrl_rotated = _controller_with_ui(monkeypatch, {"rotate_180": "true"})
+
+    # Give both controllers the same metadata so their raw frames are identical.
+    for ctrl in (ctrl_normal, ctrl_rotated):
+        ctrl.update_metadata("Radio", "Song", "", "sig-x", state=True,
+                             art_mode="radio", source="mpd")
+        ctrl._transient.clear_crossfade()
+
+    frame = ctrl_normal._render_frame()
+
+    ctrl_normal.disp.frames.clear()
+    ctrl_normal._last_frame_sig = None
+    ctrl_normal._push_frame(frame, force=True)
+
+    ctrl_rotated.disp.frames.clear()
+    ctrl_rotated._last_frame_sig = None
+    ctrl_rotated._push_frame(frame, force=True)
+
+    # The two byte streams must differ (the now-playing frame is asymmetric).
+    assert ctrl_normal.disp.frames[-1] != ctrl_rotated.disp.frames[-1]
+
+
 # --- Workstream 6: generated initials-tile fallback ------------------------
 
 def test_radio_without_logo_renders_initials_tile(controller):

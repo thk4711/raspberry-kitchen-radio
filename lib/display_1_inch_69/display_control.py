@@ -968,6 +968,8 @@ class DisplayController:
         Returns:
             bool: ``True`` if the frame was transmitted to the panel.
         """
+        if self.theme.rotate_180:
+            frame = frame.rotate(180)
         pix = compositor.pack_rgb565(np.asarray(frame))
         if not force and pix == self._last_frame_sig:
             return False

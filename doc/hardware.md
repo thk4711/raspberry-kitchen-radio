@@ -2,8 +2,9 @@
 
 > **Status:** the base-radio pin and ADS1115 information below reflects the shipped
 > `buildroot/external/board/radio/config.txt`, `radio.conf`, `display.conf` and
-> the code. A text wiring diagram and base pin summary are included. No 3D-printable
-> case files are part of this repository.
+> the code. A text wiring diagram, base pin summary, and a full
+> [schematic](#schematic) are included. No 3D-printable case files are part of
+> this repository.
 
 ## GPIO pinout & wiring overview
 
@@ -68,6 +69,26 @@ graph LR
     PI -->|selected profile| DAC[Sound device]
     HOST[USB host] -->|D- / D+ / GND only; no VBUS| PI
 ```
+
+### Schematic
+
+![Raspberry Pi Radio schematic: 1.69" ST7789 SPI display, ADS1115 controls (volume pot, six-button ladder, power switch)](images/Schematic_Raspberry-PI-Radio.png)
+
+This schematic shows the **base-radio wiring** and matches the shipped defaults
+in `display.conf` and `radio.conf` (cross-checked against the code):
+
+- the 1.69" **ST7789 SPI display** (SDA/DIN→BCM 10, SCL/SCK→BCM 11, CS→CE0/BCM 8,
+  DC→BCM 25, RES→BCM 24, BLK→BCM 12, VCC→3V3, GND→GND);
+- the **ADS1115 ADC** on I2C1 (SDA→BCM 2, SCL→BCM 3, `0x48`) reading the volume
+  potentiometer on **AIN0**, the six-button resistor ladder on **AIN1**, and the
+  ON/OFF switch on **AIN2**.
+
+It deliberately does **not** show a sound-device HAT or the optional
+amplifier-enable GPIO (BCM 26): those are profile-dependent and each has its own
+complete 40-pin map in [`sound-devices.md`](sound-devices.md#device-pinouts).
+The exact discrete parts (resistor ladder, pot value, and the 3V3 reference
+requirement) are described under
+[Controls via ADS1115](#controls-via-ads1115-i2c-adc).
 
 
 ## USB audio gadget wiring
@@ -135,6 +156,34 @@ fixed cadence (`ADC_POLL_INTERVAL`).
 The I2C address defaults to `0x48` and is configurable in `radio.conf`
 (`[adc] i2c_address`, parsed base-0 so `0x48` works). Verify the chip is present
 with `i2cdetect -y 1`.
+
+### Discrete parts and reference (from the [schematic](#schematic))
+
+The controls are a small passive network around the ADS1115. The reference
+build uses these components:
+
+| Ref | Value | Role |
+| --- | --- | --- |
+| **RP1** | 10 kΩ potentiometer | Volume knob; wiper → **AIN0**, ends across 3V3 / GND. |
+| **R1–R6** | 6 × 2.2 kΩ | Series resistor ladder for the six preset buttons **SW1–SW6**. |
+| **R7** | 2.2 kΩ | Top-of-ladder series resistor into the 3V3 reference. |
+| **R8** | 100 kΩ | Pull up for the button-ladder node feeding **AIN1**. |
+| **SW7** | ON/OFF switch | Power switch sensed on **AIN2**. |
+| **R9** | 100 kΩ | Pull up for the switch node feeding **AIN2**. |
+
+Wiring and reference notes that keep the shipped calibration valid:
+
+- **Power the ADS1115 `VDD` from the Pi 3V3 rail**, and feed the top of the pot
+  and the button ladder from that **same 3V3**. The ADS1115 measures absolute
+  voltage (default PGA ±6.144 V), so the calibration defaults below
+  (`volume_max_input = 3282`, `button_max = 3100`) assume a ~3.3 V full scale.
+  Using 5 V shifts every reading and breaks button/volume detection.
+- **`ADDR`** is left at its default so the chip answers at `0x48`, matching
+  `[adc] i2c_address`. Tie it to select another address only if you also change
+  `radio.conf`.
+- **`ALERT/RDY`** is intentionally left unconnected. The controller polls the
+  channels on a fixed cadence (`ADC_POLL_INTERVAL`) rather than using the
+  data-ready interrupt, so no GPIO line is needed for it.
 
 ### Channel map
 

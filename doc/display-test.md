@@ -58,6 +58,9 @@ With the Raspberry Pi powered off:
 The display does not need SPI **MISO** for this driver because the app only
 writes pixels to the panel.
 
+For a complete schematic of the display **and** the ADS1115 controls in one
+drawing, see [`hardware.md`](hardware.md#schematic).
+
 ### Alternative chip select for a MERUS Amp
 
 The `merus-amp` device-tree overlay reserves BCM 8, so the default CE0 display

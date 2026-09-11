@@ -34,6 +34,7 @@ _SECTION_RE = re.compile(r"^\[(.+)\]$")
 DEFAULTS: Dict[str, str] = {
     "idle_timeout": "30",
     "animations": "true",
+    "rotate_180": "false",
     "crossfade_ms": "150",
     "clock_size": "24",
     "osd_duration": "1.5",
@@ -126,12 +127,14 @@ def validate_settings(submitted: Dict[str, str]) -> Dict[str, str]:
     """
     preset = validators.validate_theme_preset(submitted.get("theme_preset", ""))
     animations = validators.validate_bool_flag(submitted.get("animations", ""))
+    rotate_180 = validators.validate_bool_flag(submitted.get("rotate_180", ""))
     return {
         "theme_preset": preset,
         "idle_timeout": str(
             validators.validate_idle_timeout(submitted.get("idle_timeout", ""))
         ),
         "animations": "true" if animations else "false",
+        "rotate_180": "true" if rotate_180 else "false",
         "crossfade_ms": str(
             validators.validate_crossfade_ms(submitted.get("crossfade_ms", ""))
         ),
@@ -163,7 +166,7 @@ def _resolve_ui_keys(cleaned: Dict[str, str]) -> Dict[str, str]:
     The ``theme_preset`` marker is kept so the page can re-select it.
     """
     ui: Dict[str, str] = {}
-    for key in ("idle_timeout", "animations", "crossfade_ms", "clock_size",
+    for key in ("idle_timeout", "animations", "rotate_180", "crossfade_ms", "clock_size",
                 "osd_duration", "toast_duration"):
         ui[key] = cleaned[key]
     ui.update(PRESETS.get(cleaned.get("theme_preset", "default"), {}))

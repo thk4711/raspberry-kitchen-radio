@@ -172,6 +172,32 @@ class TestDisplayStore:
         assert built.idle_timeout == 12.0
         assert built.crossfade_ms == 300
 
+    def test_rotate_180_default_is_false(self):
+        assert display_store.DEFAULTS["rotate_180"] == "false"
+
+    def test_rotate_180_roundtrip(self, managed):
+        display_store.save_display(
+            {**display_store.DEFAULTS, "rotate_180": "true"}
+        )
+        loaded = display_store.load_display()
+        assert loaded["rotate_180"] == "true"
+
+    def test_rotate_180_persisted_in_ui_block(self, managed):
+        display_store.save_display(
+            {**display_store.DEFAULTS, "rotate_180": "true"}
+        )
+        text = open(display_store.managed_display_path()).read()
+        assert "rotate_180 = true" in text
+
+    def test_rotate_180_unchecked_saves_false(self, managed):
+        # Simulate an unchecked checkbox: the key is absent from the POST body.
+        form = dict(display_store.DEFAULTS)
+        form.pop("rotate_180")
+        form["rotate_180"] = ""  # what routes.py sends when checkbox is absent
+        display_store.save_display(form)
+        loaded = display_store.load_display()
+        assert loaded["rotate_180"] == "false"
+
 
 class TestAudioStore:
     def test_defaults_when_no_managed_file(self, managed):
