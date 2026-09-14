@@ -5,7 +5,7 @@ any machine.
 """
 import pytest
 from display import layout as layout_mod
-from display.layout import Rect, compute_layout, inner_rect
+from display.layout import Rect, chord_width, compute_layout, inner_rect
 
 
 def test_rect_derived_properties():
@@ -82,3 +82,95 @@ def test_inner_rect_pct_bounds():
 def test_compute_layout_rejects_nonpositive(bad):
     with pytest.raises(ValueError):
         compute_layout(bad[0], bad[1])
+
+
+# --- Round-shape geometry (GC9A01 240x240) --------------------------------
+
+
+def test_chord_width_widest_at_centre_and_zero_at_poles():
+    r = 120
+    # Widest chord is the full diameter at the centre row.
+    assert chord_width(r, r) == 2 * r
+    # At (and beyond) the poles the chord vanishes.
+    assert chord_width(0, r) == 0
+    assert chord_width(2 * r, r) == 0
+    assert chord_width(-5, r) == 0
+    assert chord_width(2 * r + 5, r) == 0
+
+
+def test_chord_width_monotonic_toward_centre():
+    r = 120
+    # Moving from a pole toward the centre never narrows the chord.
+    widths = [chord_width(y, r) for y in range(0, r + 1)]
+    assert widths == sorted(widths)
+    # Symmetric about the centre row.
+    for dy in range(0, r + 1):
+        assert chord_width(r - dy, r) == chord_width(r + dy, r)
+
+
+def test_chord_width_respects_center_y_offset():
+    r = 100
+    # A circle centred at y=100 is widest there, not at y=r.
+    assert chord_width(100, r, center_y=100) == 2 * r
+    assert chord_width(0, r, center_y=100) == 0
+
+
+def test_chord_width_nonpositive_radius_is_zero():
+    assert chord_width(50, 0) == 0
+    assert chord_width(50, -10) == 0
+
+
+def test_round_layout_populates_center_and_radius():
+    lay = compute_layout(240, 240, shape="round")
+    assert lay.shape == "round"
+    assert lay.radius == 120
+    assert lay.center == Rect(120, 120, 1, 1)
+    assert lay.frame == Rect(0, 0, 240, 240)
+
+
+def _within_circle(band: Rect, cx: int, cy: int, radius: int) -> bool:
+    """True when both top corners of ``band`` lie inside the inscribed circle."""
+    def inside(x: int, y: int) -> bool:
+        return (x - cx) ** 2 + (y - cy) ** 2 <= radius ** 2 + 1  # +1 rounding slack
+    return (inside(band.x, band.cy) and inside(band.right, band.cy))
+
+
+def test_round_bands_stay_within_inscribed_circle():
+    lay = compute_layout(240, 240, band_height=44, bottom_band_height=82,
+                         shape="round")
+    cx, cy, r = lay.center.x, lay.center.y, lay.radius
+    # Each band's width must not exceed the chord at its own centre row.
+    assert lay.top_band.w <= chord_width(lay.top_band.cy, r, cy)
+    assert lay.bottom_band.w <= chord_width(lay.bottom_band.cy, r, cy)
+    # And the band edges lie inside the circle.
+    assert _within_circle(lay.top_band, cx, cy, r)
+    assert _within_circle(lay.bottom_band, cx, cy, r)
+
+
+def test_round_bands_are_horizontally_centred():
+    lay = compute_layout(240, 240, shape="round")
+    # Both bands are centred on the panel's vertical axis (±1 px rounding).
+    assert abs(lay.top_band.cx - lay.center.x) <= 1
+    assert abs(lay.bottom_band.cx - lay.center.x) <= 1
+
+
+def test_round_text_region_below_top_arc_and_non_overlapping():
+    lay = compute_layout(240, 240, band_height=44, bottom_band_height=82,
+                         shape="round")
+    # The top-arc band sits above the centred text region; they never meet.
+    assert lay.top_band.bottom <= lay.bottom_band.y
+    # The text region straddles the vertical centre (widest chord).
+    assert lay.bottom_band.y <= lay.center.y <= lay.bottom_band.bottom
+
+
+def test_rect_shape_default_unchanged_by_round_support():
+    # Regression: the default (rect) path is unaffected by the new shape arg.
+    default = compute_layout(240, 280, inset=14, band_height=44,
+                             bottom_band_height=82)
+    explicit = compute_layout(240, 280, inset=14, band_height=44,
+                              bottom_band_height=82, shape="rect")
+    assert default == explicit
+    assert default.shape == "rect"
+    assert default.center is None
+    assert default.radius is None
+

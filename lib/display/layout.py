@@ -19,6 +19,7 @@ A :class:`Rect` is an axis-aligned box in the clean 240x280 compose space
 """
 from __future__ import annotations
 
+import math
 from typing import NamedTuple, Optional
 
 
@@ -52,7 +53,16 @@ class Rect(NamedTuple):
 
 
 class Layout(NamedTuple):
-    """The full set of layout rectangles for one composed frame."""
+    """The full set of layout rectangles for one composed frame.
+
+    The first six fields are shared by both panel shapes (``rect`` and
+    ``round``); a rectangular ST7789 layout uses only these and every historical
+    caller/test that constructs a :class:`Layout` positionally keeps working.
+
+    The trailing fields carry the extra geometry the **round** GC9A01 layout
+    needs (the inscribed-circle centre + radius). They default to ``None`` for
+    the rectangular shape so nothing rectangular has to know about them.
+    """
 
     frame: Rect        # the whole panel (0, 0, width, height)
     safe: Rect         # inset safe area; nothing legible outside this
@@ -60,6 +70,12 @@ class Layout(NamedTuple):
     bottom_band: Rect  # bottom chrome band (scrim + title / artist / OSD)
     top_inner: Rect    # inner ~70%-width region of the top band (never cornered)
     bottom_inner: Rect  # inner ~70%-width region of the bottom band
+    # Round-shape only (``None`` for ``rect``): the inscribed circle geometry so
+    # draw sites can clamp elements to the circular edge via ``chord_width``.
+    shape: str = "rect"
+    center: Optional[Rect] = None  # a 1x1 Rect marking the circle centre (cx, cy)
+    radius: Optional[int] = None   # inscribed-circle radius in pixels
+
 
 
 def inner_rect(band: Rect, pct: float) -> Rect:
@@ -81,6 +97,109 @@ def inner_rect(band: Rect, pct: float) -> Rect:
     return Rect(x, band.y, inner_w, band.h)
 
 
+def chord_width(cy: int, radius: int, center_y: Optional[int] = None) -> int:
+    """Return the width of the inscribed circle's horizontal chord at row ``cy``.
+
+    For a circle of ``radius`` centred vertically at ``center_y`` (defaulting to
+    ``radius``, i.e. a circle that spans ``0 .. 2*radius``), this is the pixel
+    width available on the row ``cy`` before an element would cross the circular
+    edge. Round-mode draw sites clamp element widths to this so nothing is
+    clipped by the panel's circular bezel.
+
+    The value is widest (``2*radius``) at the centre row and shrinks
+    monotonically toward the poles, reaching ``0`` at or beyond ``center_y ±
+    radius``. Pure integer geometry — no PIL/hardware — so it is unit-testable
+    anywhere.
+
+    Args:
+        cy: The row (y coordinate) to measure the chord at.
+        radius: The inscribed-circle radius in pixels.
+        center_y: The circle's vertical centre; defaults to ``radius`` (a circle
+            occupying ``0 .. 2*radius``).
+
+    Returns:
+        The chord width in pixels (``0`` outside the circle), rounded to the
+        nearest whole pixel.
+    """
+    if radius <= 0:
+        return 0
+    if center_y is None:
+        center_y = radius
+    dy = abs(int(cy) - int(center_y))
+    if dy >= radius:
+        return 0
+    return int(round(2.0 * math.sqrt(radius * radius - dy * dy)))
+
+
+def _round_layout(
+    width: int,
+    height: int,
+    band_height: int,
+    bottom_h: int,
+    inner_pct: float,
+) -> Layout:
+    """Compute the shape-aware layout for a round (GC9A01) panel.
+
+    The panel is a circle inscribed in the ``width x height`` square (for the
+    GC9A01 both are 240, so ``radius = 120`` centred at ``(120, 120)``). Instead
+    of full-width rectangular bands (which would waste the corners and clip text
+    at the circular edge), the round layout:
+
+    * puts a **shallow top-arc band** near the top whose width is the chord at
+      that band's centre row (narrower than the rectangular band), so the status
+      symbols sit inside the arc rather than in the clipped cap;
+    * centres the **text region** on the vertical middle of the panel, where the
+      chord is widest and text is most legible; and
+    * reserves the **bottom sector** below that text region for the circular
+      volume gauge (drawn by ``display_control`` directly from ``center`` /
+      ``radius``), so the returned ``bottom_band`` marks that reserved sector.
+
+    Every band's width is clamped to the chord at its own centre row so no
+    element crosses the circular edge. ``center`` / ``radius`` are populated so
+    draw sites can clamp per-row via :func:`chord_width`.
+    """
+    radius = min(width, height) // 2
+    cx = width // 2
+    cy = height // 2
+    frame = Rect(0, 0, width, height)
+
+    # Top-arc symbol band: a shallow band riding near the top of the circle.
+    # Start it a little below the very top of the circle so its chord is wide
+    # enough for the badge/clock/glyph, and clamp its width to the chord at the
+    # band's centre row.
+    top_gap = max(2, (height - 2 * radius) // 2 + radius // 6)
+    top_h = max(1, min(band_height, radius))
+    top_chord = chord_width(top_gap + top_h // 2, radius, cy)
+    top_w = max(1, min(width, top_chord))
+    top_band = Rect(cx - top_w // 2, top_gap, top_w, top_h)
+
+    # Centred text region: anchored on the vertical centre where the chord is
+    # widest. Its width is clamped to the (narrowest) chord across its rows so
+    # both text rows stay inside the circle.
+    text_h = max(1, min(bottom_h, 2 * radius - top_h - 2))
+    text_y = cy - text_h // 2
+    text_chord = min(chord_width(text_y, radius, cy),
+                     chord_width(text_y + text_h, radius, cy))
+    text_w = max(1, min(width, text_chord))
+    bottom_band = Rect(cx - text_w // 2, text_y, text_w, text_h)
+
+    top_inner = inner_rect(top_band, inner_pct)
+    bottom_inner = inner_rect(bottom_band, inner_pct)
+
+    return Layout(
+        frame=frame,
+        safe=Rect(cx - radius, cy - radius, 2 * radius, 2 * radius),
+        top_band=top_band,
+        bottom_band=bottom_band,
+        top_inner=top_inner,
+        bottom_inner=bottom_inner,
+        shape="round",
+        center=Rect(cx, cy, 1, 1),
+        radius=radius,
+    )
+
+
+
 def compute_layout(
     width: int,
     height: int,
@@ -89,6 +208,7 @@ def compute_layout(
     bottom_band_height: Optional[int] = None,
     inner_pct: float = 0.70,
     top_margin: int = 0,
+    shape: str = "rect",
 ) -> Layout:
     """Compute the safe-area layout rectangles for a ``width x height`` panel.
 
@@ -104,6 +224,10 @@ def compute_layout(
             to ``0`` so the status strip sits flush against the physical top
             edge; the band still keeps its horizontal safe inset so nothing
             lands in the rounded corners.
+        shape: ``"rect"`` (default, the 240x280 ST7789) or ``"round"`` (the
+            240x240 GC9A01). The ``rect`` result is byte-identical to the
+            historical layout; ``round`` centres the text region and shrinks the
+            bands to the inscribed circle (see :func:`_round_layout`).
 
     Returns:
         A :class:`Layout` whose bottom band sits inside the safe area and whose
@@ -116,6 +240,10 @@ def compute_layout(
     band_height = max(1, int(band_height))
     bottom_h = max(1, int(band_height if bottom_band_height is None
                           else bottom_band_height))
+
+    if shape == "round":
+        return _round_layout(width, height, band_height, bottom_h, inner_pct)
+
     # The top band only needs to clear the *rounded corners*, so it can ride
     # right up to the physical top edge (``top_margin`` defaults to 0). Never
     # let the margin exceed the safe inset, so it stays sane on square panels.
