@@ -1,5 +1,5 @@
 # layout.py
-"""Pure safe-area layout geometry for the 240x280 now-playing UI.
+"""Pure safe-area layout geometry for the now-playing display UI.
 
 Workstream 2 of the display redesign introduces a layered layout: a full-bleed
 art layer, a darkened top chrome band and a darkened bottom chrome band, all
@@ -7,15 +7,23 @@ kept inside a safe-area inset so nothing legible lands in the panel's rounded
 physical corners.
 
 This module computes *only pixel rectangles* — no Pillow, no numpy, no
-hardware — so the geometry is unit-testable on any machine. Later workstreams
-place concrete widgets into these rects:
+hardware — so the geometry is unit-testable on any machine. It supports two
+panel shapes:
 
-* top band     -> clock (centre), source badge + play/pause glyph (WS3.3),
-                  all within an inner ~70% width so they are never cornered;
-* bottom band  -> title / artist text rows (WS2/WS3) and the volume OSD (WS4.2).
+* **rect** — the default 240x280 ST7789 rectangular panel. Later workstreams
+  place concrete widgets into these rects:
 
-A :class:`Rect` is an axis-aligned box in the clean 240x280 compose space
-(the driver applies the panel's +20px GRAM offset separately).
+  * top band     -> clock (centre), source badge + play/pause glyph (WS3.3),
+                    all within an inner ~70% width so they are never cornered;
+  * bottom band  -> title / artist text rows (WS2/WS3) and the volume OSD (WS4.2).
+
+* **round** — the 240x240 GC9A01 circular panel. The layout centres the text
+  region on the inscribed circle, shrinks the bands to fit within it, and
+  exposes ``center`` / ``radius`` on the returned :class:`Layout` so draw sites
+  can clamp elements to the circular edge via ``chord_width``.
+
+A :class:`Rect` is an axis-aligned box in the clean compose-space pixels
+(the driver applies any panel-specific GRAM offset separately).
 """
 from __future__ import annotations
 

@@ -1,6 +1,9 @@
 # Display smoke test
 
-This repository includes a small standalone test for the 1.69" ST7789 SPI display:
+The display smoke test script works with both supported SPI panels — the
+1.69" **ST7789** (240×280, rectangular, default) and the 1.28" **GC9A01**
+(240×240, round). It reads the active panel selection from `display.conf`
+and uses the same driver factory as the radio application itself:
 
 ```text
 /opt/raspberry-kitchen-radio/lib/display/display_test.py
@@ -17,6 +20,11 @@ you want to separate a display/wiring/SPI problem from a larger application
 startup problem.
 
 ## Wiring expected by the current config
+
+Both the ST7789 and the GC9A01 use the **same four-wire SPI connections**. The
+only difference between the two panels is the driver (initialisation sequence
+and GRAM window) which is selected automatically from `display.conf`. No
+rewiring is needed when switching panels.
 
 Pin numbers in `display.conf` and in the Python code are **BCM** numbers. The
 table also includes the Raspberry Pi 40-pin header physical pin numbers so you
@@ -40,7 +48,7 @@ With the Raspberry Pi powered off:
 1. Connect display **GND** to a Raspberry Pi ground pin, for example physical
    pin **6**.
 2. Connect display **VCC** to the voltage required by your display module.
-   Many ST7789 breakout boards are 3.3 V devices, so use physical pin **1**
+   Many ST7789 and GC9A01 breakout boards are 3.3 V devices, so use physical pin **1**
    (**3V3**) unless your exact board explicitly requires 5 V.
 3. Connect display **DIN**, sometimes labelled **SDA**, **MOSI**, or **SDI**, to
    Raspberry Pi physical pin **19** / BCM **10** / SPI0 **MOSI**.
@@ -209,6 +217,25 @@ python3 lib/display/display_test.py --spi-freq 1000000
 If a low clock works but 40 MHz does not, the most likely cause is signal
 integrity: loose jumper wires, long wires, poor ground, or marginal power.
 
+## Preview the now-playing UI (`--mock-now-playing`)
+
+To eyeball the real now-playing display on hardware without starting the full
+radio application, use the `--mock-now-playing` flag. This drives the actual
+`DisplayController` with synthetic metadata (title, artist, volume, preset
+toasts, and the idle clock screensaver) and cycles through the states
+automatically:
+
+```sh
+/etc/init.d/S90radio stop
+cd /opt/raspberry-kitchen-radio
+python3 lib/display/display_test.py --mock-now-playing
+```
+
+The panel driver used is the one selected in `display.conf` (`panel = st7789`
+or `panel = gc9a01`), so the correct shape-aware layout (rectangular bar OSD
+for ST7789, ring-gauge OSD for GC9A01) is exercised automatically. Press
+**Ctrl+C** to exit.
+
 ## Try only the backlight
 
 To test whether the backlight pin can be driven, run with a visible backlight
@@ -265,7 +292,7 @@ The display hardware path is basically working:
 - SPI is enabled.
 - The display has power and ground.
 - MOSI, SCLK, the configured CE0/CE1, RST, DC, and BL are probably wired correctly.
-- The Python display driver can initialize the ST7789.
+- The Python display driver can initialize the selected panel (ST7789 or GC9A01).
 
 If the main radio app still does not show anything, investigate the radio app
 startup path, service logs, metadata rendering, or whether the power switch

@@ -143,15 +143,20 @@ calibration for the volume knob, preset buttons and power switch.
 
 ### Display (`/settings`)
 
-A small, safe subset of the display theme and behaviour:
+A small, safe subset of the display settings and theme behaviour:
 
+- **Display panel** — choose between the 1.69" **ST7789** (240×280, rectangular,
+  default) and the 1.28" **GC9A01** (240×240, round). Both panels use the same
+  SPI wiring; only the driver and the rendered layout differ. Takes effect after
+  a radio restart.
 - **Theme preset** (Default / High contrast / Dim night / No animations),
   **animations** on/off, **idle timeout** (clock screensaver), **crossfade**
   duration, **clock size**, and the volume-OSD / preset-toast durations.
 
-Display options are written to `/etc/radio/display.ini` (a `[ui]` section layered
-over the shipped `display.conf`). They take effect after **Apply and restart
-radio**.
+Display options are written to `/etc/radio/display.ini`. The file contains a
+`[display]` section (with `panel`, `width`, and `height`) layered over the
+shipped `display.conf`, and a `[ui]` section with the theme keys. They take
+effect after **Apply and restart radio**.
 
 The display's low-level SPI bus and hardware chip-select are not web settings.
 They are configured in the shipped `[display]` section. The default
@@ -335,7 +340,7 @@ survives firmware updates and rollback:
 | `/etc/radio/logos/` | Uploaded station logos, normalized to PNG (overrides shipped logos). | `0644` |
 | `/etc/radio/sources.ini` | Music-source on/off flags. | `0644` |
 | `/etc/radio/device.ini` | Device name, timezone, NTP server. | `0644` |
-| `/etc/radio/display.ini` | Display `[ui]` options (overrides `display.conf`). | `0644` |
+| `/etc/radio/display.ini` | Display `[display]` panel selection (`panel`, `width`, `height`) and `[ui]` theme options (overrides `display.conf`). | `0644` |
 | `/etc/radio/audio.ini` | User-selected maximum-volume cap. | `0644` |
 | `/etc/radio/audio_hardware.ini` | Selected sound-card profile id (overrides the built-in `headphones` default). | `0644` |
 | `/etc/radio/equalizer.ini` | Parametric-EQ enable, preamp, filter types, frequencies, gains and Q values. | `0644` |

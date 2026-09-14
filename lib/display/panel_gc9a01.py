@@ -15,10 +15,11 @@ The ``width`` / ``height`` class attributes (240x240) are consumed by the
 inherited ``ShowFullFrame``, ``ShowImage``, ``ShowWindow``, and ``clear``
 methods in ``PanelBase``.
 
-Hardware note: the exact init bytes, the MADCTL orientation byte, and the
-colour order can only be fully verified on real hardware. If the round panel
-comes up mirrored/rotated or with swapped colours, adjust the MADCTL value
-(command ``0x36``) below — that is the single on-device tuning point.
+Hardware note: the init sequence, MADCTL orientation byte, colour order, GRAM
+window addressing, and SPI frame writes were verified correct on the target
+device (14 Sep 2026). If a different GC9A01 breakout comes up mirrored,
+rotated, or with swapped colours, adjust the MADCTL value (command ``0x36``)
+below — that is the single on-device tuning point.
 """
 
 import time
