@@ -116,6 +116,28 @@ Run the Python-level checks locally before pushing to catch failures early:
 ruff check . && mypy && pytest -q
 ```
 
+## The color-coded pinout HTML page
+
+[`sound-devices.md`](sound-devices.md) is the Markdown source of truth for the
+per-profile 40-pin maps. A color-coded HTML rendering is generated from it and
+published to GitHub Pages at
+<https://thk4711.github.io/raspberry-kitchen-radio/sound-devices.html>, where
+each pin description is tinted by owning subsystem (SPI display, ADC, sound
+card, amp GPIO, UART, free).
+
+[`../scripts/generate-pinout-html.py`](../scripts/generate-pinout-html.py) reads
+the `<!-- device:TAG -->` annotations in the Markdown and writes
+[`sound-devices.html`](sound-devices.html):
+
+```bash
+python3 scripts/generate-pinout-html.py          # rebuild doc/sound-devices.html
+python3 scripts/generate-pinout-html.py --check   # verify the HTML is up to date
+```
+
+After editing `sound-devices.md`, regenerate the HTML and commit both files.
+[`../.github/workflows/pages.yml`](../.github/workflows/pages.yml) runs the
+generator on every push to `main` and deploys the result to GitHub Pages.
+
 ## Developing the parametric equalizer
 
 The EQ spans target C, generated ALSA configuration, persistent Python settings,
