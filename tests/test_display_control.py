@@ -769,6 +769,161 @@ def test_non_bluetooth_fallback_still_uses_initials(controller):
     assert body != logo_fallback.BLUETOOTH_TILE_COLOR
 
 
+# --- Round GC9A01 panel selection + shape-aware paths (Step 5 / Step 7) ----
+
+
+class _FakeRoundPanel:
+    """Recording fake for the 240x240 round GC9A01 panel."""
+
+    width = 240
+    height = 240
+
+    def __init__(self, *args, **kwargs):
+        self.frames = []
+        self.backlight = None
+        self.init_kwargs = kwargs
+
+    def Init(self):
+        pass
+
+    def bl_DutyCycle(self, duty):
+        self.backlight = duty
+
+    def clear(self):
+        pass
+
+    def ShowFullFrame(self, pix):
+        expected = self.width * self.height * 2
+        assert len(pix) == expected, f"expected {expected} bytes, got {len(pix)}"
+        self.frames.append(pix)
+
+
+def _round_controller(monkeypatch):
+    """Build a DisplayController configured for the round GC9A01 panel.
+
+    Patches the factory to return the 240x240 round fake and rewrites the
+    parsed ``display.conf`` so ``panel = gc9a01`` with matching 240x240 size,
+    mirroring how a real round build is provisioned.
+    """
+    monkeypatch.setattr(panel_factory, "get_panel_class",
+                        lambda name: _FakeRoundPanel)
+
+    import importlib
+
+    import display.display_control as dc
+    dc = importlib.reload(dc)
+
+    class _InertThread:
+        def __init__(self, *args, **kwargs):
+            pass
+
+        def start(self):
+            pass
+
+    monkeypatch.setattr(dc.threading, "Thread", _InertThread)
+    monkeypatch.setattr(dc, "monotonic", lambda: 0.0)
+
+    real_read_config_layered = dc.utility.read_config_layered
+
+    def _read_round(default_path, override_path=None):
+        conf = real_read_config_layered(default_path, override_path)
+        conf["display"]["panel"] = "gc9a01"
+        conf["display"]["width"] = 240
+        conf["display"]["height"] = 240
+        return conf
+
+    monkeypatch.setattr(dc.utility, "read_config_layered", _read_round)
+    return dc.DisplayController()
+
+
+def test_round_controller_uses_round_shape_and_240_square(monkeypatch):
+    ctrl = _round_controller(monkeypatch)
+    assert ctrl.shape == "round"
+    assert (ctrl.width, ctrl.height) == (240, 240)
+    # The layout carries the inscribed-circle geometry.
+    assert ctrl.layout.shape == "round"
+    assert ctrl.layout.radius == 120
+
+
+def test_round_controller_builds_240x240_frame(monkeypatch):
+    ctrl = _round_controller(monkeypatch)
+    frame = ctrl._render_frame()
+    assert frame.size == (240, 240)
+    assert frame.mode == "RGB"
+    # The initial forced splash push was a 240x240 RGB565 buffer.
+    assert len(ctrl.disp.frames) == 1
+    assert len(ctrl.disp.frames[0]) == 240 * 240 * 2
+
+
+def test_round_controller_uses_arc_osd_path(monkeypatch):
+    ctrl = _round_controller(monkeypatch)
+    calls = {"round": 0, "rect": 0}
+    monkeypatch.setattr(ctrl, "_draw_volume_osd_round",
+                        lambda draw: calls.__setitem__("round", calls["round"] + 1))
+    monkeypatch.setattr(ctrl, "_draw_volume_osd",
+                        lambda draw: calls.__setitem__("rect", calls["rect"] + 1))
+    ctrl.update_metadata("Radio", "Song", "", "0", state=True,
+                         art_mode="radio", source="mpd")
+    ctrl.show_volume(42)
+    ctrl._render_frame()
+    # The round panel draws the ring gauge, never the rectangular bar.
+    assert calls["round"] == 1
+    assert calls["rect"] == 0
+
+
+def test_rect_controller_still_uses_bar_osd_path(controller, monkeypatch):
+    # Regression: the default ST7789 controller keeps the rectangular bar OSD.
+    calls = {"round": 0, "rect": 0}
+    monkeypatch.setattr(controller, "_draw_volume_osd_round",
+                        lambda draw: calls.__setitem__("round", calls["round"] + 1))
+    monkeypatch.setattr(controller, "_draw_volume_osd",
+                        lambda draw: calls.__setitem__("rect", calls["rect"] + 1))
+    controller.update_metadata("Radio", "Song", "", "0", state=True,
+                               art_mode="radio", source="mpd")
+    controller.show_volume(42)
+    controller._render_frame()
+    assert controller.shape == "rect"
+    assert calls["rect"] == 1
+    assert calls["round"] == 0
+
+
+def test_round_boot_splash_pushes_240x240_frame(monkeypatch):
+    # boot_splash.main honours panel = gc9a01 and pushes a 240x240 frame.
+    import importlib
+
+    import display.boot_splash as bs
+    bs = importlib.reload(bs)
+
+    pushed = {}
+
+    class _SplashRoundPanel:
+        def __init__(self, *args, **kwargs):
+            pushed["size"] = None
+
+        def Init(self):
+            pass
+
+        def ShowFullFrame(self, pix):
+            pushed["size"] = len(pix)
+
+        def bl_DutyCycle(self, duty):
+            pass
+
+        def module_exit(self):
+            pass
+
+    monkeypatch.setattr(bs, "_read_display_conf", lambda: {
+        "display": {"width": 240, "height": 240, "rst": 24, "dc": 25, "bl": 12,
+                    "spi_bus": 0, "spi_device": 0, "spi_freq": 40000000,
+                    "panel": "gc9a01"},
+    })
+    monkeypatch.setattr(panel_factory, "get_panel_class",
+                        lambda name: _SplashRoundPanel)
+    assert bs.main() == 0
+    assert pushed["size"] == 240 * 240 * 2
+
+
+
 
 
 

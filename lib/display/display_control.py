@@ -131,6 +131,10 @@ class DisplayController:
         self.width = conf['display']['width']
         self.height = conf['display']['height']
         panel_name = conf['display'].get('panel', 'st7789')
+        # Shape drives the whole layout/OSD/idle geometry. The round GC9A01 gets
+        # a circle-aware layout (centred text, top-arc symbols, ring gauge);
+        # every other panel keeps the rectangular ST7789 layout byte-identical.
+        self.shape = "round" if str(panel_name).strip().lower() == "gc9a01" else "rect"
         PanelClass = panel_factory.get_panel_class(panel_name)
         self.disp = PanelClass(
             rst=conf['display']['rst'],
@@ -189,6 +193,7 @@ class DisplayController:
             self.width, self.height,
             inset=t.safe_inset, band_height=t.top_band_height,
             bottom_band_height=t.bottom_band_height,
+            shape=self.shape,
         )
         # Bottom band stacks the primary (track) row above the secondary
         # (artist/station) row. Give the bold title the larger share.
@@ -405,6 +410,31 @@ class DisplayController:
                     self._dirty = True
 
 
+    def _round_center_radius(self) -> Tuple[int, int, int]:
+        """Return the round-panel inscribed-circle ``(cx, cy, radius)``.
+
+        Reads the geometry ``compute_layout`` stored on the round ``Layout``;
+        falls back to the panel centre / half-min-dimension if (defensively) the
+        round fields are missing, so a draw site never crashes.
+        """
+        center = self.layout.center
+        radius = self.layout.radius
+        if center is not None and radius is not None:
+            return center.x, center.y, radius
+        return self.width // 2, self.height // 2, min(self.width, self.height) // 2
+
+    def _chord_at(self, y: int) -> int:
+        """Return the inscribed-circle chord width at row ``y`` (round mode).
+
+        In rectangular mode there is no circle to clamp to, so the full frame
+        width is returned. Round mode clamps to :func:`layout.chord_width` so no
+        element crosses the circular edge.
+        """
+        if self.shape != "round":
+            return self.width
+        cx, cy, radius = self._round_center_radius()
+        return layout_mod.chord_width(y, radius, cy)
+
     def _measure(self, text: str, font: ImageFont.FreeTypeFont) -> Tuple[int, int, int]:
         """Return ``(width, height, top)`` of ``text`` in ``font``.
 
@@ -438,7 +468,14 @@ class DisplayController:
         text = row['text']
         text_width, text_height, text_top = self._measure(text, font)
 
-        safe_w = self.layout.safe.w
+        # The available width is the safe-area width on the rectangular panel,
+        # or the inscribed circle's chord at this row on the round panel, so a
+        # row scrolls exactly when its text would otherwise cross that edge.
+        if self.shape == "round":
+            row_mid = row['y'] + row['row_h'] // 2
+            safe_w = max(1, self._chord_at(row_mid))
+        else:
+            safe_w = self.layout.safe.w
         overflow = text_width > safe_w
         if overflow:
             # Pad so the wrap-around leaves a gap instead of jamming words.
@@ -509,8 +546,17 @@ class DisplayController:
         # Scrolling row: render the text (with shadow) onto a copy of the
         # safe-area-wide band region, then composite it back with faded left/
         # right edges so glyphs entering/leaving dissolve rather than clip.
-        safe = self.layout.safe
-        rx0, rx1 = safe.x, safe.right
+        # On the round panel the window is clamped to the inscribed circle's
+        # chord at this row (centred on the panel) instead of the full square
+        # safe area, so scrolling text never crosses the circular edge.
+        if self.shape == "round":
+            row_mid = snap['y'] + snap['row_h'] // 2
+            chord = max(1, self._chord_at(row_mid))
+            rx0 = (self.width - chord) // 2
+            rx1 = rx0 + chord
+        else:
+            safe = self.layout.safe
+            rx0, rx1 = safe.x, safe.right
         ry0 = snap['y']
         ry1 = snap['y'] + snap['row_h']
         base_region = frame.crop((rx0, ry0, rx1, ry1))
@@ -700,11 +746,21 @@ class DisplayController:
         # and the play/pause glyph (right). Both anchors are clamped to the safe
         # area so, however far they spread, nothing lands in the rounded corners.
         top_inner = self.layout.top_inner
-        safe = self.layout.safe
         clock_spacing = 20
-        edge = max(safe.x + 2, top_inner.x + 2 - clock_spacing)
-        right_edge = min(safe.right - 2, top_inner.right - 2 + clock_spacing)
         cy = band.cy
+        if self.shape == "round":
+            # Clamp the strip to the inscribed circle's chord at the band's
+            # centre row so the badge/clock/glyph sit inside the top arc rather
+            # than in the clipped circular cap.
+            chord = max(1, self._chord_at(cy))
+            arc_x0 = (self.width - chord) // 2
+            arc_x1 = arc_x0 + chord
+            edge = max(arc_x0 + 2, top_inner.x + 2 - clock_spacing)
+            right_edge = min(arc_x1 - 2, top_inner.right - 2 + clock_spacing)
+        else:
+            safe = self.layout.safe
+            edge = max(safe.x + 2, top_inner.x + 2 - clock_spacing)
+            right_edge = min(safe.right - 2, top_inner.right - 2 + clock_spacing)
 
         # Source badge (left) — a rounded pill with small bold uppercase label.
         label = textformat.source_label(source, art_mode)
@@ -800,6 +856,54 @@ class DisplayController:
                 draw.rectangle((bar_x0, bar_y0, bar_x0 + fill_w, bar_y1),
                                fill=self.theme.osd_fill_color)
 
+    def _draw_volume_osd_round(self, draw: ImageDraw.ImageDraw) -> None:
+        """Draw the round-panel volume OSD as a ~270° ring gauge (Step 5.2).
+
+        The circular GC9A01 replaces the horizontal bar with an arc/ring gauge
+        centred on the panel: a full 270° track from 135° to 405° (bottom-left,
+        sweeping clockwise through the top, to bottom-right) with the filled
+        portion proportional to ``pct`` and the percentage drawn in the middle.
+        Reuses ``theme.osd_track_color`` / ``theme.osd_fill_color`` so it themes
+        exactly like the rectangular bar.
+
+        Args:
+            draw: Draw context bound to the full 240x240 frame image.
+        """
+        with self._state_lock:
+            pct = self._transient.volume_pct
+        cx, cy, radius = self._round_center_radius()
+
+        # Ring geometry: an inset arc so the thick stroke stays clear of the
+        # circular bezel. Thickness scales with the themed bar height.
+        thickness = max(4, self.theme.osd_bar_height)
+        ring_inset = max(thickness, radius // 5)
+        rr = max(1, radius - ring_inset)
+        box = (cx - rr, cy - rr, cx + rr, cy + rr)
+
+        # 270° gauge: a gap at the bottom. Start at 135°, sweep 270° clockwise
+        # (Pillow measures angles clockwise from 3 o'clock).
+        start_deg = 135
+        span_deg = 270
+        end_deg = start_deg + span_deg
+        fill_deg = start_deg + int(round(span_deg * max(0, min(100, pct)) / 100))
+
+        # Track (unfilled) then the proportional fill on top.
+        draw.arc(box, start_deg, end_deg, fill=self.theme.osd_track_color,
+                 width=thickness)
+        if fill_deg > start_deg:
+            draw.arc(box, start_deg, fill_deg, fill=self.theme.osd_fill_color,
+                     width=thickness)
+
+        # Percentage centred inside the ring, with a subtle shadow.
+        pct_text = f"{pct}%"
+        pw, ph, ptop = self._measure(pct_text, self.font_title)
+        tx = cx - pw // 2
+        ty = cy - ph // 2 - ptop
+        draw.text((tx + 1, ty + 1), pct_text, font=self.font_title,
+                  fill=self.theme.shadow_color)
+        draw.text((tx, ty), pct_text, font=self.font_title,
+                  fill=self.theme.text_color)
+
     def _render_frame(self) -> Image.Image:
         """Compose the full 240x280 frame from the current shared state.
 
@@ -843,7 +947,10 @@ class DisplayController:
         draw = ImageDraw.Draw(frame)
         self._draw_status_strip(draw)
         if self._osd_visible():
-            self._draw_volume_osd(draw)
+            if self.shape == "round":
+                self._draw_volume_osd_round(draw)
+            else:
+                self._draw_volume_osd(draw)
         else:
             with self._state_lock:
                 title_snap = self._advance_scroll('title')
@@ -914,10 +1021,14 @@ class DisplayController:
         tw, th, ttop = self._measure(text, self.font_artist)
         safe = self.layout.safe
         pad_x, pad_y = 16, 10
-        pill_w = min(safe.w, tw + 2 * pad_x)
-        pill_h = th + 2 * pad_y
         cx = self.width // 2
         cy = self.logo_box.cy if self.logo_box.h > 0 else self.height // 2
+        # Cap the pill to the safe-area width on the rectangular panel, or to the
+        # inscribed circle's chord at the toast's row on the round panel, so the
+        # pill never crosses the circular edge.
+        max_w = self._chord_at(cy) if self.shape == "round" else safe.w
+        pill_w = min(max_w, tw + 2 * pad_x)
+        pill_h = th + 2 * pad_y
         x0 = cx - pill_w // 2
         y0 = cy - pill_h // 2
         x1 = x0 + pill_w
