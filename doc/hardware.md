@@ -49,8 +49,8 @@ do not use them to drive a GPIO signal.
   Power switch  AIN2 ─┘   |                           |  (0x48)
                           |                           |
                           |  SPI0 (MOSI=10, SCLK=11,  |
-  ST7789 1.69" display ───┼── CE0=8) + RST=24,        |
-                          |  DC=25, BL=12              |
+  SPI display ───────────┼── CE0=8) + RST=24,        |
+  (ST7789 or GC9A01)     |  DC=25, BL=12              |
                           |                           |
   Amplifier enable  ──────┼── GPIO 26                 |
                           |                           |
@@ -64,7 +64,7 @@ graph LR
     BTN[6-button ladder] -->|AIN1| ADS
     SW[Power switch] -->|AIN2| ADS
     ADS -->|I2C1 SDA=2 SCL=3| PI[Raspberry Pi]
-    PI -->|SPI0 MOSI=10 SCLK=11 CE0=8; RST=24 DC=25 BL=12| LCD[ST7789 1.69 display]
+    PI -->|SPI0 MOSI=10 SCLK=11 CE0=8; RST=24 DC=25 BL=12| LCD[SPI display ST7789/GC9A01]
     PI -->|GPIO 26| AMP[Amplifier enable]
     PI -->|selected profile| DAC[Sound device]
     HOST[USB host] -->|D- / D+ / GND only; no VBUS| PI
@@ -72,13 +72,17 @@ graph LR
 
 ### Schematic
 
-![Raspberry Pi Radio schematic: 1.69" ST7789 SPI display, ADS1115 controls (volume pot, six-button ladder, power switch)](images/Schematic_Raspberry-PI-Radio.png)
+![Raspberry Pi Radio schematic: SPI display (ST7789 1.69" or GC9A01 1.28"), ADS1115 controls (volume pot, six-button ladder, power switch)](images/Schematic_Raspberry-PI-Radio.png)
 
 This schematic shows the **base-radio wiring** and matches the shipped defaults
 in `display.conf` and `radio.conf` (cross-checked against the code):
 
-- the 1.69" **ST7789 SPI display** (SDA/DIN→BCM 10, SCL/SCK→BCM 11, CS→CE0/BCM 8,
-  DC→BCM 25, RES→BCM 24, BLK→BCM 12, VCC→3V3, GND→GND);
+- the **SPI display** connected on SDA/DIN→BCM 10, SCL/SCK→BCM 11,
+  CS→CE0/BCM 8, DC→BCM 25, RES→BCM 24, BLK→BCM 12, VCC→3V3, GND→GND.
+  The schematic depicts the 1.69" ST7789 (the shipped default); the 1.28"
+  GC9A01 round panel uses the **exact same pins** and the active driver is
+  selected by `panel =` in `display.conf` (see
+  [SPI display](#spi-display-st7789-and-gc9a01) below).
 - the **ADS1115 ADC** on I2C1 (SDA→BCM 2, SCL→BCM 3, `0x48`) reading the volume
   potentiometer on **AIN0**, the six-button resistor ladder on **AIN1**, and the
   ON/OFF switch on **AIN2**.
@@ -223,14 +227,26 @@ at `/debug/adc`. It streams AIN0–AIN3 raw millivolt readings and the player's
 volume/button/power interpretation over a same-origin WebSocket. Captured values
 are stored in `/etc/radio/adc.ini` and take effect after restarting the player.
 
-## SPI display (1.69" ST7789)
+## SPI display (ST7789 and GC9A01)
 
-The 240×280 SPI display is driven by `lib/display/`. SPI must be
-enabled (`dtparam=spi=on`, above). The SPI clock is configurable via
-`lib/display/display.conf` (`spi_freq`). `spi_bus` and `spi_device`
-select the spidev endpoint. The shipped values `spi_bus = 0` and
-`spi_device = 0` use `/dev/spidev0.0` (CE0/BCM 8). A sound-device profile may
-require another chip select; follow its dedicated table in
+The display is driven by `lib/display/`. Two panels are supported and
+selected by the `panel =` key in `lib/display/display.conf`:
+
+| Panel | Size | Shape | Default |
+| --- | --- | --- | --- |
+| `st7789` | 240×280 px | Rectangular 1.69" | **Yes** |
+| `gc9a01` | 240×240 px | Round 1.28" | No |
+
+Both panels use **identical SPI wiring** (DIN/SCK/CS/DC/RST/BL); only the
+init sequence, GRAM window, and rendered layout differ. No hardware changes
+are required when switching panels — edit `panel =` in `display.conf` (or use
+the **Display** page in the web interface) and restart the radio.
+
+SPI must be enabled (`dtparam=spi=on`, above). The SPI clock is configurable
+via `spi_freq` in `display.conf`. `spi_bus` and `spi_device` select the spidev
+endpoint. The shipped values `spi_bus = 0` and `spi_device = 0` use
+`/dev/spidev0.0` (CE0/BCM 8). A sound-device profile may require another chip
+select; follow its dedicated table in
 [`sound-devices.md`](sound-devices.md#device-pinouts). `spi_device` selects a
 hardware chip-select and is not an arbitrary BCM GPIO number.
 

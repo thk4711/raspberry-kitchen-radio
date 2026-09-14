@@ -16,7 +16,7 @@ This directory collects the project documentation.
 | [sound-devices.md](sound-devices.md) | Every selectable sound device, with a complete color-coded 40-pin map, compatibility actions, routing, and qualification. |
 | [alsa-audio-path.md](alsa-audio-path.md) | **ALSA topology & routing reference.** The single end-to-end picture: how every source converges on ALSA `default`, the layered parametric-EQ and `Radio Volume` softvol/dmix stages, the `bluealsa-aplay` and `alsaloop` bridges, stable-card routing, worked `asound.conf` examples, and verification. |
 | [equalizer.md](equalizer.md) | **Parametric-EQ user and developer guide.** Web controls, headroom, Save-and-Apply/Reset behavior, persistence, troubleshooting, ALSA/LADSPA topology, implementation and tests. |
-| [display-test.md](display-test.md) | Standalone 1.69" ST7789 display smoke test & wiring troubleshooting. |
+| [display-test.md](display-test.md) | SPI display smoke test & wiring troubleshooting (works with both ST7789 and GC9A01 panels). |
 | [stations.md](stations.md) | How to add / edit the internet-radio preset stations. |
 | [web-interface.md](web-interface.md) | The local web administration interface: login, dashboard and settings pages, firmware management, restart/reboot behavior, managed state, and recovery. |
 | [bluetooth.md](bluetooth.md) | The Bluetooth (A2DP) music source: how to connect a phone (no PIN), connection-gated pairing mode, what plays / shows on the display, how it is built/wired, and on-target validation & troubleshooting. |

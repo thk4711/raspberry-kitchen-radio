@@ -74,8 +74,10 @@ models are not supported by the image.
 A typical build uses:
 
 - Raspberry Pi 3A+.
-- SPI-connected display, currently a 1.69" ST7789, for now-playing information
-  and station logos.
+- SPI-connected display for now-playing information and station logos. Two
+  panels are supported and selectable via `display.conf`: the 1.69" **ST7789**
+  (240×280, rectangular, default) and the 1.28" **GC9A01** (240×240, round).
+  Both use the same four-wire SPI wiring.
 - ADS1115 ADC on I2C for the volume potentiometer, preset-button ladder, and
   power switch.
 - I2S DAC / amplifier board, for example IQaudIO, HiFiBerry, ESS I-SABRE/Katana,

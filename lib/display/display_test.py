@@ -1,9 +1,12 @@
 #!/usr/bin/env python3
-"""Minimal ST7789 1.69 inch display smoke test.
+"""SPI display smoke test for Raspberry Kitchen Radio.
 
-This script initializes only the SPI display used by Raspberry Kitchen Radio,
-turns the backlight on, and draws a simple diagnostic image. It intentionally
-avoids starting the radio app, MPD, ADC polling, AirPlay, or Spotify services.
+This script initializes the SPI display, turns the backlight on, and draws a
+simple diagnostic image. It works with both supported panels — the ST7789
+(240×280, rectangular) and the GC9A01 (240×240, round) — by reading the
+``panel =`` key from ``display.conf`` and using the same panel-factory as the
+radio application. It intentionally avoids starting the radio app, MPD, ADC
+polling, AirPlay, or Spotify services.
 
 On the Buildroot target this file is installed with the rest of the app under:
 
