@@ -43,7 +43,7 @@ dtoverlay=dwc2,dr_mode=peripheral
 # Hardware interfaces the radio needs.
 dtparam=i2c_arm=on      # ADS1115 ADC (volume / switch / buttons)
 #dtparam=i2s=on         # enable when selecting an external I2S DAC
-dtparam=spi=on          # ST7789 display
+dtparam=spi=on          # ST7789 / GC9A01 display (same SPI pins for both)
 
 # Hardware watchdog (BCM2835): exposes /dev/watchdog so the BusyBox `watchdog`
 # applet (started by /etc/init.d/S14watchdog) can arm the SoC's watchdog. If the
