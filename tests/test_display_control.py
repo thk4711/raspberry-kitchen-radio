@@ -7,7 +7,8 @@ These exercise the rendering-architecture invariants without a Raspberry Pi:
 * metadata changes flag the frame dirty; overflowing text marks a row
   scrolling (the animation gate); idle recomposition emits no SPI write.
 
-The ST7789 driver is replaced with a tiny recording fake, and the compositor
+The panel driver is replaced with a tiny recording fake by patching
+``panel_factory.get_panel_class`` to return ``_FakePanel``, and the compositor
 thread is prevented from auto-starting so the loop can be stepped
 deterministically. numpy + Pillow are target runtime deps installed by
 ``requirements-dev.txt``.
@@ -16,7 +17,7 @@ import sys
 import types
 
 import pytest
-from display import compositor, logo_fallback
+from display import compositor, logo_fallback, panel_factory
 from PIL import Image
 
 
@@ -50,13 +51,14 @@ class _FakePanel:
 def controller(monkeypatch):
     """Build a DisplayController with a fake panel and no live thread.
 
-    The real driver module is swapped for a fake exposing ``ST7789``, and
-    ``threading.Thread`` is neutralised inside ``display_control`` so the
-    compositor loop does not run on its own; tests drive it explicitly.
+    The panel factory is patched to return ``_FakePanel`` regardless of the
+    configured panel name, and ``threading.Thread`` is neutralised inside
+    ``display_control`` so the compositor loop does not run on its own; tests
+    drive it explicitly.
     """
-    fake_driver = types.ModuleType("display.panel_st7789")
-    fake_driver.ST7789 = _FakePanel
-    monkeypatch.setitem(sys.modules, "display.panel_st7789", fake_driver)
+    # Patch the factory before reloading display_control so the reload picks
+    # up the fake class for every panel name (including the default "st7789").
+    monkeypatch.setattr(panel_factory, "get_panel_class", lambda name: _FakePanel)
 
     # Import (or re-import) the controller against the fake driver.
     import importlib
@@ -558,9 +560,7 @@ def test_crossfade_clears_after_window(controller, monkeypatch):
 
 def _controller_with_ui(monkeypatch, ui):
     """Build a DisplayController whose display.conf carries a given [ui] dict."""
-    fake_driver = types.ModuleType("display.panel_st7789")
-    fake_driver.ST7789 = _FakePanel
-    monkeypatch.setitem(sys.modules, "display.panel_st7789", fake_driver)
+    monkeypatch.setattr(panel_factory, "get_panel_class", lambda name: _FakePanel)
 
     import importlib
 

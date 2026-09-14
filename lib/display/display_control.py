@@ -1,11 +1,16 @@
 # display_control.py
-"""SPI display controller for the ST7789 1.69 inch panel.
+"""SPI display controller for the Kitchen Radio now-playing UI.
 
 Rendering architecture (Workstream 1 of the display redesign): a single
-background thread composes **one full 240x280 frame** from shared state and
-pushes it to the panel with a single write. It transmits **only when the
-composed frame changes or an animation (scrolling text) is active**; when idle
-it sleeps with no SPI traffic. Pushes are throttled to ~20 fps.
+background thread composes **one full frame** from shared state and pushes it
+to the panel with a single write. It transmits **only when the composed frame
+changes or an animation (scrolling text) is active**; when idle it sleeps with
+no SPI traffic. Pushes are throttled to ~20 fps.
+
+The active panel is selected by the ``[display] panel`` key in
+``display.conf``: ``st7789`` (default, 240×280) or ``gc9a01`` (240×240 round).
+The factory in ``panel_factory`` maps the name to the right driver class so
+this module never needs to know which panels exist.
 
 Concurrency model (unchanged): exactly one thread (the compositor loop) writes
 to the serial SPI panel; the radio/ADC/metadata threads only mutate shared
@@ -27,7 +32,7 @@ from time import monotonic, sleep
 from typing import Optional, Tuple
 
 import numpy as np
-from display import compositor, logo_fallback, panel_st7789, textformat
+from display import compositor, logo_fallback, panel_factory, textformat
 from display import layout as layout_mod
 from display import theme as theme_mod
 from display.transient_state import TransientState
@@ -125,7 +130,9 @@ class DisplayController:
         # Display settings
         self.width = conf['display']['width']
         self.height = conf['display']['height']
-        self.disp = panel_st7789.ST7789(
+        panel_name = conf['display'].get('panel', 'st7789')
+        PanelClass = panel_factory.get_panel_class(panel_name)
+        self.disp = PanelClass(
             rst=conf['display']['rst'],
             dc=conf['display']['dc'],
             bl=conf['display']['bl'],

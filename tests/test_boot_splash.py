@@ -9,14 +9,17 @@ the two invariants that matter without a Raspberry Pi:
   the backlight fully on (so the image is visible through boot) and always
   returns 0 (it must never block/fail the boot).
 
-The ST7789 driver is replaced with a recording fake (mirroring
-``test_display_control``); spidev/gpiozero are already stubbed in conftest.
+The panel driver is replaced with a recording fake by patching
+``panel_factory.get_panel_class`` so that it returns ``_FakePanel`` regardless
+of which panel name is configured; spidev/gpiozero are already stubbed in
+conftest.
 """
 import sys
 import types
 
 import numpy as np
-from display import boot_splash, compositor
+import pytest
+from display import boot_splash, compositor, panel_factory
 from display import theme as theme_mod
 
 
@@ -28,6 +31,7 @@ class _FakePanel:
         self.backlight = None
         self.init_called = False
         self.exited = False
+        self.init_kwargs = kwargs
 
     def Init(self):
         self.init_called = True
@@ -59,10 +63,6 @@ def test_render_splash_frame_matches_packed_signature():
 
 
 def test_main_pushes_one_frame_and_lights_backlight(monkeypatch):
-    fake_driver = types.ModuleType("display.panel_st7789")
-    fake_driver.ST7789 = _FakePanel
-    monkeypatch.setitem(sys.modules, "display.panel_st7789", fake_driver)
-
     created = {}
     real_panel_cls = _FakePanel
 
@@ -71,7 +71,12 @@ def test_main_pushes_one_frame_and_lights_backlight(monkeypatch):
         created["panel"] = panel
         return panel
 
-    fake_driver.ST7789 = _record
+    # Patch the factory so it returns a class whose constructor is _record.
+    class _RecordingFakeClass:
+        def __new__(cls, *args, **kwargs):
+            return _record(*args, **kwargs)
+
+    monkeypatch.setattr(panel_factory, "get_panel_class", lambda name: _RecordingFakeClass)
 
     rc = boot_splash.main()
 
@@ -88,15 +93,17 @@ def test_main_pushes_one_frame_and_lights_backlight(monkeypatch):
 
 
 def test_main_passes_configured_spi_chip_select(monkeypatch):
-    fake_driver = types.ModuleType("display.panel_st7789")
     created = {}
 
     def _record(*args, **kwargs):
         created["kwargs"] = kwargs
         return _FakePanel(*args, **kwargs)
 
-    fake_driver.ST7789 = _record
-    monkeypatch.setitem(sys.modules, "display.panel_st7789", fake_driver)
+    class _RecordingFakeClass:
+        def __new__(cls, *args, **kwargs):
+            return _record(*args, **kwargs)
+
+    monkeypatch.setattr(panel_factory, "get_panel_class", lambda name: _RecordingFakeClass)
     monkeypatch.setattr(
         boot_splash,
         "_read_display_conf",
@@ -127,8 +134,7 @@ def test_main_never_raises_and_returns_zero(monkeypatch):
         def module_exit(self):
             pass
 
-    fake_driver = types.ModuleType("display.panel_st7789")
-    fake_driver.ST7789 = _Boom
-    monkeypatch.setitem(sys.modules, "display.panel_st7789", fake_driver)
+    monkeypatch.setattr(panel_factory, "get_panel_class", lambda name: _Boom)
 
     assert boot_splash.main() == 0
+
