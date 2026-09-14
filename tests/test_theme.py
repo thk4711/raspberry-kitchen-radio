@@ -3,7 +3,7 @@
 No Pillow, numpy or hardware — the theme layer is pure string/number coercion,
 so these run on any machine (consistent with ``test_layout``/``test_textformat``).
 """
-from display_1_inch_69 import theme
+from display import theme
 
 
 def test_build_theme_none_is_all_defaults():

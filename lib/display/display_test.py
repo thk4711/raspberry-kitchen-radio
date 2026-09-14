@@ -7,13 +7,13 @@ avoids starting the radio app, MPD, ADC polling, AirPlay, or Spotify services.
 
 On the Buildroot target this file is installed with the rest of the app under:
 
-    /opt/raspberry-kitchen-radio/lib/display_1_inch_69/display_test.py
+    /opt/raspberry-kitchen-radio/lib/display/display_test.py
 
 Recommended target usage:
 
     /etc/init.d/S90radio stop
     cd /opt/raspberry-kitchen-radio
-    python3 lib/display_1_inch_69/display_test.py
+    python3 lib/display/display_test.py
 
 If the wiring and SPI stack are correct, the display should light up and show
 colored bars, a border, diagonals, and text.
@@ -138,14 +138,14 @@ def run_mock_now_playing(args) -> int:
 
         /etc/init.d/S90radio stop
         cd /opt/raspberry-kitchen-radio
-        python3 lib/display_1_inch_69/display_test.py --mock-now-playing
+        python3 lib/display/display_test.py --mock-now-playing
 
     Cycles through: radio now-playing (with an "Artist - Title" stream), a cover
     crossfade to a second station (WS4.1), a volume OSD sweep (WS4.2), a preset
     toast (WS4.5), and finally the idle clock screensaver (WS4.4). The boot
     splash (WS4.6) is shown by the controller's own __init__.
     """
-    from display_1_inch_69.display_control import DisplayController  # noqa: PLC0415
+    from display.display_control import DisplayController  # noqa: PLC0415
 
     logos = SCRIPT_DIR.parent / "mpd_service" / "logos"
 
@@ -247,7 +247,7 @@ def main() -> int:
     # Import the hardware driver only after parsing arguments. This keeps
     # ``display_test.py --help`` usable on non-Pi development machines where
     # spidev/gpiozero are not installed.
-    from display_1_inch_69 import LCD_1inch69  # noqa: PLC0415
+    from display import LCD_1inch69  # noqa: PLC0415
 
     print("Display configuration:")
     print(f"  size:      {conf['width']}x{conf['height']}")

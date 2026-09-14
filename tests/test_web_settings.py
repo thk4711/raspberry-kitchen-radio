@@ -147,7 +147,7 @@ class TestDisplayStore:
         import sys
 
         sys.path.insert(
-            0, os.path.join(os.path.dirname(os.path.dirname(__file__)), "lib", "display_1_inch_69")
+            0, os.path.join(os.path.dirname(os.path.dirname(__file__)), "lib", "display")
         )
         import theme as theme_mod  # noqa: E402
 

@@ -7,7 +7,7 @@ suite runs off-Pi.
 """
 import numpy as np
 import pytest
-from display_1_inch_69 import compositor
+from display import compositor
 
 
 def test_solid_rgb_shape_and_fill():

@@ -50,8 +50,8 @@ ignore = ["E501", "E402"]
 "tests/*" = ["E402", "F401", "B017"]
 # The vendored-adjacent SPI/GPIO driver files (Waveshare-derived) use a
 # star-import + C-style idioms; they are out of scope for this lint pass.
-"lib/display_1_inch_69/LCD_1inch69.py" = ["F403", "F405"]
-"lib/display_1_inch_69/lcdconfig.py" = ["F403", "F405", "E711", "B008"]
+"lib/display/LCD_1inch69.py" = ["F403", "F405"]
+"lib/display/lcdconfig.py" = ["F403", "F405", "E711", "B008"]
 
 [tool.mypy]
 # mypy itself no longer accepts 3.9 as a target; use 3.10 for the checker while
@@ -73,7 +73,7 @@ files = [
     "lib/_version.py",
     "lib/bluetooth_service/bluetooth_service.py",
     "lib/usb_audio_service/usb_audio_service.py",
-    "lib/display_1_inch_69/transient_state.py",
+    "lib/display/transient_state.py",
     "radio_web/__init__.py",
     "radio_web/__main__.py",
     "radio_web/auth.py",

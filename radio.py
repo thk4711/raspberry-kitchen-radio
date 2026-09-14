@@ -76,7 +76,7 @@ from airplay_service.airplay_service import AirplayService
 from bluetooth_service.bluetooth_service import BluetoothService
 
 # Import other custom modules
-from display_1_inch_69.display_control import DisplayController
+from display.display_control import DisplayController
 from mpd_service.mpd_service import MPDService
 from music_source import MusicSource
 from spotify_service.spotify_service import SpotifyService

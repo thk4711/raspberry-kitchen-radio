@@ -27,9 +27,9 @@ mypy>=1.11
 # Runtime packages the tested modules import directly:
 #   - pydantic : music_source.py (Metadata model)
 #   - requests : utilities.py (make_request)
-#   - numpy    : display_1_inch_69/compositor.py (full-frame pixel math) and
+#   - numpy    : display/compositor.py (full-frame pixel math) and
 #                the display_control full-frame compositor tests
-#   - Pillow   : display_1_inch_69/display_control.py (frame composition) used
+#   - Pillow   : display/display_control.py (frame composition) used
 #                by the compositor/display unit tests
 # Left unpinned so a compatible wheel is picked for the local interpreter
 # (the exact runtime versions are pinned in requirements.txt for the target).

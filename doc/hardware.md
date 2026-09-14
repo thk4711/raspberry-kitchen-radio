@@ -225,9 +225,9 @@ are stored in `/etc/radio/adc.ini` and take effect after restarting the player.
 
 ## SPI display (1.69" ST7789)
 
-The 240×280 SPI display is driven by `lib/display_1_inch_69/`. SPI must be
+The 240×280 SPI display is driven by `lib/display/`. SPI must be
 enabled (`dtparam=spi=on`, above). The SPI clock is configurable via
-`lib/display_1_inch_69/display.conf` (`spi_freq`). `spi_bus` and `spi_device`
+`lib/display/display.conf` (`spi_freq`). `spi_bus` and `spi_device`
 select the spidev endpoint. The shipped values `spi_bus = 0` and
 `spi_device = 0` use `/dev/spidev0.0` (CE0/BCM 8). A sound-device profile may
 require another chip select; follow its dedicated table in

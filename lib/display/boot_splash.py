@@ -23,7 +23,7 @@ Design goals (see doc/buildroot.md, "early boot splash"):
 
 On the Buildroot target this file is installed with the rest of the app under::
 
-    /opt/raspberry-kitchen-radio/lib/display_1_inch_69/boot_splash.py
+    /opt/raspberry-kitchen-radio/lib/display/boot_splash.py
 
 The heavy/hardware imports (the ST7789 driver) are deferred into :func:`main`
 so :func:`render_splash_frame` stays importable — and unit-testable — on a
@@ -38,7 +38,7 @@ import traceback
 import numpy as np
 from PIL import Image, ImageDraw, ImageFont
 
-# Make ``display_1_inch_69`` importable both from the source tree and from the
+# Make ``display`` importable both from the source tree and from the
 # Buildroot install location (/opt/raspberry-kitchen-radio/lib), mirroring
 # display_test.py so the module runs the same way in both places.
 _SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -46,8 +46,8 @@ _LIB_DIR = os.path.dirname(_SCRIPT_DIR)
 if _LIB_DIR not in sys.path:
     sys.path.insert(0, _LIB_DIR)
 
-from display_1_inch_69 import compositor  # noqa: E402
-from display_1_inch_69 import theme as theme_mod  # noqa: E402
+from display import compositor  # noqa: E402
+from display import theme as theme_mod  # noqa: E402
 
 try:
     from _version import __version__ as _VERSION  # noqa: E402
@@ -166,7 +166,7 @@ def main() -> int:
 
         # Defer the hardware driver import until here so this module stays
         # importable (for tests / --help style use) without spidev/gpiozero.
-        from display_1_inch_69 import LCD_1inch69  # noqa: PLC0415
+        from display import LCD_1inch69  # noqa: PLC0415
 
         disp = LCD_1inch69.LCD_1inch69(
             rst=rst,

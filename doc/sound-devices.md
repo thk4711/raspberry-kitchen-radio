@@ -598,7 +598,7 @@ and requires a display wiring change. It controls the amplifier at I2C address
 
 **Required radio action:** move only display CS from BCM 8 / physical pin 24 to
 BCM 7 / physical pin 26 and set `spi_device = 1` under `[display]` in
-`lib/display_1_inch_69/display.conf`; MOSI and SCLK remain BCM 10/11. See
+`lib/display/display.conf`; MOSI and SCLK remain BCM 10/11. See
 [`display-test.md`](display-test.md#alternative-chip-select-for-a-merus-amp).
 The ADS1115 at `0x48` can share I2C1. The profile sets `amp = none`; the kernel
 driver uses the GPIOs above. Expected card/mixer: `sndrpimerusamp` /

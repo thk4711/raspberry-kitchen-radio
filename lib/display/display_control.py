@@ -27,10 +27,10 @@ from time import monotonic, sleep
 from typing import Optional, Tuple
 
 import numpy as np
-from display_1_inch_69 import LCD_1inch69, compositor, logo_fallback, textformat
-from display_1_inch_69 import layout as layout_mod
-from display_1_inch_69 import theme as theme_mod
-from display_1_inch_69.transient_state import TransientState
+from display import LCD_1inch69, compositor, logo_fallback, textformat
+from display import layout as layout_mod
+from display import theme as theme_mod
+from display.transient_state import TransientState
 from PIL import Image, ImageDraw, ImageFilter, ImageFont, ImageOps
 from utilities import MANAGED_CONFIG_DIR, UtilityLibrary
 
