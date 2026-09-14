@@ -30,8 +30,8 @@ dtparam=audio=on
 #dtoverlay=iqaudio-dacplus
 ```
 
-Leave the alternative `hifiberry-dacplus` and `merus-amp` overlays commented
-out as well.
+Leave the alternative `hifiberry-dacplus`, `hifiberry-amp` and `merus-amp`
+overlays commented out as well.
 
 ## 2. Load the on-board audio driver
 

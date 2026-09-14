@@ -61,6 +61,7 @@ dtparam=audio=on
 #dtoverlay=hifiberry-dac
 #dtoverlay=hifiberry-dacplus-std
 #dtoverlay=hifiberry-dacplus-pro
+#dtoverlay=hifiberry-amp
 #dtoverlay=max98357a,no-sdmode
 #dtoverlay=allo-boss-dac-pcm512x-audio
 #dtoverlay=i-sabre-q2m

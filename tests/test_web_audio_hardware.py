@@ -54,6 +54,7 @@ class TestCatalog:
             "hifiberry_dacplus_std",
             "hifiberry_dacplus_pro",
             "hifiberry_amp2",
+            "hifiberry_amp",
             "allo_boss",
             "audiophonics_i_sabre_q2m",
             "allo_katana",

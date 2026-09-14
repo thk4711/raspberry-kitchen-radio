@@ -72,6 +72,7 @@ MANAGED_AUDIO_OVERLAYS: Tuple[str, ...] = (
     "hifiberry-dacplus",
     "hifiberry-dacplus-std",
     "hifiberry-dacplus-pro",
+    "hifiberry-amp",
     "max98357a",
     "allo-boss-dac-pcm512x-audio",
     "i-sabre-q2m",

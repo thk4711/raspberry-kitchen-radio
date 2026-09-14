@@ -38,6 +38,7 @@ board revision in hand.
 | HiFiBerry DAC+ Standard | `hifiberry-dacplus-std` | `sndrpihifiberry` / `Digital` | Kernel-supported | [Pinout](#hifiberry-dac-standard) |
 | HiFiBerry DAC+ Pro / DAC2 Pro | `hifiberry-dacplus-pro` | `sndrpihifiberry` / `Digital` | Kernel-supported | [Pinout](#hifiberry-dac-pro--dac2-pro) |
 | HiFiBerry Amp2 / Amp4 | `hifiberry-dacplus-std` | `sndrpihifiberry` / `Digital` | Kernel-supported | [Pinout](#hifiberry-amp2--amp4) |
+| HiFiBerry Amp / Amp+ (TI TAS5713) | `hifiberry-amp` | `sndrpihifiberryamp` / `Master` | Experimental | [Pinout](#hifiberry-amp--amp-ti-tas5713) |
 | Allo BOSS | `allo-boss-dac-pcm512x-audio` | `BossDAC` / `Digital` | Kernel-supported | [Pinout](#allo-boss) |
 | Audiophonics I-SABRE Q2M | `i-sabre-q2m` | `ISabreQ2MDAC` / `Digital` | Experimental | [Pinout](#audiophonics-i-sabre-q2m) |
 | Allo Katana | `allo-katana-dac-audio` | `AlloKatana` / `Master` | Kernel-supported | [Pinout](#allo-katana) |
@@ -368,6 +369,51 @@ the radio's separate BCM 26 output.
 **Radio compatibility:** display wiring remains unchanged and the ADS1115 at
 `0x48` can share I2C1. This profile sets `amp = none`; BCM 26 is not the HAT's
 enable control. Expected card/mixer: `sndrpihifiberry` / `Digital`.
+
+<!-- audio-profile: hifiberry_amp -->
+### HiFiBerry Amp / Amp+ (TI TAS5713)
+
+Fit the amplifier HAT to the 40-pin header and follow its manual for the
+external speaker supply and speaker load. The `hifiberry-amp` overlay
+instantiates a Texas Instruments TAS5713 Class-D amplifier on I2C1 at address
+`0x1b`, which does not conflict with the ADS1115 at `0x48`. The card is driven
+by the Raspberry Pi simple soundcard driver, and the TAS5713 codec provides the
+hardware `Master` volume control used for the knob and MPD.
+
+| BCM | Signal / radio connection | Physical pin (odd) | Physical pin (even) | Signal / radio connection | BCM |
+| ---: | --- | ---: | :--- | --- | :--- |
+| — | 3V3 — ADS1115 VDD; used by fitted HAT as required | 🟧 **1** | **2** 🟥 | 5V — used by fitted HAT as required | — |
+| **2** | <!-- device:adc -->I2C1 SDA — ADS1115; shared with TAS5713 `0x1b` | 🟦 **3** | **4** 🟥 | 5V — used by fitted HAT as required | — |
+| **3** | <!-- device:adc -->I2C1 SCL — ADS1115; shared with TAS5713 `0x1b` | 🟦 **5** | **6** ⬛ | GND — common radio ground and HAT ground | — |
+| **4** | GPIO — <!-- device:free -->available | 🟩 **7** | **8** 🟫 | <!-- device:uart -->UART0 TX — no external radio connection | **14** |
+| — | GND — common radio ground and HAT ground | ⬛ **9** | **10** 🟫 | <!-- device:uart -->UART0 RX — no external radio connection | **15** |
+| **17** | GPIO — <!-- device:free -->available | 🟩 **11** | **12** 🟨 | <!-- device:sound -->PCM CLK — sound-device bit clock | **18** |
+| **27** | GPIO — <!-- device:free -->available | 🟩 **13** | **14** ⬛ | GND — common radio ground and HAT ground | — |
+| **22** | GPIO — <!-- device:free -->available | 🟩 **15** | **16** 🟩 | GPIO — <!-- device:free -->available | **23** |
+| — | 3V3 — used by fitted HAT as required | 🟧 **17** | **18** 🟩 | GPIO — <!-- device:display -->display RST | **24** |
+| **10** | SPI0 MOSI — <!-- device:display -->display DIN / MOSI | 🟪 **19** | **20** ⬛ | GND — common radio ground and HAT ground | — |
+| **9** | SPI0 MISO — <!-- device:display -->unused; display is write-only | 🟪 **21** | **22** 🟩 | GPIO — <!-- device:display -->display DC | **25** |
+| **11** | SPI0 SCLK — <!-- device:display -->display CLK / SCLK | 🟪 **23** | **24** 🟪 | SPI0 CE0 — <!-- device:display -->display CS | **8** |
+| — | GND — common radio ground and HAT ground | ⬛ **25** | **26** 🟪 | SPI0 CE1 — <!-- device:free -->available | **7** |
+| **0** | ID_SD — reserve for HAT ID EEPROM | ⬜ **27** | **28** ⬜ | ID_SC — reserve for HAT ID EEPROM | **1** |
+| **5** | GPIO — <!-- device:free -->available | 🟩 **29** | **30** ⬛ | GND — common radio ground and HAT ground | — |
+| **6** | GPIO — <!-- device:free -->available | 🟩 **31** | **32** 🟩 | GPIO — <!-- device:display -->display BL | **12** |
+| **13** | GPIO — <!-- device:free -->available | 🟩 **33** | **34** ⬛ | GND — common radio ground and HAT ground | — |
+| **19** | <!-- device:sound -->PCM FS — sound-device frame / word clock | 🟨 **35** | **36** 🟩 | GPIO — <!-- device:free -->available | **16** |
+| **26** | GPIO — <!-- device:free -->available; not driven by profile | 🟩 **37** | **38** 🟨 | <!-- device:sound -->PCM DIN — reserved with I2S; unused for playback | **20** |
+| — | GND — common radio ground and HAT ground | ⬛ **39** | **40** 🟨 | <!-- device:sound -->PCM DOUT — Pi audio data to sound device | **21** |
+
+
+**Radio compatibility:** display wiring remains unchanged and the ADS1115 at
+`0x48` can share I2C1 with the TAS5713 at `0x1b`. This profile sets `amp = none`;
+BCM 26 is not the HAT's enable control. Expected card/mixer:
+`sndrpihifiberryamp` / `Master`.
+
+**Format note:** the profile ships the safe `S16_LE` / 44100 Hz output. The
+TAS5713 DAI also advertises `S24_LE`/`S32_LE` and rates up to 48 kHz, but these
+have not been verified on target; test them on real hardware before changing the
+`output_format` / `output_rate` fields in
+`radio_web/audio_hardware_profiles.json`.
 
 <!-- audio-profile: allo_boss -->
 ### Allo BOSS
