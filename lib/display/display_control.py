@@ -857,12 +857,14 @@ class DisplayController:
                                fill=self.theme.osd_fill_color)
 
     def _draw_volume_osd_round(self, draw: ImageDraw.ImageDraw) -> None:
-        """Draw the round-panel volume OSD as a ~270° ring gauge (Step 5.2).
+        """Draw the round-panel volume OSD as a ring gauge (Step 5.2 / Step 6).
 
         The circular GC9A01 replaces the horizontal bar with an arc/ring gauge
-        centred on the panel: a full 270° track from 135° to 405° (bottom-left,
-        sweeping clockwise through the top, to bottom-right) with the filled
-        portion proportional to ``pct`` and the percentage drawn in the middle.
+        centred on the panel.  The sweep angle (``theme.osd_arc_span``, default
+        270°) and stroke width (``theme.osd_ring_thickness``, default 0 = auto
+        from ``osd_bar_height``) are configurable from ``display.conf`` so the
+        gauge can be tuned without code changes.  The filled portion is
+        proportional to ``pct`` and the percentage is drawn in the middle.
         Reuses ``theme.osd_track_color`` / ``theme.osd_fill_color`` so it themes
         exactly like the rectangular bar.
 
@@ -874,16 +876,21 @@ class DisplayController:
         cx, cy, radius = self._round_center_radius()
 
         # Ring geometry: an inset arc so the thick stroke stays clear of the
-        # circular bezel. Thickness scales with the themed bar height.
-        thickness = max(4, self.theme.osd_bar_height)
+        # circular bezel. Thickness scales with the themed bar height unless the
+        # caller has supplied an explicit osd_ring_thickness override (Step 6).
+        thickness = (self.theme.osd_ring_thickness
+                     if self.theme.osd_ring_thickness > 0
+                     else max(4, self.theme.osd_bar_height))
         ring_inset = max(thickness, radius // 5)
         rr = max(1, radius - ring_inset)
         box = (cx - rr, cy - rr, cx + rr, cy + rr)
 
-        # 270° gauge: a gap at the bottom. Start at 135°, sweep 270° clockwise
-        # (Pillow measures angles clockwise from 3 o'clock).
-        start_deg = 135
-        span_deg = 270
+        # Arc gauge: configurable sweep angle from theme (Step 6).  The gap at
+        # the bottom (360 - osd_arc_span degrees) is split evenly left/right so
+        # the gauge is always symmetric.  Default is 270° (135° start).
+        span_deg = self.theme.osd_arc_span
+        gap_half = (360 - span_deg) // 2
+        start_deg = 90 + gap_half
         end_deg = start_deg + span_deg
         fill_deg = start_deg + int(round(span_deg * max(0, min(100, pct)) / 100))
 

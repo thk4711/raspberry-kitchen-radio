@@ -86,6 +86,14 @@ class Theme(NamedTuple):
     osd_bar_height: int = 12
     osd_track_color: Color = (70, 70, 78)
     osd_fill_color: Color = (255, 255, 255)
+    # Arc-gauge keys for the round GC9A01 panel (Step 6). Ignored when shape is
+    # rect so the ST7789 path is byte-identical.
+    # osd_arc_span: sweep angle of the ring gauge in degrees (1..360); 270
+    #   leaves a small gap at the bottom — the classic gauge style.
+    # osd_ring_thickness: stroke width in px; 0 = derive from osd_bar_height
+    #   (keeps the automatic sizing introduced in Step 5 as the default).
+    osd_arc_span: int = 270
+    osd_ring_thickness: int = 0
 
     # Preset toast (Workstream 4.5).
     toast_duration: float = 1.6
@@ -264,6 +272,8 @@ def build_theme(ui: Optional[Mapping[str, Any]]) -> Theme:
         osd_bar_height=parse_int(ui.get("osd_bar_height"), d.osd_bar_height, 2, 80),
         osd_track_color=parse_color(ui.get("osd_track_color"), d.osd_track_color),
         osd_fill_color=parse_color(ui.get("osd_fill_color"), d.osd_fill_color),
+        osd_arc_span=parse_int(ui.get("osd_arc_span"), d.osd_arc_span, 1, 360),
+        osd_ring_thickness=parse_int(ui.get("osd_ring_thickness"), d.osd_ring_thickness, 0, 120),
         toast_duration=parse_float(ui.get("toast_duration"), d.toast_duration, 0.0, 30.0),
         toast_bg_color=parse_color(ui.get("toast_bg_color"), d.toast_bg_color),
         toast_opacity=parse_float(ui.get("toast_opacity"), d.toast_opacity, 0.0, 1.0),
