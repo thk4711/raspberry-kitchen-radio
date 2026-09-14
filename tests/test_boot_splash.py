@@ -59,9 +59,9 @@ def test_render_splash_frame_matches_packed_signature():
 
 
 def test_main_pushes_one_frame_and_lights_backlight(monkeypatch):
-    fake_driver = types.ModuleType("display.LCD_1inch69")
-    fake_driver.LCD_1inch69 = _FakePanel
-    monkeypatch.setitem(sys.modules, "display.LCD_1inch69", fake_driver)
+    fake_driver = types.ModuleType("display.panel_st7789")
+    fake_driver.ST7789 = _FakePanel
+    monkeypatch.setitem(sys.modules, "display.panel_st7789", fake_driver)
 
     created = {}
     real_panel_cls = _FakePanel
@@ -71,7 +71,7 @@ def test_main_pushes_one_frame_and_lights_backlight(monkeypatch):
         created["panel"] = panel
         return panel
 
-    fake_driver.LCD_1inch69 = _record
+    fake_driver.ST7789 = _record
 
     rc = boot_splash.main()
 
@@ -88,15 +88,15 @@ def test_main_pushes_one_frame_and_lights_backlight(monkeypatch):
 
 
 def test_main_passes_configured_spi_chip_select(monkeypatch):
-    fake_driver = types.ModuleType("display.LCD_1inch69")
+    fake_driver = types.ModuleType("display.panel_st7789")
     created = {}
 
     def _record(*args, **kwargs):
         created["kwargs"] = kwargs
         return _FakePanel(*args, **kwargs)
 
-    fake_driver.LCD_1inch69 = _record
-    monkeypatch.setitem(sys.modules, "display.LCD_1inch69", fake_driver)
+    fake_driver.ST7789 = _record
+    monkeypatch.setitem(sys.modules, "display.panel_st7789", fake_driver)
     monkeypatch.setattr(
         boot_splash,
         "_read_display_conf",
@@ -127,8 +127,8 @@ def test_main_never_raises_and_returns_zero(monkeypatch):
         def module_exit(self):
             pass
 
-    fake_driver = types.ModuleType("display.LCD_1inch69")
-    fake_driver.LCD_1inch69 = _Boom
-    monkeypatch.setitem(sys.modules, "display.LCD_1inch69", fake_driver)
+    fake_driver = types.ModuleType("display.panel_st7789")
+    fake_driver.ST7789 = _Boom
+    monkeypatch.setitem(sys.modules, "display.panel_st7789", fake_driver)
 
     assert boot_splash.main() == 0

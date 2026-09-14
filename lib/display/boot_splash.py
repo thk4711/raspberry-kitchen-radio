@@ -166,9 +166,9 @@ def main() -> int:
 
         # Defer the hardware driver import until here so this module stays
         # importable (for tests / --help style use) without spidev/gpiozero.
-        from display import LCD_1inch69  # noqa: PLC0415
+        from display import panel_st7789  # noqa: PLC0415
 
-        disp = LCD_1inch69.LCD_1inch69(
+        disp = panel_st7789.ST7789(
             rst=rst,
             dc=dc,
             bl=bl,

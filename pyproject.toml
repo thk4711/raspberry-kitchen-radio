@@ -50,7 +50,7 @@ ignore = ["E501", "E402"]
 "tests/*" = ["E402", "F401", "B017"]
 # The vendored-adjacent SPI/GPIO driver files (Waveshare-derived) use a
 # star-import + C-style idioms; they are out of scope for this lint pass.
-"lib/display/LCD_1inch69.py" = ["F403", "F405"]
+"lib/display/panel_st7789.py" = ["F403", "F405"]
 "lib/display/lcdconfig.py" = ["F403", "F405", "E711", "B008"]
 
 [tool.mypy]

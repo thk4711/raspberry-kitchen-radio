@@ -247,7 +247,7 @@ def main() -> int:
     # Import the hardware driver only after parsing arguments. This keeps
     # ``display_test.py --help`` usable on non-Pi development machines where
     # spidev/gpiozero are not installed.
-    from display import LCD_1inch69  # noqa: PLC0415
+    from display import panel_st7789  # noqa: PLC0415
 
     print("Display configuration:")
     print(f"  size:      {conf['width']}x{conf['height']}")
@@ -257,7 +257,7 @@ def main() -> int:
     )
     print(f"  SPI freq:  {conf['spi_freq']} Hz")
 
-    disp = LCD_1inch69.LCD_1inch69(
+    disp = panel_st7789.ST7789(
         rst=conf["rst"],
         dc=conf["dc"],
         bl=conf["bl"],
