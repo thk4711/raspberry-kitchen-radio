@@ -1,11 +1,15 @@
 #!/usr/bin/env python3
-"""One-shot branded boot splash for the ST7789 1.69 inch SPI panel.
+"""One-shot branded boot splash for the Kitchen Radio SPI display.
 
 This paints a single branded frame on the SPI display **very early in boot**,
 long before the radio app itself starts. It is launched (detached) from the
 ``sysinit`` line ``/usr/sbin/radio-boot-splash`` in ``/etc/inittab`` so the
 panel shows the product identity within a second or two of power-on instead of
 staying dark until ``radio.py`` comes up at the very end of boot.
+
+The active panel driver is selected by the ``[display] panel`` key in
+``display.conf`` (``st7789`` for the 240x280 rectangular panel, ``gc9a01``
+for the 240x240 round panel; default is ``st7789``).
 
 Design goals (see doc/buildroot.md, "early boot splash"):
 
@@ -25,7 +29,7 @@ On the Buildroot target this file is installed with the rest of the app under::
 
     /opt/raspberry-kitchen-radio/lib/display/boot_splash.py
 
-The heavy/hardware imports (the ST7789 driver) are deferred into :func:`main`
+The heavy/hardware imports (the panel driver) are deferred into :func:`main`
 so :func:`render_splash_frame` stays importable — and unit-testable — on a
 plain workstation with only numpy + Pillow available.
 """
@@ -159,6 +163,7 @@ def main() -> int:
         spi_bus = int(display.get("spi_bus", 0))
         spi_device = int(display.get("spi_device", 0))
         spi_freq = int(display.get("spi_freq", 40_000_000))
+        panel_name = str(display.get("panel", "st7789"))
         theme = theme_mod.build_theme(conf.get("ui") if isinstance(conf, dict) else None)
 
         frame = render_splash_frame(width, height, theme)
@@ -166,9 +171,10 @@ def main() -> int:
 
         # Defer the hardware driver import until here so this module stays
         # importable (for tests / --help style use) without spidev/gpiozero.
-        from display import panel_st7789  # noqa: PLC0415
+        from display import panel_factory  # noqa: PLC0415
 
-        disp = panel_st7789.ST7789(
+        PanelClass = panel_factory.get_panel_class(panel_name)
+        disp = PanelClass(
             rst=rst,
             dc=dc,
             bl=bl,

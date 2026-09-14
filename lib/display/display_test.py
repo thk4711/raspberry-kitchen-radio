@@ -45,7 +45,7 @@ DEFAULT_CONFIG = SCRIPT_DIR / "display.conf"
 DEFAULT_FONT = SCRIPT_DIR / "fonts" / "Roboto-Condensed-Regular.ttf"
 
 
-def read_display_config(path: Path) -> dict[str, int]:
+def read_display_config(path: Path) -> dict:
     """Read display.conf using the same keys as DisplayController."""
     parser = configparser.ConfigParser()
     if not parser.read(path):
@@ -56,6 +56,7 @@ def read_display_config(path: Path) -> dict[str, int]:
 
     section = parser["display"]
     return {
+        "panel": section.get("panel", fallback="st7789"),
         "width": section.getint("width", fallback=240),
         "height": section.getint("height", fallback=280),
         "rst": section.getint("rst", fallback=24),
@@ -93,7 +94,7 @@ def draw_centered_text(
     return y + text_height + 10
 
 
-def draw_test_image(width: int, height: int, spi_freq: int) -> Image.Image:
+def draw_test_image(width: int, height: int, spi_freq: int, panel_label: str = "") -> Image.Image:
     """Create an obvious diagnostic image for orientation and color testing."""
     image = Image.new("RGB", (width, height), "black")
     draw = ImageDraw.Draw(image)
@@ -119,9 +120,13 @@ def draw_test_image(width: int, height: int, spi_freq: int) -> Image.Image:
     title_font = load_font(32)
     small_font = load_font(18)
 
+    # Use the supplied label (e.g. "ST7789 240x280" or "GC9A01 240x240"); fall
+    # back to a generic size string when none is provided.
+    label = panel_label if panel_label else f"{width}x{height}"
+
     y = 78
     y = draw_centered_text(draw, y, "DISPLAY TEST", title_font, width, "white")
-    y = draw_centered_text(draw, y, "ST7789 240x280", small_font, width, "orange")
+    y = draw_centered_text(draw, y, label, small_font, width, "orange")
     y = draw_centered_text(draw, y, f"SPI {spi_freq // 1_000_000} MHz", small_font, width, "orange")
     draw_centered_text(draw, y, datetime.now().strftime("%H:%M:%S"), small_font, width, "orange")
 
@@ -201,7 +206,13 @@ def run_mock_now_playing(args) -> int:
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Initialize the ST7789 display and show a test image.")
+    parser = argparse.ArgumentParser(
+        description=(
+            "Initialize the SPI display (ST7789 240x280 or GC9A01 240x240) and "
+            "show a test image. The active panel is selected by the ``panel`` key "
+            "in display.conf."
+        )
+    )
     parser.add_argument(
         "--config",
         type=Path,
@@ -233,7 +244,8 @@ def main() -> int:
         action="store_true",
         help="drive the real DisplayController with mock metadata to eyeball the "
              "redesigned now-playing UI + WS4 motion (crossfade, volume OSD, "
-             "preset toast, idle screensaver). Ignores --backlight.",
+             "preset toast, idle screensaver) on both ST7789 and GC9A01 panels. "
+             "Ignores --backlight.",
     )
     args = parser.parse_args()
 
@@ -247,9 +259,15 @@ def main() -> int:
     # Import the hardware driver only after parsing arguments. This keeps
     # ``display_test.py --help`` usable on non-Pi development machines where
     # spidev/gpiozero are not installed.
-    from display import panel_st7789  # noqa: PLC0415
+    from display import panel_factory  # noqa: PLC0415
+
+    panel_name = conf["panel"]
+    PanelClass = panel_factory.get_panel_class(panel_name)
+    # Build a human-readable label for the test image (e.g. "ST7789 240x280").
+    panel_label = f"{PanelClass.__name__} {conf['width']}x{conf['height']}"
 
     print("Display configuration:")
+    print(f"  panel:     {PanelClass.__name__}")
     print(f"  size:      {conf['width']}x{conf['height']}")
     print(f"  RST/DC/BL: BCM {conf['rst']} / {conf['dc']} / {conf['bl']}")
     print(
@@ -257,7 +275,7 @@ def main() -> int:
     )
     print(f"  SPI freq:  {conf['spi_freq']} Hz")
 
-    disp = panel_st7789.ST7789(
+    disp = PanelClass(
         rst=conf["rst"],
         dc=conf["dc"],
         bl=conf["bl"],
@@ -272,7 +290,7 @@ def main() -> int:
         print(f"Turning backlight on ({args.backlight}%)...")
         disp.bl_DutyCycle(args.backlight)
 
-        image = draw_test_image(conf["width"], conf["height"], conf["spi_freq"])
+        image = draw_test_image(conf["width"], conf["height"], conf["spi_freq"], panel_label)
         print("Writing test image...")
         disp.ShowImage(image)
         print("Done. The display should now show the test pattern.")
