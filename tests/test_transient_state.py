@@ -4,7 +4,7 @@ Uses a fake, hand-advanced clock so the OSD/toast/crossfade/idle windows are
 exercised deterministically without sleeping.
 """
 
-from display_1_inch_69.transient_state import TransientState
+from display.transient_state import TransientState
 
 
 class FakeClock:

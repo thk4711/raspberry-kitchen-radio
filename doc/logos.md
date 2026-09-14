@@ -48,7 +48,7 @@ The path from `stations.conf` to pixels:
 2. **Pick the art treatment.** `Radio.update_metadata()` in `radio.py` tags MPD
    playback with `art_mode="radio"` and forwards the path to the display.
 3. **Compose the frame.** `DisplayController`
-   ([`lib/display_1_inch_69/display_control.py`](../lib/display_1_inch_69/display_control.py))
+   ([`lib/display/display_control.py`](../lib/display/display_control.py))
    builds a cached "art layer":
    - `_open_cover()` loads the logo as RGBA (a missing/unreadable file degrades
      gracefully — see the fallback below).
@@ -128,7 +128,7 @@ canvas.save("MY_STATION.png", "PNG")
 
 A station whose `logo=` is **blank or points at a missing file** does not show an
 empty screen. The display renders a **generated initials tile** via
-[`lib/display_1_inch_69/logo_fallback.py`](../lib/display_1_inch_69/logo_fallback.py):
+[`lib/display/logo_fallback.py`](../lib/display/logo_fallback.py):
 a rounded square in a deterministic, name-derived colour with the station's
 initials (e.g. `Jazz Radio` → `JR`, `MDR JUMP` → `MJ`). The colour is a stable
 hash of the name, so a given station always looks the same and the art cache
@@ -148,7 +148,7 @@ the appliance image) and no new dependency.
 ## Customizing the backdrop via `[ui]`
 
 The radio-mode backdrop is themeable through the optional `[ui]` section of
-[`lib/display_1_inch_69/display.conf`](../lib/display_1_inch_69/display.conf).
+[`lib/display/display.conf`](../lib/display/display.conf).
 Every key is optional; leaving it out keeps the shipped default. The keys that
 affect the logo/backdrop:
 
@@ -176,7 +176,7 @@ backdrop_bottom_scale = 0.30
 ```
 
 ```bash
-# edit /opt/raspberry-kitchen-radio/lib/display_1_inch_69/display.conf, then:
+# edit /opt/raspberry-kitchen-radio/lib/display/display.conf, then:
 ssh root@<radio-ip> /etc/init.d/S90radio restart
 ```
 

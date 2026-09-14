@@ -4,8 +4,8 @@ No Pillow, no numpy, no hardware — just pixel-rectangle math, so these run on
 any machine.
 """
 import pytest
-from display_1_inch_69 import layout as layout_mod
-from display_1_inch_69.layout import Rect, compute_layout, inner_rect
+from display import layout as layout_mod
+from display.layout import Rect, compute_layout, inner_rect
 
 
 def test_rect_derived_properties():

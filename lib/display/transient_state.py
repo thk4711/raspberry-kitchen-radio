@@ -2,7 +2,7 @@
 
 This is the small, dependency-free state machine that governs the display's
 *time-based* overlays, extracted out of the 1000-line
-:class:`~display_1_inch_69.display_control.DisplayController` so it can be
+:class:`~display.display_control.DisplayController` so it can be
 reasoned about and unit-tested in isolation:
 
 * the auto-hiding **volume OSD** (last percentage + a ``monotonic()`` deadline);

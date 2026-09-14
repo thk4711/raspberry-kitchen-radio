@@ -2,7 +2,7 @@
 
 No Pillow, no numpy, no hardware — pure string logic, runnable anywhere.
 """
-from display_1_inch_69 import textformat
+from display import textformat
 
 
 def test_cover_mode_uses_backend_split():

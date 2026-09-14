@@ -28,7 +28,7 @@ MAX_URL_LENGTH = 2048
 
 # Logo filename: a bare filename (no path separators, no traversal) with an
 # image extension. Empty is allowed and means "use the generated fallback tile"
-# (lib/display_1_inch_69/logo_fallback.py).
+# (lib/display/logo_fallback.py).
 _LOGO_RE = re.compile(r"^[A-Za-z0-9._-]+\.(?:png|jpg|jpeg)$", re.IGNORECASE)
 MAX_LOGO_LENGTH = 128
 
@@ -199,7 +199,7 @@ def validate_ntp_server(value: str) -> str:
 
 # The user-facing display fields we expose. Everything
 # maps into the ``[ui]`` section of the managed ``display.ini`` and is re-parsed
-# by ``lib/display_1_inch_69/theme.build_theme`` (which itself clamps/defaults
+# by ``lib/display/theme.build_theme`` (which itself clamps/defaults
 # again — this layer only rejects hostile input and gives a friendly message).
 _MAX_MS = 5000
 _MAX_IDLE_TIMEOUT = 86400

@@ -3,7 +3,7 @@
 This repository includes a small standalone test for the 1.69" ST7789 SPI display:
 
 ```text
-/opt/raspberry-kitchen-radio/lib/display_1_inch_69/display_test.py
+/opt/raspberry-kitchen-radio/lib/display/display_test.py
 ```
 
 The test initializes only the display, turns the backlight on, and draws a simple
@@ -69,7 +69,7 @@ select which leaves MOSI and SCLK unchanged:
 
 1. With power off, move only the display **CS** wire from physical pin 24 /
    BCM 8 / CE0 to physical pin **26** / BCM **7** / **CE1**.
-2. In `lib/display_1_inch_69/display.conf`, set:
+2. In `lib/display/display.conf`, set:
 
    ```ini
    [display]
@@ -129,13 +129,13 @@ GPIO26 (37) (38)  GPIO20
 The script reads these values from:
 
 ```text
-/opt/raspberry-kitchen-radio/lib/display_1_inch_69/display.conf
+/opt/raspberry-kitchen-radio/lib/display/display.conf
 ```
 
 In the source tree this is:
 
 ```text
-lib/display_1_inch_69/display.conf
+lib/display/display.conf
 ```
 
 `display.conf` also carries an optional **`[ui]` theme section** (colours,
@@ -172,7 +172,7 @@ application is not using the display at the same time:
 ```sh
 /etc/init.d/S90radio stop
 cd /opt/raspberry-kitchen-radio
-python3 lib/display_1_inch_69/display_test.py
+python3 lib/display/display_test.py
 ```
 
 Expected result: the backlight turns on and the display shows a test image with
@@ -181,13 +181,13 @@ colored bars, white/orange borders, diagonals, and the text `DISPLAY TEST`.
 The default display time is 60 seconds. To keep it on for longer:
 
 ```sh
-python3 lib/display_1_inch_69/display_test.py --seconds 300
+python3 lib/display/display_test.py --seconds 300
 ```
 
 To draw the image and exit immediately:
 
 ```sh
-python3 lib/display_1_inch_69/display_test.py --seconds 0
+python3 lib/display/display_test.py --seconds 0
 ```
 
 ## Try a lower SPI clock
@@ -197,13 +197,13 @@ blank, flickers, or shows corrupted output, try a lower SPI clock. This can help
 identify wiring/signal-integrity issues:
 
 ```sh
-python3 lib/display_1_inch_69/display_test.py --spi-freq 10000000
+python3 lib/display/display_test.py --spi-freq 10000000
 ```
 
 You can also try 1 MHz for a very conservative check:
 
 ```sh
-python3 lib/display_1_inch_69/display_test.py --spi-freq 1000000
+python3 lib/display/display_test.py --spi-freq 1000000
 ```
 
 If a low clock works but 40 MHz does not, the most likely cause is signal
@@ -215,13 +215,13 @@ To test whether the backlight pin can be driven, run with a visible backlight
 level:
 
 ```sh
-python3 lib/display_1_inch_69/display_test.py --backlight 100 --seconds 30
+python3 lib/display/display_test.py --backlight 100 --seconds 30
 ```
 
 To dim it:
 
 ```sh
-python3 lib/display_1_inch_69/display_test.py --backlight 25 --seconds 30
+python3 lib/display/display_test.py --backlight 25 --seconds 30
 ```
 
 If the backlight never turns on, check the display `BL` connection, power, and

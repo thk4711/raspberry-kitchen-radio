@@ -8,7 +8,7 @@
 #   before provisioning / hostname / rcS / the app even start. Instead this
 #   launcher backgrounds the one-shot renderer and returns immediately (a few
 #   ms), so the splash draws IN PARALLEL with the rest of boot and adds no
-#   measurable serial boot latency. See lib/display_1_inch_69/boot_splash.py
+#   measurable serial boot latency. See lib/display/boot_splash.py
 #   and doc/buildroot.md ("early boot splash").
 #
 #   inittab order (see rootfs-overlay/etc/inittab):
@@ -30,7 +30,7 @@
 
 PYTHON=/usr/bin/python3
 APP_DIR=/opt/raspberry-kitchen-radio
-SPLASH="$APP_DIR/lib/display_1_inch_69/boot_splash.py"
+SPLASH="$APP_DIR/lib/display/boot_splash.py"
 LOG=/tmp/radio-boot-splash.log
 
 # Nothing to do (and nothing to block on) if the interpreter or renderer is

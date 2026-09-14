@@ -12,8 +12,8 @@ therefore ships **no third-party binaries** — only the two asset groups below.
 
 | Artifact | Path | Size | Role |
 | --- | --- | --- | --- |
-| UI font (regular) | `lib/display_1_inch_69/fonts/Roboto-Condensed-Regular.ttf` | ~48 KB | display body text |
-| UI font (bold) | `lib/display_1_inch_69/fonts/Roboto-Condensed-Bold.ttf` | ~300 KB | display title / status-strip text |
+| UI font (regular) | `lib/display/fonts/Roboto-Condensed-Regular.ttf` | ~48 KB | display body text |
+| UI font (bold) | `lib/display/fonts/Roboto-Condensed-Bold.ttf` | ~300 KB | display title / status-strip text |
 | Station logos | `lib/mpd_service/logos/*.png` | ~144 KB total (6 files) | cover art for the preset radio stations |
 
 Both are copied onto the Buildroot image as-is (`cp -a lib/.` in
@@ -33,8 +33,8 @@ governed by its own upstream license/terms.
 
 | Artifact | Path | Upstream | License | Source URL |
 | --- | --- | --- | --- | --- |
-| UI font (regular) | `lib/display_1_inch_69/fonts/Roboto-Condensed-Regular.ttf` | Roboto Condensed (Google Fonts) | Apache-2.0 | https://fonts.google.com/specimen/Roboto+Condensed |
-| UI font (bold) | `lib/display_1_inch_69/fonts/Roboto-Condensed-Bold.ttf` | Roboto (classic) v2.138 static build | Apache-2.0 | https://github.com/googlefonts/roboto-2/releases/tag/v2.138 (`roboto-android.zip` → `RobotoCondensed-Bold.ttf`) |
+| UI font (regular) | `lib/display/fonts/Roboto-Condensed-Regular.ttf` | Roboto Condensed (Google Fonts) | Apache-2.0 | https://fonts.google.com/specimen/Roboto+Condensed |
+| UI font (bold) | `lib/display/fonts/Roboto-Condensed-Bold.ttf` | Roboto (classic) v2.138 static build | Apache-2.0 | https://github.com/googlefonts/roboto-2/releases/tag/v2.138 (`roboto-android.zip` → `RobotoCondensed-Bold.ttf`) |
 | Logo `Deutschlandfunk.png` | `lib/mpd_service/logos/Deutschlandfunk.png` | Deutschlandfunk (Deutschlandradio) | CC0 1.0 (public domain) | https://commons.wikimedia.org/wiki/File:Deutschlandfunk_Logo_klein.png |
 | Logo `Deutschlandfunk_Nova.png` | `lib/mpd_service/logos/Deutschlandfunk_Nova.png` | Deutschlandfunk Nova (Deutschlandradio) | CC0 1.0 (public domain) | https://commons.wikimedia.org/wiki/File:Deutschlandfunk_Nova_Logo_klein.png |
 | Logo `Deutschlandfunk_Kultur.png` | `lib/mpd_service/logos/Deutschlandfunk_Kultur.png` | Deutschlandfunk Kultur (Deutschlandradio) | CC0 1.0 (public domain) | https://commons.wikimedia.org/wiki/File:Deutschlandfunk_Kultur_Logo_klein.png |
@@ -62,8 +62,8 @@ Regenerate with `shasum -a 256 <path>` after replacing an artifact.
 
 | Path | SHA-256 |
 | --- | --- |
-| `lib/display_1_inch_69/fonts/Roboto-Condensed-Regular.ttf` | `68f2c3495f17f27659df0ef3b5ce42642f40e337c5b3adc19cc07f3c5e520f5e` |
-| `lib/display_1_inch_69/fonts/Roboto-Condensed-Bold.ttf` | `7f109b2b6d72e7563522d3c3d2c6c8b79ec5a711bfdf483b93e345eab5b5ef94` |
+| `lib/display/fonts/Roboto-Condensed-Regular.ttf` | `68f2c3495f17f27659df0ef3b5ce42642f40e337c5b3adc19cc07f3c5e520f5e` |
+| `lib/display/fonts/Roboto-Condensed-Bold.ttf` | `7f109b2b6d72e7563522d3c3d2c6c8b79ec5a711bfdf483b93e345eab5b5ef94` |
 | `lib/mpd_service/logos/Deutschlandfunk.png` | `4e2410e1b96a69691c7771680c0009fae439477e572158a2cf61ed557af05c73` |
 | `lib/mpd_service/logos/Deutschlandfunk_Kultur.png` | `8ddf5538d2f08709d71e29497fb7d0a2088f512a9f6521b6dd1903d7d771abc5` |
 | `lib/mpd_service/logos/Deutschlandfunk_Nova.png` | `5d96b086d24e4d6bbff15abafaee12be193a205733cfd27715d95281c5b52d71` |
@@ -74,7 +74,7 @@ Regenerate with `shasum -a 256 <path>` after replacing an artifact.
 ## Replacing an artifact
 
 - **Fonts** — the display loads two fixed filenames from
-  `lib/display_1_inch_69/fonts/`: `Roboto-Condensed-Regular.ttf` (body) and
+  `lib/display/fonts/`: `Roboto-Condensed-Regular.ttf` (body) and
   `Roboto-Condensed-Bold.ttf` (title / status strip). To swap the typeface,
   replace those two files in place (keep the names), then refresh the checksums
   above. If the bold file is missing the app falls back to the regular weight.
@@ -93,7 +93,7 @@ A station whose `logo=` is blank or points at a missing file does **not** show
 an empty screen: the display renders a **generated initials tile** — a rounded
 square in a deterministic, name-derived colour with the station's initials
 (e.g. a station named “Jazz Radio” → “JR”) — via
-`lib/display_1_inch_69/logo_fallback.py`. So adding a station without a logo is
+`lib/display/logo_fallback.py`. So adding a station without a logo is
 fine; drop in a PNG later to replace the tile. (All six shipped presets have a
 real logo, so the tile is only seen for user-added logo-less stations.)
 

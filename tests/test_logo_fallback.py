@@ -3,7 +3,7 @@
 Pillow only, no hardware — the generated initials tile is deterministic in the
 station name, so these run on any machine.
 """
-from display_1_inch_69 import logo_fallback
+from display import logo_fallback
 from PIL import ImageFont
 
 
@@ -57,7 +57,7 @@ class TestTileColor:
 
 def _font(size=40):
     return ImageFont.truetype(
-        "lib/display_1_inch_69/fonts/Roboto-Condensed-Bold.ttf", size)
+        "lib/display/fonts/Roboto-Condensed-Bold.ttf", size)
 
 
 class TestRenderTile:

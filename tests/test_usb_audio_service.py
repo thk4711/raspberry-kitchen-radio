@@ -24,9 +24,9 @@ def _amixer_output(rate: int) -> str:
 def _import_radio(monkeypatch):
     """Import the controller without loading the Raspberry Pi display driver."""
     monkeypatch.setitem(sys.modules, "yaml", types.ModuleType("yaml"))
-    display_module = types.ModuleType("display_1_inch_69.display_control")
+    display_module = types.ModuleType("display.display_control")
     display_module.DisplayController = mock.Mock()
-    monkeypatch.setitem(sys.modules, "display_1_inch_69.display_control", display_module)
+    monkeypatch.setitem(sys.modules, "display.display_control", display_module)
     import radio
 
     return radio

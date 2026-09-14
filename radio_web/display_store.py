@@ -8,7 +8,7 @@ named presets (Default / High contrast / Dim night / No animations).
 Everything is written to ``<managed_dir>/display.ini`` under a ``[ui]`` section.
 The player's :class:`DisplayController` already reads ``display.ini`` layered
 over the shipped ``display.conf`` and feeds ``[ui]`` to
-``lib/display_1_inch_69/theme.build_theme`` — which re-validates and clamps every
+``lib/display/theme.build_theme`` — which re-validates and clamps every
 value and falls back to the shipped default per key. So this module only needs to
 persist a clean ``[ui]`` block; the player applies it on the next
 ``restart_radio``. A missing file means "shipped defaults", exactly as today.
@@ -29,7 +29,7 @@ UI_SECTION = "ui"
 _SECTION_RE = re.compile(r"^\[(.+)\]$")
 
 # The exposed fields and their built-in defaults. These mirror the shipped
-# defaults in ``lib/display_1_inch_69/theme.Theme`` so the form pre-fills with
+# defaults in ``lib/display/theme.Theme`` so the form pre-fills with
 # the out-of-the-box look when no override exists.
 DEFAULTS: Dict[str, str] = {
     "idle_timeout": "30",

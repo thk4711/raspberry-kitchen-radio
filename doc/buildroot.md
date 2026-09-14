@@ -518,7 +518,7 @@ branded frame from the very first useful `sysinit` step:
   populated, and *before* provisioning/hostname/rcS.
 - It **launches the renderer detached** (`python3 … &`) and returns in a few
   ms, so BusyBox init does **not** block on the ~1 s Python startup — the
-  splash (`lib/display_1_inch_69/boot_splash.py`) renders in parallel with
+  splash (`lib/display/boot_splash.py`) renders in parallel with
   provisioning/rcS and adds **no measurable serial boot latency**.
 - The renderer draws the same dark-gradient "RADIO" splash the app itself shows
   (shared fonts + `[ui]` colours), sets the backlight on, then releases SPI and

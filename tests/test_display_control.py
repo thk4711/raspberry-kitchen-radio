@@ -16,7 +16,7 @@ import sys
 import types
 
 import pytest
-from display_1_inch_69 import compositor, logo_fallback
+from display import compositor, logo_fallback
 from PIL import Image
 
 
@@ -54,14 +54,14 @@ def controller(monkeypatch):
     ``threading.Thread`` is neutralised inside ``display_control`` so the
     compositor loop does not run on its own; tests drive it explicitly.
     """
-    fake_driver = types.ModuleType("display_1_inch_69.LCD_1inch69")
+    fake_driver = types.ModuleType("display.LCD_1inch69")
     fake_driver.LCD_1inch69 = _FakePanel
-    monkeypatch.setitem(sys.modules, "display_1_inch_69.LCD_1inch69", fake_driver)
+    monkeypatch.setitem(sys.modules, "display.LCD_1inch69", fake_driver)
 
     # Import (or re-import) the controller against the fake driver.
     import importlib
 
-    import display_1_inch_69.display_control as dc
+    import display.display_control as dc
     dc = importlib.reload(dc)
 
     class _InertThread:
@@ -369,7 +369,7 @@ def test_clock_string_change_would_flag_dirty(controller):
 # --- Workstream 4: motion & states ----------------------------------------
 
 def test_show_volume_sets_deadline_and_dirty(controller, monkeypatch):
-    import display_1_inch_69.display_control as dc
+    import display.display_control as dc
     monkeypatch.setattr(dc, "monotonic", lambda: 1000.0)
     controller._dirty = False
     controller.show_volume(42)
@@ -388,7 +388,7 @@ def test_show_volume_clamps_to_0_100(controller):
 
 
 def test_osd_expires_after_duration(controller, monkeypatch):
-    import display_1_inch_69.display_control as dc
+    import display.display_control as dc
     t = {"now": 1000.0}
     monkeypatch.setattr(dc, "monotonic", lambda: t["now"])
     controller.show_volume(50)
@@ -399,7 +399,7 @@ def test_osd_expires_after_duration(controller, monkeypatch):
 
 
 def test_render_shows_osd_bar_and_hides_text_rows(controller, monkeypatch):
-    import display_1_inch_69.display_control as dc
+    import display.display_control as dc
     monkeypatch.setattr(dc, "monotonic", lambda: 5000.0)
     # A very long title would normally scroll; with the OSD up it must not be
     # advanced (the OSD replaces the rows), so the frame differs from the plain
@@ -417,7 +417,7 @@ def test_render_shows_osd_bar_and_hides_text_rows(controller, monkeypatch):
 
 
 def test_render_osd_fill_reflects_volume(controller, monkeypatch):
-    import display_1_inch_69.display_control as dc
+    import display.display_control as dc
     monkeypatch.setattr(dc, "monotonic", lambda: 6000.0)
     controller.update_metadata("Radio", "Song", "", "0", art_mode="radio")
     controller.show_volume(10)
@@ -442,13 +442,13 @@ def test_boot_splash_is_the_single_initial_frame(controller):
     # __init__ pushes exactly one frame and it is the branded splash.
     assert len(controller.disp.frames) == 1
     import numpy as np
-    from display_1_inch_69 import compositor
+    from display import compositor
     splash = compositor.pack_rgb565(np.asarray(controller._render_splash()))
     assert controller.disp.frames[0] == splash
 
 
 def test_show_toast_sets_deadline_and_dismisses_screensaver(controller, monkeypatch):
-    import display_1_inch_69.display_control as dc
+    import display.display_control as dc
     monkeypatch.setattr(dc, "monotonic", lambda: 2000.0)
     controller.show_toast("MDR JUMP")
     assert controller._transient.toast_text == "MDR JUMP"
@@ -463,7 +463,7 @@ def test_blank_toast_is_not_visible(controller):
 
 
 def test_toast_expires_after_duration(controller, monkeypatch):
-    import display_1_inch_69.display_control as dc
+    import display.display_control as dc
     t = {"now": 3000.0}
     monkeypatch.setattr(dc, "monotonic", lambda: t["now"])
     controller.show_toast("Preset")
@@ -473,7 +473,7 @@ def test_toast_expires_after_duration(controller, monkeypatch):
 
 
 def test_toast_changes_the_rendered_frame(controller, monkeypatch):
-    import display_1_inch_69.display_control as dc
+    import display.display_control as dc
     monkeypatch.setattr(dc, "monotonic", lambda: 4000.0)
     controller.update_metadata("MDR JUMP", "", "", "0", state=True,
                                art_mode="radio", source="mpd")
@@ -485,7 +485,7 @@ def test_toast_changes_the_rendered_frame(controller, monkeypatch):
 
 
 def test_screensaver_activates_after_idle_timeout(controller, monkeypatch):
-    import display_1_inch_69.display_control as dc
+    import display.display_control as dc
     t = {"now": 5000.0}
     monkeypatch.setattr(dc, "monotonic", lambda: t["now"])
     # Not playing; last activity long ago.
@@ -499,7 +499,7 @@ def test_screensaver_activates_after_idle_timeout(controller, monkeypatch):
 
 
 def test_playing_prevents_screensaver(controller, monkeypatch):
-    import display_1_inch_69.display_control as dc
+    import display.display_control as dc
     monkeypatch.setattr(dc, "monotonic", lambda: 6000.0)
     controller.update_metadata("Radio", "Song", "", "0", state=True, art_mode="radio")
     controller._transient.last_activity = 0.0  # long ago, but we are playing
@@ -507,7 +507,7 @@ def test_playing_prevents_screensaver(controller, monkeypatch):
 
 
 def test_osd_suppresses_screensaver(controller, monkeypatch):
-    import display_1_inch_69.display_control as dc
+    import display.display_control as dc
     t = {"now": 7000.0}
     monkeypatch.setattr(dc, "monotonic", lambda: t["now"])
     controller.update_metadata("Radio", "", "", "0", state=False, art_mode="radio")
@@ -518,7 +518,7 @@ def test_osd_suppresses_screensaver(controller, monkeypatch):
 
 
 def test_art_change_starts_crossfade(controller, monkeypatch):
-    import display_1_inch_69.display_control as dc
+    import display.display_control as dc
     monkeypatch.setattr(dc, "monotonic", lambda: 8000.0)
     # First art establishes the cache (no crossfade yet).
     controller.update_metadata("A", "", "", "md5-a", art_mode="radio")
@@ -533,7 +533,7 @@ def test_art_change_starts_crossfade(controller, monkeypatch):
 
 
 def test_crossfade_clears_after_window(controller, monkeypatch):
-    import display_1_inch_69.display_control as dc
+    import display.display_control as dc
     t = {"now": 9000.0}
     monkeypatch.setattr(dc, "monotonic", lambda: t["now"])
     # Keep the idle screensaver deterministically OFF: seed the activity
@@ -558,13 +558,13 @@ def test_crossfade_clears_after_window(controller, monkeypatch):
 
 def _controller_with_ui(monkeypatch, ui):
     """Build a DisplayController whose display.conf carries a given [ui] dict."""
-    fake_driver = types.ModuleType("display_1_inch_69.LCD_1inch69")
+    fake_driver = types.ModuleType("display.LCD_1inch69")
     fake_driver.LCD_1inch69 = _FakePanel
-    monkeypatch.setitem(sys.modules, "display_1_inch_69.LCD_1inch69", fake_driver)
+    monkeypatch.setitem(sys.modules, "display.LCD_1inch69", fake_driver)
 
     import importlib
 
-    import display_1_inch_69.display_control as dc
+    import display.display_control as dc
     dc = importlib.reload(dc)
 
     class _InertThread:
@@ -591,12 +591,12 @@ def _controller_with_ui(monkeypatch, ui):
 def test_no_ui_section_matches_theme_defaults(controller):
     # With no [ui] section the resolved theme equals the shipped defaults, so
     # the look is byte-identical to before Workstream 5.
-    from display_1_inch_69 import theme
+    from display import theme
     assert controller.theme == theme.Theme()
 
 
 def test_ui_section_changes_theme_and_frame(monkeypatch):
-    from display_1_inch_69 import theme
+    from display import theme
     default = _controller_with_ui(monkeypatch, None)
     default.update_metadata("Radio", "Song", "", "0", state=True,
                             art_mode="radio", source="mpd")
@@ -647,7 +647,7 @@ def test_rotate_180_default_is_false(controller):
 def test_rotate_180_false_frame_unchanged(monkeypatch):
     """With rotate_180=false the packed bytes equal a manually non-rotated frame."""
     import numpy as np
-    from display_1_inch_69 import compositor
+    from display import compositor
 
     ctrl = _controller_with_ui(monkeypatch, {"rotate_180": "false"})
     assert ctrl.theme.rotate_180 is False
@@ -662,7 +662,7 @@ def test_rotate_180_false_frame_unchanged(monkeypatch):
 def test_rotate_180_true_flips_packed_bytes(monkeypatch):
     """With rotate_180=true the packed bytes equal those of the 180°-rotated frame."""
     import numpy as np
-    from display_1_inch_69 import compositor
+    from display import compositor
 
     ctrl = _controller_with_ui(monkeypatch, {"rotate_180": "true"})
     assert ctrl.theme.rotate_180 is True
@@ -678,7 +678,7 @@ def test_rotate_180_true_flips_packed_bytes(monkeypatch):
 def test_rotate_180_true_differs_from_false(monkeypatch):
     """Rotating 180° produces different packed bytes for an asymmetric frame."""
     import numpy as np
-    from display_1_inch_69 import compositor
+    from display import compositor
 
     ctrl_normal = _controller_with_ui(monkeypatch, {"rotate_180": "false"})
     ctrl_rotated = _controller_with_ui(monkeypatch, {"rotate_180": "true"})
