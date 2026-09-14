@@ -48,9 +48,11 @@ ignore = ["E501", "E402"]
 [tool.ruff.lint.per-file-ignores]
 # Tests import stubs and reach into internals; relax import rules there.
 "tests/*" = ["E402", "F401", "B017"]
-# The vendored-adjacent SPI/GPIO driver files (Waveshare-derived) use a
-# star-import + C-style idioms; they are out of scope for this lint pass.
-"lib/display/panel_st7789.py" = ["F403", "F405"]
+# lcdconfig.py is Waveshare-derived: it uses ``from gpiozero import *``
+# (F403/F405), C-style ``== None`` comparisons (E711), and a
+# DigitalOutputDevice() default-argument construction (B008).
+# The panel driver files (panel_st7789.py, panel_gc9a01.py, panel_base.py)
+# use clean named imports and do not need wildcard-import suppression.
 "lib/display/lcdconfig.py" = ["F403", "F405", "E711", "B008"]
 
 [tool.mypy]
