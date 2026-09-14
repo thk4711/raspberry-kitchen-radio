@@ -911,6 +911,12 @@ def confirm_page(
 
 # --- Display & audio settings page (Area A) ---------------------------------
 
+# Panel options surfaced in the <select>, as (value, label) pairs.
+_PANEL_OPTIONS = [
+    ("st7789", "ST7789 — 1.69\u2033 240\u00d7280 rectangular"),
+    ("gc9a01", "GC9A01 — 1.28\u2033 240\u00d7240 round"),
+]
+
 
 def _select(name: str, options: List[Any], current: str) -> str:
     """Render a ``<select>`` with ``options`` of ``(value, label)`` pairs."""
@@ -954,6 +960,12 @@ def settings_page(
         '<form method="post" action="/settings" id="display-settings">'
         f"{csrf}"
         '<div class="card"><h2>Display</h2>'
+        "<p><label>Display panel<br>"
+        f"{_select('panel', _PANEL_OPTIONS, display.get('panel', 'st7789'))}"
+        "</label></p>"
+        '<p class="note">Changing the panel type takes effect after the radio restarts. '
+        "ST7789 is the default 1.69\u2033 rectangular panel; "
+        "GC9A01 is the 1.28\u2033 round panel.</p>"
         "<p><label>Theme preset<br>"
         f"{_select('theme_preset', preset_options, display.get('theme_preset', 'default'))}"
         "</label></p>"

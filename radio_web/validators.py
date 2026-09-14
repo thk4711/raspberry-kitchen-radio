@@ -366,6 +366,37 @@ def validate_mac_address(value: str) -> str:
     return mac.upper()
 
 
+# --- Display panel -----------------------------------------------------------
+
+# Whitelisted panel driver names (must match panel_factory._PANELS keys).
+PANEL_NAMES = ("st7789", "gc9a01")
+
+# Geometry implied by each panel name: (width, height). Written alongside the
+# panel name in display.ini so the player never needs to derive it.
+PANEL_GEOMETRY = {
+    "st7789": (240, 280),
+    "gc9a01": (240, 240),
+}
+
+
+def validate_panel(value: str) -> str:
+    """Return a normalised panel driver name, or raise :class:`ValueError`.
+
+    Accepted values (case-insensitive): ``"st7789"`` and ``"gc9a01"``.
+    An empty or absent value is treated as ``"st7789"`` (the shipped default)
+    so the form works correctly when the managed file pre-dates this field.
+    """
+    name = (value or "").strip().lower()
+    if not name:
+        return "st7789"
+    if name not in PANEL_NAMES:
+        raise ValueError(
+            f"Unknown display panel '{value}'. "
+            f"Supported values: {', '.join(PANEL_NAMES)}."
+        )
+    return name
+
+
 # --- Network (WiFi + static IP) ----------------------------------------------
 
 # WiFi SSID: 1..32 bytes (the 802.11 limit), no control characters. Stored

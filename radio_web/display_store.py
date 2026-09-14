@@ -1,17 +1,18 @@
-"""Managed display (``[ui]``) settings: load, validate, serialize and persist.
+"""Managed display settings: load, validate, serialize and persist.
 
-The web UI exposes a small, user-facing subset of the rich display theme
-screensaver idle timeout, animations on/off,
-crossfade duration, clock size, and the OSD/toast overlay durations, plus four
-named presets (Default / High contrast / Dim night / No animations).
+The web UI exposes a small, user-facing subset of the rich display settings:
+the panel driver selection (``[display]`` section), plus the UI theme keys
+(``[ui]`` section) — screensaver idle timeout, animations on/off, crossfade
+duration, clock size, OSD/toast durations, and four named presets.
 
-Everything is written to ``<managed_dir>/display.ini`` under a ``[ui]`` section.
-The player's :class:`DisplayController` already reads ``display.ini`` layered
-over the shipped ``display.conf`` and feeds ``[ui]`` to
-``lib/display/theme.build_theme`` — which re-validates and clamps every
-value and falls back to the shipped default per key. So this module only needs to
-persist a clean ``[ui]`` block; the player applies it on the next
-``restart_radio``. A missing file means "shipped defaults", exactly as today.
+Everything is written to ``<managed_dir>/display.ini``.  The ``[display]``
+block carries ``panel``, ``width``, and ``height``; the ``[ui]`` block carries
+all theme keys.  The player's :class:`DisplayController` already reads
+``display.ini`` layered over the shipped ``display.conf`` via
+``read_config_layered``, which merges each section individually — so a
+``[display]`` block in ``display.ini`` overrides only the keys it contains
+(``panel``/``width``/``height``), leaving every other hardware key (``rst``,
+``dc``, ``bl``, ``spi_*``) at their ``display.conf`` values.
 
 Standard-library only, mirroring :mod:`radio_web.sources_store`.
 """
@@ -25,13 +26,16 @@ DISPLAY_FILENAME = "display.ini"
 DISPLAY_BACKUP_FILENAME = "display.ini.bak"
 
 UI_SECTION = "ui"
+DISPLAY_SECTION = "display"
 
 _SECTION_RE = re.compile(r"^\[(.+)\]$")
 
 # The exposed fields and their built-in defaults. These mirror the shipped
-# defaults in ``lib/display/theme.Theme`` so the form pre-fills with
-# the out-of-the-box look when no override exists.
+# defaults in ``lib/display/theme.Theme`` (for ``[ui]`` keys) and
+# ``lib/display/display.conf`` (for ``panel``) so the form pre-fills with the
+# out-of-the-box look when no override exists.
 DEFAULTS: Dict[str, str] = {
+    "panel": "st7789",
     "idle_timeout": "30",
     "animations": "true",
     "rotate_180": "false",
@@ -74,11 +78,11 @@ def managed_backup_path() -> str:
     return os.path.join(config_store.managed_dir(), DISPLAY_BACKUP_FILENAME)
 
 
-def _parse_ui(text: str) -> Dict[str, str]:
+def _parse_managed(text: str) -> Dict[str, str]:
     """Parse ``display.ini`` text into a flat ``{key: value}`` dict.
 
-    Only keys under the ``[ui]`` section are returned; everything else is
-    ignored (the file is advisory, never fatal).
+    Reads ``panel`` from the ``[display]`` section and all ``[ui]`` keys.
+    Everything else is ignored (the file is advisory, never fatal).
     """
     fields: Dict[str, str] = {}
     section = ""
@@ -90,10 +94,13 @@ def _parse_ui(text: str) -> Dict[str, str]:
         if match is not None:
             section = match.group(1)
             continue
-        if section != UI_SECTION or "=" not in line:
+        if "=" not in line:
             continue
         key, value = (part.strip() for part in line.split("=", 1))
-        fields[key] = value
+        if section == DISPLAY_SECTION and key == "panel":
+            fields[key] = value
+        elif section == UI_SECTION:
+            fields[key] = value
     return fields
 
 
@@ -106,7 +113,7 @@ def load_display() -> Dict[str, str]:
     settings = dict(DEFAULTS)
     managed = config_store.read_text(managed_display_path())
     if managed is not None:
-        parsed = _parse_ui(managed)
+        parsed = _parse_managed(managed)
         for key in DEFAULTS:
             if key in parsed:
                 settings[key] = parsed[key]
@@ -125,10 +132,12 @@ def validate_settings(submitted: Dict[str, str]) -> Dict[str, str]:
     normalised to ``true``/``false`` strings so the serialized file round-trips
     through the player's parser and ``theme.build_theme``.
     """
+    panel = validators.validate_panel(submitted.get("panel", ""))
     preset = validators.validate_theme_preset(submitted.get("theme_preset", ""))
     animations = validators.validate_bool_flag(submitted.get("animations", ""))
     rotate_180 = validators.validate_bool_flag(submitted.get("rotate_180", ""))
     return {
+        "panel": panel,
         "theme_preset": preset,
         "idle_timeout": str(
             validators.validate_idle_timeout(submitted.get("idle_timeout", ""))
@@ -176,12 +185,26 @@ def _resolve_ui_keys(cleaned: Dict[str, str]) -> Dict[str, str]:
 
 
 def serialize_display(cleaned: Dict[str, str]) -> str:
-    """Render ``cleaned`` as a ``[ui]`` INI block (stable key order)."""
+    """Render ``cleaned`` as a ``[display]`` + ``[ui]`` INI file (stable key order).
+
+    The ``[display]`` section carries the panel name and its implied width/height
+    so the player's ``read_config_layered`` can override all three keys in one
+    merge.  The ``[ui]`` section carries the theme keys consumed by
+    ``theme.build_theme``.
+    """
+    panel = cleaned.get("panel", "st7789")
+    width, height = validators.PANEL_GEOMETRY.get(panel, (240, 280))
+    display_lines = [
+        f"[{DISPLAY_SECTION}]",
+        f"panel = {panel}",
+        f"width = {width}",
+        f"height = {height}",
+    ]
     ui = _resolve_ui_keys(cleaned)
-    lines = [f"[{UI_SECTION}]"]
+    ui_lines = [f"[{UI_SECTION}]"]
     for key in sorted(ui):
-        lines.append(f"{key} = {ui[key]}")
-    return "\n".join(lines) + "\n"
+        ui_lines.append(f"{key} = {ui[key]}")
+    return "\n".join(display_lines) + "\n\n" + "\n".join(ui_lines) + "\n"
 
 
 def _backup_existing() -> None:
