@@ -198,6 +198,84 @@ class TestDisplayStore:
         loaded = display_store.load_display()
         assert loaded["rotate_180"] == "false"
 
+    # --- panel selection --------------------------------------------------
+
+    def test_panel_default_is_st7789(self):
+        assert display_store.DEFAULTS["panel"] == "st7789"
+
+    def test_panel_gc9a01_roundtrip(self, managed):
+        display_store.save_display(
+            {**display_store.DEFAULTS, "panel": "gc9a01"}
+        )
+        loaded = display_store.load_display()
+        assert loaded["panel"] == "gc9a01"
+
+    def test_panel_st7789_roundtrip(self, managed):
+        display_store.save_display(
+            {**display_store.DEFAULTS, "panel": "st7789"}
+        )
+        loaded = display_store.load_display()
+        assert loaded["panel"] == "st7789"
+
+    def test_panel_writes_display_section_with_geometry(self, managed):
+        display_store.save_display(
+            {**display_store.DEFAULTS, "panel": "gc9a01"}
+        )
+        text = open(display_store.managed_display_path()).read()
+        assert "[display]" in text
+        assert "panel = gc9a01" in text
+        assert "width = 240" in text
+        assert "height = 240" in text
+
+    def test_panel_st7789_writes_correct_geometry(self, managed):
+        display_store.save_display(
+            {**display_store.DEFAULTS, "panel": "st7789"}
+        )
+        text = open(display_store.managed_display_path()).read()
+        assert "panel = st7789" in text
+        assert "width = 240" in text
+        assert "height = 280" in text
+
+    def test_invalid_panel_raises_and_writes_nothing(self, managed):
+        with pytest.raises(ValueError, match="Unknown display panel"):
+            display_store.save_display(
+                {**display_store.DEFAULTS, "panel": "ili9341"}
+            )
+        assert not os.path.exists(display_store.managed_display_path())
+
+    def test_panel_missing_from_post_defaults_to_st7789(self, managed):
+        # simulate a form that omits the panel key entirely
+        form = {k: v for k, v in display_store.DEFAULTS.items() if k != "panel"}
+        display_store.save_display(form)
+        loaded = display_store.load_display()
+        assert loaded["panel"] == "st7789"
+
+
+class TestDisplayPanelValidators:
+    def test_validate_panel_st7789(self):
+        assert validators.validate_panel("st7789") == "st7789"
+
+    def test_validate_panel_gc9a01(self):
+        assert validators.validate_panel("gc9a01") == "gc9a01"
+
+    def test_validate_panel_case_insensitive(self):
+        assert validators.validate_panel("GC9A01") == "gc9a01"
+        assert validators.validate_panel("ST7789") == "st7789"
+
+    def test_validate_panel_empty_defaults_to_st7789(self):
+        assert validators.validate_panel("") == "st7789"
+        assert validators.validate_panel(None) == "st7789"  # type: ignore[arg-type]
+
+    def test_validate_panel_unknown_raises(self):
+        with pytest.raises(ValueError, match="Unknown display panel"):
+            validators.validate_panel("ili9341")
+
+    def test_panel_geometry_st7789(self):
+        assert validators.PANEL_GEOMETRY["st7789"] == (240, 280)
+
+    def test_panel_geometry_gc9a01(self):
+        assert validators.PANEL_GEOMETRY["gc9a01"] == (240, 240)
+
 
 class TestAudioStore:
     def test_defaults_when_no_managed_file(self, managed):

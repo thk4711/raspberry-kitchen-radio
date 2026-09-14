@@ -1363,6 +1363,60 @@ class TestSettingsRoutes:
         loaded = display_store.load_display()
         assert loaded["rotate_180"] == "true"
 
+    def test_settings_get_renders_panel_select(self, monkeypatch, tmp_path):
+        req = self._authed(monkeypatch, tmp_path, "GET", "/settings")
+        _status, _c, body, _h = routes.resolve(req)
+        assert 'name="panel"' in body
+        assert 'value="st7789"' in body
+        assert 'value="gc9a01"' in body
+        assert "Display panel" in body
+
+    def test_settings_post_persist_panel_gc9a01(self, monkeypatch, tmp_path):
+        sessions = auth.SessionStore()
+        session = sessions.create()
+        form = {
+            "op": "save",
+            "csrf_token": session.csrf_token,
+            "panel": "gc9a01",
+            "theme_preset": "default",
+            "animations": "true",
+            "idle_timeout": "30",
+            "crossfade_ms": "150",
+            "clock_size": "24",
+            "osd_duration": "1.5",
+            "toast_duration": "1.6",
+        }
+        req = self._ctx(
+            monkeypatch,
+            tmp_path,
+            "POST",
+            "/settings",
+            sessions=sessions,
+            session=session,
+            form=form,
+        )
+        status, _c, _b, headers = routes.resolve(req)
+        assert status == 303
+        assert ("Location", "/settings?msg=saved") in headers
+        from radio_web import display_store
+        loaded = display_store.load_display()
+        assert loaded["panel"] == "gc9a01"
+        text = open(display_store.managed_display_path()).read()
+        assert "[display]" in text
+        assert "panel = gc9a01" in text
+        assert "width = 240" in text
+        assert "height = 240" in text
+
+    def test_settings_get_preselects_saved_panel(self, monkeypatch, tmp_path):
+        # Save gc9a01 first, then GET should show it selected.
+        from radio_web import config_store as cs
+        from radio_web import display_store
+        monkeypatch.setattr(cs, "MANAGED_CONFIG_DIR", str(tmp_path))
+        display_store.save_display({**display_store.DEFAULTS, "panel": "gc9a01"})
+        req = self._authed(monkeypatch, tmp_path, "GET", "/settings")
+        _status, _c, body, _h = routes.resolve(req)
+        assert 'value="gc9a01" selected' in body
+
 
 class TestAudioHardwareRoutes:
     """Step 5 sound-card routes: auth + CSRF gating, save → dispatch → confirm."""

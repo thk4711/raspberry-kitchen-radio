@@ -907,11 +907,12 @@ def _settings_post(req: Request) -> Response:
         display_store.restore_builtin()
         return _redirect("/settings?msg=restored")
 
-    # The form carries the display [ui] fields only; audio settings live on the
-    # Audio page (/audio-hardware).
+    # The form carries the display [display] panel field and [ui] theme fields;
+    # audio settings live on the Audio page (/audio-hardware).
     display_form = {
         key: req.form.get(key, "")
         for key in (
+            "panel",
             "theme_preset",
             "animations",
             "rotate_180",
