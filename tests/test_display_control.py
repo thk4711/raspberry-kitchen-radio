@@ -377,8 +377,8 @@ def test_show_volume_sets_deadline_and_dirty(controller, monkeypatch):
     controller.show_volume(42)
     assert controller._transient.volume_pct == 42
     assert controller._dirty is True
-    # Deadline is now + _OSD_DURATION and the OSD reports visible.
-    assert controller._transient.osd_until == pytest.approx(1000.0 + dc._OSD_DURATION)
+    # Deadline is now + theme.osd_duration and the OSD reports visible.
+    assert controller._transient.osd_until == pytest.approx(1000.0 + controller.theme.osd_duration)
     assert controller._osd_visible() is True
 
 
@@ -396,7 +396,7 @@ def test_osd_expires_after_duration(controller, monkeypatch):
     controller.show_volume(50)
     assert controller._osd_visible() is True
     # Advance time past the OSD window.
-    t["now"] = 1000.0 + dc._OSD_DURATION + 0.01
+    t["now"] = 1000.0 + controller.theme.osd_duration + 0.01
     assert controller._osd_visible() is False
 
 
@@ -470,7 +470,7 @@ def test_toast_expires_after_duration(controller, monkeypatch):
     monkeypatch.setattr(dc, "monotonic", lambda: t["now"])
     controller.show_toast("Preset")
     assert controller._toast_visible() is True
-    t["now"] = 3000.0 + dc._TOAST_DURATION + 0.01
+    t["now"] = 3000.0 + controller.theme.toast_duration + 0.01
     assert controller._toast_visible() is False
 
 
@@ -494,7 +494,7 @@ def test_screensaver_activates_after_idle_timeout(controller, monkeypatch):
     controller.update_metadata("Radio", "", "", "0", state=False, art_mode="radio")
     controller._transient.last_activity = 5000.0
     assert controller._screensaver_active() is False
-    t["now"] = 5000.0 + dc._IDLE_TIMEOUT + 1
+    t["now"] = 5000.0 + controller.theme.idle_timeout + 1
     assert controller._screensaver_active() is True
     frame = controller._render_frame()
     assert frame.size == (240, 280)
@@ -530,7 +530,7 @@ def test_art_change_starts_crossfade(controller, monkeypatch):
     controller.update_metadata("B", "", "", "md5-b", art_mode="radio")
     controller._build_art_layer()
     assert controller._transient.crossfade_from is not None
-    assert controller._transient.crossfade_until == pytest.approx(8000.0 + dc._CROSSFADE_MS / 1000.0)
+    assert controller._transient.crossfade_until == pytest.approx(8000.0 + controller.theme.crossfade_ms / 1000.0)
     assert controller._crossfade_active() is True
 
 
@@ -550,7 +550,7 @@ def test_crossfade_clears_after_window(controller, monkeypatch):
     controller._build_art_layer()
     assert controller._crossfade_active() is True
     # After the window, a compose falls back to the plain art and clears state.
-    t["now"] = 9000.0 + dc._CROSSFADE_MS / 1000.0 + 0.01
+    t["now"] = 9000.0 + controller.theme.crossfade_ms / 1000.0 + 0.01
     controller.update_metadata("B", "", "", "md5-b", art_mode="radio")  # no change
     controller._render_frame()
     assert controller._transient.crossfade_from is None

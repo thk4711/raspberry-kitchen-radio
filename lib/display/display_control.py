@@ -49,64 +49,10 @@ _FRAME_INTERVAL = 0.05
 # repair a rare transient SPI/display glitch without every-frame full repaints.
 _SELF_HEAL_FRAMES = 600
 
-# Safe-area / chrome constants (Workstream 2/3). These are now the **defaults**
-# for the ``[ui]`` theme (Workstream 5): ``theme.Theme`` mirrors every value
-# below, and :class:`DisplayController` reads the resolved theme into instance
-# attributes at construction. They remain here (and in ``theme.py``) as the
-# single source of the shipped look, so an absent/empty ``[ui]`` section renders
-# byte-identically to before.
-_SAFE_INSET = 14          # px kept clear of the rounded physical corners
-_TOP_BAND_HEIGHT = 44     # px height of the top chrome band (clock / badge)
-_BOTTOM_BAND_HEIGHT = 82  # px height of the bottom band (title + artist rows)
-_SCRIM_OPACITY = 0.55     # darkening strength of the chrome bands over art
-_BACKDROP_BLUR = 18       # gaussian blur radius for the radio-mode backdrop
-# Radio-mode backdrop contrast (WS8). The backdrop gradient is derived from the
-# logo's dominant colour but kept deliberately *darker* than the (usually
-# bright) logo so the centred tile stands out instead of washing into a
-# same-colour field. Top row = dom * _BACKDROP_TOP_SCALE, bottom row = dom *
-# _BACKDROP_BOTTOM_SCALE; _BACKDROP_LOGO_BLEND is how much of the blurred logo
-# is mixed in (higher = lower edge contrast). Mirrored in theme.Theme.
-_BACKDROP_TOP_SCALE = 0.55     # was 1.15 (top brighter than logo) -> now darker
-_BACKDROP_BOTTOM_SCALE = 0.20  # was 0.35
-_BACKDROP_LOGO_BLEND = 0.20    # was 0.35
-
-# Typography (Workstream 3). A three-level hierarchy over the art: a large bold
-# title, a medium artist/subtitle, and a small weight for the status strip.
-_TITLE_SIZE = 30          # px, bold — the primary (track) line
-_ARTIST_SIZE = 22         # px, regular — the secondary (artist/station) line
-_SMALL_SIZE = 17          # px, bold — status-strip badge / clock
-_TEXT_COLOR = "WHITE"
-_SUBTEXT_COLOR = (200, 200, 200)   # slightly dimmer for the secondary line
-_SHADOW_COLOR = (0, 0, 0)
-
-# Motion & transient states (Workstream 4). Durations are in seconds and become
-# part of the [ui] theme in Workstream 5. Each auto-hiding overlay records a
-# ``monotonic()`` deadline; the compositor loop keeps painting until it passes,
-# then repaints once more to clear the overlay (a "timed dirty"). No extra
-# threads are introduced — all motion is advanced inside the single writer loop.
-_OSD_DURATION = 1.5       # s the volume OSD stays visible after the last change
-_EDGE_FADE_PX = 12        # px soft fade at each end of a scrolling text row
-_OSD_BAR_HEIGHT = 12      # px height of the volume OSD progress bar
-_OSD_TRACK_COLOR = (70, 70, 78)     # unfilled portion of the volume bar
-_OSD_FILL_COLOR = (255, 255, 255)   # filled portion of the volume bar
-
-# Preset toast: a brief centred banner naming the station on a button press.
-_TOAST_DURATION = 1.6     # s the preset toast stays visible
-_TOAST_BG_COLOR = (0, 0, 0)         # pill background (blended at _TOAST_OPACITY)
-_TOAST_OPACITY = 0.72     # pill background opacity over the art
-_TOAST_TEXT_COLOR = "WHITE"
-
-# Cover crossfade: when the art layer changes (new cover/logo/mode) the old and
-# new art cross-dissolve over this window so switches feel smooth, not abrupt.
-_CROSSFADE_MS = 150       # ms art-layer cross-dissolve duration
-
-# Idle clock screensaver: when the radio is on but not playing for this long,
-# replace the now-playing layout with a large clock + date + last source.
-_IDLE_TIMEOUT = 30.0      # s of no playback before the screensaver appears
-_CLOCK_LARGE_SIZE = 64    # px, bold — the big idle clock
-_DATE_SIZE = 20           # px, regular — the idle date line
-_IDLE_BG_TOP = (18, 18, 24)         # idle backdrop gradient (top)
-_IDLE_BG_BOTTOM = (6, 6, 10)        # idle backdrop gradient (bottom)
+# All display constants (safe-area geometry, typography, colours, motion
+# timings) live in ``theme.py`` as the shipped ``Theme`` defaults and are read
+# from the resolved theme at construction time (``self.theme.*``).  There are
+# no module-level constant duplicates here.
 
 
 class DisplayController:
@@ -314,7 +260,7 @@ class DisplayController:
 
         Called from the ADC/volume thread (via ``radio.py``) whenever the knob
         moves. Records the level and a fresh ``monotonic()`` deadline so the
-        bottom band shows a progress bar for ``_OSD_DURATION`` seconds, then
+        bottom band shows a progress bar for ``theme.osd_duration`` seconds, then
         auto-restores the title/artist rows. Only flips shared state + the dirty
         flag; the single compositor thread does the drawing.
 
@@ -332,7 +278,7 @@ class DisplayController:
         Called from the button thread (via ``radio.py``) when a preset is
         pressed. Records the text and a fresh ``monotonic()`` deadline; the
         compositor thread draws a centred pill over the current frame for
-        ``_TOAST_DURATION`` seconds, then repaints once to clear it. Pressing a
+        ``theme.toast_duration`` seconds, then repaints once to clear it. Pressing a
         preset also counts as activity, so it dismisses the idle screensaver.
 
         Args:
@@ -515,7 +461,7 @@ class DisplayController:
         Rows are anchored inside the safe-area bottom band; a scrolling row
         clamps its horizontal travel to the safe-area width so text never
         drifts into the rounded corners. A scrolling row additionally gets a
-        soft ``_EDGE_FADE_PX`` fade at each end (Workstream 4.3) so text
+        soft ``theme.edge_fade_px`` fade at each end (Workstream 4.3) so text
         dissolves into the background instead of hard-clipping at the safe-area
         edge.
 
@@ -980,7 +926,7 @@ class DisplayController:
         """Return True when the idle clock screensaver should be shown.
 
         Active when the panel is on, nothing is playing, and there has been no
-        playback activity for ``_IDLE_TIMEOUT`` — but never while the volume OSD
+        playback activity for ``theme.idle_timeout`` — but never while the volume OSD
         is up, so adjusting volume wakes the now-playing view.
         """
         with self._state_lock:
