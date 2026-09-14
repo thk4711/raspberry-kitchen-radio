@@ -149,43 +149,60 @@ def _round_layout(
     """Compute the shape-aware layout for a round (GC9A01) panel.
 
     The panel is a circle inscribed in the ``width x height`` square (for the
-    GC9A01 both are 240, so ``radius = 120`` centred at ``(120, 120)``). Instead
-    of full-width rectangular bands (which would waste the corners and clip text
-    at the circular edge), the round layout:
+    GC9A01 both are 240, so ``radius = 120`` centred at ``(120, 120)``). Unlike
+    the rectangular ST7789, the round layout deliberately avoids full-width
+    chrome bars (which would waste the corners and be clipped by the circular
+    bezel). Instead it defines three chord-clamped, horizontally centred zones:
 
-    * puts a **shallow top-arc band** near the top whose width is the chord at
-      that band's centre row (narrower than the rectangular band), so the status
-      symbols sit inside the arc rather than in the clipped cap;
-    * centres the **text region** on the vertical middle of the panel, where the
-      chord is widest and text is most legible; and
-    * reserves the **bottom sector** below that text region for the circular
-      volume gauge (drawn by ``display_control`` directly from ``center`` /
-      ``radius``), so the returned ``bottom_band`` marks that reserved sector.
+    * a **status zone** (``top_band``) riding near the top of the circle. Its
+      first row holds the clock at the very top edge; the row directly beneath
+      it holds the source badge (drawn left-aligned) and the play/pause glyph
+      (drawn right-aligned). ``display_control`` draws these directly and does
+      *not* darken this zone (no scrim), so the clock sits on the artwork.
+    * a large empty **centre** left for the station logo / cover art — this is
+      the gap between ``top_band.bottom`` and ``bottom_band.y`` and is where the
+      circular volume gauge is also drawn; and
+    * a **text region** (``bottom_band``) that hugs the bottom of the circle
+      (with a small safety margin) so the two metadata rows stay wide and
+      legible while freeing the whole centre for the logo.
 
-    Every band's width is clamped to the chord at its own centre row so no
-    element crosses the circular edge. ``center`` / ``radius`` are populated so
-    draw sites can clamp per-row via :func:`chord_width`.
+    Every zone's width is clamped to the chord at its own rows so nothing
+    crosses the circular edge. ``center`` / ``radius`` are populated so draw
+    sites can clamp per-row via :func:`chord_width`.
     """
     radius = min(width, height) // 2
     cx = width // 2
     cy = height // 2
     frame = Rect(0, 0, width, height)
+    top_edge = cy - radius  # y of the circle's topmost pixel
+    bottom_edge = cy + radius  # y just past the circle's lowest pixel
 
-    # Top-arc symbol band: a shallow band riding near the top of the circle.
-    # Start it a little below the very top of the circle so its chord is wide
-    # enough for the badge/clock/glyph, and clamp its width to the chord at the
-    # band's centre row.
-    top_gap = max(2, (height - 2 * radius) // 2 + radius // 6)
-    top_h = max(1, min(band_height, radius))
-    top_chord = chord_width(top_gap + top_h // 2, radius, cy)
+    # --- Status zone: a single centred line (the active source) near the top -
+    # Only the source name is drawn here now (no clock, no play/pause glyph), so
+    # the zone is a shallow single-line strip riding just inside the top of the
+    # circle. A small inset keeps the text off the very tip where the chord
+    # collapses to nothing.
+    top_inset = max(2, radius // 12)
+    status_h = max(1, min(band_height // 2, radius))
+    top_y = top_edge + top_inset
+    # Clamp the zone's width to the narrowest chord across its rows so the source
+    # text stays inside the circle.
+    top_chord = min(chord_width(top_y, radius, cy),
+                    chord_width(top_y + status_h, radius, cy))
     top_w = max(1, min(width, top_chord))
-    top_band = Rect(cx - top_w // 2, top_gap, top_w, top_h)
+    top_band = Rect(cx - top_w // 2, top_y, top_w, status_h)
 
-    # Centred text region: anchored on the vertical centre where the chord is
-    # widest. Its width is clamped to the (narrowest) chord across its rows so
-    # both text rows stay inside the circle.
-    text_h = max(1, min(bottom_h, 2 * radius - top_h - 2))
-    text_y = cy - text_h // 2
+    # --- Text region hugging the bottom of the circle ------------------------
+    # Sit the two metadata rows near the bottom edge with a small safety margin
+    # so the lower row keeps a comfortably wide chord instead of pinching to a
+    # point. Keep the region tight (about two snug lines) so the title and
+    # artist/station rows sit close together rather than floating apart, and so
+    # the whole centre of the circle is freed for the station logo.
+    bottom_margin = max(2, radius // 8)
+    text_h = max(1, min(int(bottom_h * 0.62), radius))
+    text_y = bottom_edge - bottom_margin - text_h
+    # Never let the text region climb into (or above) the status zone.
+    text_y = max(top_band.bottom + 1, text_y)
     text_chord = min(chord_width(text_y, radius, cy),
                      chord_width(text_y + text_h, radius, cy))
     text_w = max(1, min(width, text_chord))

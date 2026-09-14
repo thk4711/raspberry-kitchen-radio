@@ -36,6 +36,18 @@ class PanelBase(lcdconfig.RaspberryPi):
     width: int
     height: int
 
+    # MADCTL (register 0x36) memory-access / colour-order byte. Every frame
+    # write re-asserts MADCTL so a rare transient SPI glitch self-heals, but
+    # the *value* is panel-specific: the ST7789 needs 0x00 while the GC9A01
+    # needs 0x08 (its BGR/scan configuration). Re-sending a hard-coded 0x00
+    # used to clobber the GC9A01's vendor-init value, mixing up the colour
+    # order of station logos. Subclasses override ``madctl`` to match their
+    # own ``Init()`` so the per-frame re-assert stays correct.
+    madctl: int = 0x00
+    # Landscape MADCTL used only by ``ShowImage`` when it detects a rotated
+    # (height x width) image. Rectangular panels flip row/column exchange here.
+    madctl_landscape: int = 0x70
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         # The SPI command stream is stateful: a display update is a sequence
@@ -100,7 +112,7 @@ class PanelBase(lcdconfig.RaspberryPi):
         pix = self._encode_rgb565(Image, imwidth, imheight)
         with self._io_lock:
             self.command(0x36)
-            self.data(0x00)
+            self.data(self.madctl)
             self.SetWindows(Xstart, Ystart, Xend, Yend, 0)
             self.digital_write(self.DC_PIN, True)
             self.spi_writebytes2(pix)
@@ -129,7 +141,7 @@ class PanelBase(lcdconfig.RaspberryPi):
             )
         with self._io_lock:
             self.command(0x36)
-            self.data(0x00)
+            self.data(self.madctl)
             self.SetWindows(0, 0, self.width, self.height, 0)
             self.digital_write(self.DC_PIN, True)
             self.spi_writebytes2(pix)
@@ -142,13 +154,13 @@ class PanelBase(lcdconfig.RaspberryPi):
                 # Landscape orientation
                 pix = self._encode_rgb565(Image, self.height, self.width)
                 self.command(0x36)
-                self.data(0x70)
+                self.data(self.madctl_landscape)
                 self.SetWindows(0, 0, self.height, self.width, 1)
             else:
                 # Portrait orientation
                 pix = self._encode_rgb565(Image, imwidth, imheight)
                 self.command(0x36)
-                self.data(0x00)
+                self.data(self.madctl)
                 self.SetWindows(0, 0, self.width, self.height, 0)
             self.digital_write(self.DC_PIN, True)
             self.spi_writebytes2(pix)

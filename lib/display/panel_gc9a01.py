@@ -32,6 +32,14 @@ class GC9A01(PanelBase):
 
     width = 240
     height = 240
+    # GC9A01 MADCTL. Must match the value written in ``Init()`` (command 0x36
+    # below): 0x08 keeps the BGR bit configuration / scan direction this panel
+    # needs. ``PanelBase`` re-asserts MADCTL on every frame write, so this value
+    # is re-sent each frame — sending the panel's own 0x08 (rather than the
+    # ST7789's 0x00) is what keeps station-logo colours correct on the round
+    # panel. Flip this (and the matching 0x36 write in ``Init``) on-device if a
+    # different GC9A01 breakout comes up mirrored/rotated/colour-swapped.
+    madctl = 0x08
 
     def Init(self):
         """Initialise the GC9A01 panel (power-on command sequence)."""
@@ -93,11 +101,13 @@ class GC9A01(PanelBase):
             self.data(0x00)
             self.data(0x20)
 
-            # MADCTL — memory access / orientation. 0x08 keeps the BGR bit
-            # clear (RGB order) with the default scan direction. Flip this
-            # byte on-device if the round panel is mirrored/rotated.
+            # MADCTL — memory access / orientation. ``self.madctl`` (0x08 for
+            # this panel) keeps the BGR bit configuration with the default scan
+            # direction, and is the single source of truth also re-asserted on
+            # every frame by ``PanelBase``. Flip ``madctl`` on-device if the
+            # round panel is mirrored/rotated/colour-swapped.
             self.command(0x36)
-            self.data(0x08)
+            self.data(self.madctl)
 
             # COLMOD — pixel format: 0x05 = 16 bits/pixel (RGB565).
             self.command(0x3A)

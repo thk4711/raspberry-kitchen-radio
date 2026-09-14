@@ -129,3 +129,33 @@ def test_init_runs_and_turns_display_on(panel):
     # COLMOD set to RGB565 (0x3A -> 0x05) somewhere in the init.
     idx = stream.index(0x3A)
     assert stream[idx + 1] == 0x05
+
+
+def test_madctl_class_attr_is_gc9a01_value(panel):
+    # The GC9A01 needs MADCTL 0x08 (BGR/scan config); the ST7789's 0x00 would
+    # swap the colour order and mix up station-logo colours on the round panel.
+    assert panel.madctl == 0x08
+
+
+def test_init_writes_gc9a01_madctl(panel):
+    panel._spi.writes.clear()
+    panel.Init()
+    stream = _byte_stream(panel._spi)
+    # The first MADCTL (0x36) write in Init must carry the panel's own 0x08.
+    idx = stream.index(0x36)
+    assert stream[idx + 1] == 0x08
+
+
+def test_show_full_frame_reasserts_gc9a01_madctl(panel):
+    # Regression: PanelBase re-asserts MADCTL (0x36) on every frame write. It
+    # must re-send the GC9A01's own 0x08, NOT a hard-coded 0x00 — otherwise the
+    # first frame after Init() clobbers the vendor-init colour order and station
+    # logos render with swapped colours (right on the web GUI / ST7789, wrong
+    # on the GC9A01).
+    panel._spi.writes.clear()
+    panel.ShowFullFrame(bytes(240 * 240 * 2))
+    stream = _byte_stream(panel._spi)
+    idx = stream.index(0x36)
+    assert stream[idx + 1] == 0x08
+    # And it must never emit the ST7789 portrait value before the pixel write.
+    assert stream[idx + 1] != 0x00

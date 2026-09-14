@@ -23,6 +23,20 @@ def test_partial_override_keeps_other_defaults():
     assert t.top_band_height == d.top_band_height
 
 
+def test_adaptive_shadow_defaults_on_with_threshold():
+    d = theme.Theme()
+    assert d.adaptive_shadow is True
+    assert d.adaptive_shadow_luma == 150
+
+
+def test_adaptive_shadow_overrides_are_parsed_and_clamped():
+    t = theme.build_theme({"adaptive_shadow": "false", "adaptive_shadow_luma": "999"})
+    assert t.adaptive_shadow is False
+    # adaptive_shadow_luma is clamped to the 0..255 range.
+    assert t.adaptive_shadow_luma == 255
+
+
+
 class TestParseColor:
     def test_hex(self):
         assert theme.parse_color("#FF8800", (0, 0, 0)) == (255, 136, 0)
