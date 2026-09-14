@@ -211,6 +211,25 @@ def dominant_color(
     return (int(rounded[0]), int(rounded[1]), int(rounded[2]))
 
 
+def relative_luminance(color: Sequence[int]) -> float:
+    """Return the perceived brightness of ``color`` as a 0..255 float.
+
+    Uses the ITU-R BT.601 luma weights (``0.299 R + 0.587 G + 0.114 B``) — the
+    same cheap weighting the rest of the UI reasons about — so callers can
+    decide how "light" a background is (e.g. to fade in the adaptive text
+    outline on the round panel). Kept here as a pure function so the decision is
+    unit-testable without Pillow or the panel.
+
+    Args:
+        color: ``(R, G, B)`` triple, each channel 0..255.
+
+    Returns:
+        Luminance in ``0.0 .. 255.0``.
+    """
+    r, g, b = _as_rgb_array(color).astype(np.float64)
+    return float(0.299 * r + 0.587 * g + 0.114 * b)
+
+
 def scale_color(color: Sequence[int], factor: float) -> Color:
     """Return ``color`` multiplied by ``factor`` and clipped to 0..255.
 

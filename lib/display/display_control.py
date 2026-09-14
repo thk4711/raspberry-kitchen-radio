@@ -23,8 +23,17 @@ lives in ``compositor.py`` as GIL-releasing numpy helpers; the safe-area
 rectangle geometry lives in ``layout.py``. Workstream 2 layers the frame as
 full-bleed art (real cover, or a dominant-colour radio backdrop with a crisp
 centred logo) plus darkened top/bottom chrome bands that keep text legible.
+
+The round GC9A01 panel drops those chrome bands entirely: the active source
+(e.g. ``RADIO`` / ``SPOTIFY``) is shown as plain centred text at the very top
+of the circle — there is no clock and no play/pause glyph — and the two
+metadata rows sit close together near the bottom of the circle, all drawn
+straight onto the artwork (no scrim), which frees the whole centre of the
+circle for the station logo / cover art. The rectangular ST7789 layout is
+unchanged.
 """
 import logging
+import math
 import os
 import threading
 from datetime import datetime
@@ -206,6 +215,16 @@ class DisplayController:
         self._art_cache_key: Tuple[Optional[str], Optional[str], Optional[str]] = (None, None, None)
         self._art_layer: Optional[Image.Image] = None
 
+        # Adaptive-shadow bookkeeping (round panel only). The round layout draws
+        # white text straight onto the artwork (no scrim bars). To keep it
+        # readable over a light background without changing the text colour, the
+        # background luminance under each text zone is sampled once per art layer
+        # (keyed by ``_art_cache_key``) and used to fade in a soft glyph outline.
+        # ``None`` means "not sampled yet / dark art" and yields the historical
+        # 1px drop shadow, so the shipped look is unchanged over dark art.
+        self._top_bg_luma: Optional[float] = None
+        self._bottom_bg_luma: Optional[float] = None
+
 
         # Reusable draw scratch for measuring text without allocating per call.
         self._measure_img = Image.new('RGB', (self.width, self.layout.bottom_band.h))
@@ -381,6 +400,97 @@ class DisplayController:
         cx, cy, radius = self._round_center_radius()
         return layout_mod.chord_width(y, radius, cy)
 
+    def _sample_band_luma(self, arr: np.ndarray, top: int, bottom: int) -> Optional[float]:
+        """Return the mean luminance of the art rows a text zone covers.
+
+        Samples ``arr`` (the composed art RGB buffer) over rows ``[top, bottom)``
+        clamped to the inscribed circle's chord at the band centre so the
+        transparent/black corners outside the circle are not averaged in. Returns
+        ``None`` when the region is empty, in which case callers keep the plain
+        drop shadow (dark-art behaviour).
+
+        Args:
+            arr: ``HxWx3`` ``uint8`` art buffer.
+            top: First row of the text zone (inclusive).
+            bottom: Row just past the zone (exclusive).
+        """
+        height, width = arr.shape[:2]
+        top = max(0, min(int(top), height))
+        bottom = max(0, min(int(bottom), height))
+        if bottom <= top:
+            return None
+        chord = max(1, self._chord_at((top + bottom) // 2))
+        x0 = max(0, (width - chord) // 2)
+        x1 = min(width, x0 + chord)
+        if x1 <= x0:
+            return None
+        region = arr[top:bottom, x0:x1]
+        return compositor.relative_luminance(compositor.dominant_color(region))
+
+    def _shadow_alpha_for(self, y: int) -> int:
+        """Return the glyph-outline alpha (0..255) for text drawn at row ``y``.
+
+        Zero means "no adaptive outline — use the plain 1px drop shadow" (the
+        shipped look). Above the theme's ``adaptive_shadow_luma`` threshold the
+        outline fades in linearly with the sampled background luminance, capped
+        at a deliberately gentle maximum so the effect only *improves
+        readability* over light art rather than looking like a hard outline.
+        Always 0 on the rectangular panel or when the feature is disabled.
+        """
+        if self.shape != "round" or not self.theme.adaptive_shadow:
+            return 0
+        # Pick the zone whose luminance we sampled: the bottom text band covers
+        # the title/artist rows; anything higher up (the top source label) uses
+        # the top sample.
+        luma = self._top_bg_luma
+        if y >= self.layout.bottom_band.y:
+            luma = self._bottom_bg_luma
+        if luma is None:
+            return 0
+        threshold = float(self.theme.adaptive_shadow_luma)
+        span = max(1.0, 255.0 - threshold)
+        # 0 at the threshold, 1 as the background approaches pure white.
+        frac = max(0.0, min(1.0, (luma - threshold) / span))
+        # Gentle cap: even fully white art only gets a soft ~55% outline so the
+        # white text keeps its character instead of gaining a hard black edge.
+        return int(round(frac * 140))
+
+    def _draw_text_with_shadow(self, draw: ImageDraw.ImageDraw,
+                               pos: Tuple[int, int], text: str,
+                               font: ImageFont.FreeTypeFont, fill) -> None:
+        """Draw ``text`` with a shadow whose strength adapts to the background.
+
+        Over dark art (or on the rectangular panel) this is byte-identical to the
+        historical single 1px drop shadow. Over light art on the round panel it
+        additionally lays down a soft, semi-transparent dark outline around the
+        glyphs — faded in with the background luminance (see
+        :meth:`_shadow_alpha_for`) — so white text keeps a readable edge without
+        changing colour.
+        """
+        x, y = pos
+        # Historical 1px drop shadow (kept in all cases as the base layer).
+        draw.text((x + 1, y + 1), text, font=font, fill=self.theme.shadow_color)
+
+        alpha = self._shadow_alpha_for(y)
+        if alpha > 0:
+            # Soft 8-way outline in the shadow colour at the computed alpha. The
+            # outline is composited via an RGBA overlay so it stays translucent
+            # (a plain draw.text would be fully opaque). One overlay covers the
+            # whole frame the caller is drawing into.
+            base = self._draw_image(draw)
+            if base is not None:
+                sc = self.theme.shadow_color
+                overlay = Image.new("RGBA", base.size, (0, 0, 0, 0))
+                odraw = ImageDraw.Draw(overlay)
+                for dx, dy in ((-1, -1), (0, -1), (1, -1), (-1, 0),
+                               (1, 0), (-1, 1), (0, 1), (1, 1)):
+                    odraw.text((x + dx, y + dy), text, font=font,
+                               fill=(sc[0], sc[1], sc[2], alpha))
+                base.paste(overlay, (0, 0), overlay)
+
+        draw.text((x, y), text, font=font, fill=fill)
+
+
     def _measure(self, text: str, font: ImageFont.FreeTypeFont) -> Tuple[int, int, int]:
         """Return ``(width, height, top)`` of ``text`` in ``font``.
 
@@ -483,10 +593,11 @@ class DisplayController:
 
         if not snap['scrolling']:
             text_x = (self.width - text_width) // 2
-            # Subtle shadow keeps text legible over the scrim/art.
-            draw.text((text_x + 1, text_y + 1), text, font=font,
-                      fill=self.theme.shadow_color)
-            draw.text((text_x, text_y), text, font=font, fill=snap['color'])
+            # Subtle shadow keeps text legible over the scrim/art. On the round
+            # panel the shadow strength additionally adapts to the background
+            # luminance so white text stays readable over light artwork.
+            self._draw_text_with_shadow(draw, (text_x, text_y), text, font,
+                                        snap['color'])
             return
 
         # Scrolling row: render the text (with shadow) onto a copy of the
@@ -511,6 +622,22 @@ class DisplayController:
         text_x = snap['position']  # relative to the region's left (safe.x)
         tdraw.text((text_x + 1, text_y - ry0 + 1), text, font=font,
                    fill=self.theme.shadow_color)
+        # Adaptive outline (round panel, light art): a soft semi-transparent
+        # dark rim around the glyphs, faded in with the background luminance,
+        # rendered into the region so it moves with the scrolling text.
+        alpha = self._shadow_alpha_for(snap['y'])
+        if alpha > 0:
+            sc = self.theme.shadow_color
+            overlay = Image.new("RGBA", text_layer.size, (0, 0, 0, 0))
+            odraw = ImageDraw.Draw(overlay)
+            for dx, dy in ((-1, -1), (0, -1), (1, -1), (-1, 0),
+                           (1, 0), (-1, 1), (0, 1), (1, 1)):
+                odraw.text((text_x + dx, text_y - ry0 + dy), text, font=font,
+                           fill=(sc[0], sc[1], sc[2], alpha))
+            text_layer = text_layer.convert("RGBA")
+            text_layer.paste(overlay, (0, 0), overlay)
+            text_layer = text_layer.convert("RGB")
+            tdraw = ImageDraw.Draw(text_layer)
         tdraw.text((text_x, text_y - ry0), text, font=font, fill=snap['color'])
 
         fade = self.theme.edge_fade_px
@@ -649,12 +776,25 @@ class DisplayController:
                 oy = self.logo_box.y + max(0, (self.logo_box.h - logo.height) // 2)
                 art.paste(logo, (ox, oy), logo)
 
-        # Darken the top and bottom chrome bands so text stays legible.
+        # Darken the top and bottom chrome bands so text stays legible. The
+        # round GC9A01 layout has no chrome bars (clock sits at the very top,
+        # metadata hugs the bottom, both drawn straight onto the artwork), so
+        # skip the scrims there; the rectangular ST7789 path is byte-identical.
         arr = np.asarray(art.convert("RGB"))
-        tb, bb = self.layout.top_band, self.layout.bottom_band
-        scrim = self.theme.scrim_opacity
-        arr = compositor.apply_scrim(arr, tb.y, tb.bottom, (0, 0, 0), scrim)
-        arr = compositor.apply_scrim(arr, bb.y, bb.bottom, (0, 0, 0), scrim)
+        if self.shape != "round":
+            tb, bb = self.layout.top_band, self.layout.bottom_band
+            scrim = self.theme.scrim_opacity
+            arr = compositor.apply_scrim(arr, tb.y, tb.bottom, (0, 0, 0), scrim)
+            arr = compositor.apply_scrim(arr, bb.y, bb.bottom, (0, 0, 0), scrim)
+        else:
+            # No scrim bars on the round panel: sample the background luminance
+            # under each text zone once per art layer so the adaptive shadow can
+            # fade in over light artwork (see ``_draw_text_with_shadow``). This
+            # runs only when the art changes (keyed by ``_art_cache_key``), so
+            # per-frame rendering stays cheap.
+            tb, bb = self.layout.top_band, self.layout.bottom_band
+            self._top_bg_luma = self._sample_band_luma(arr, tb.y, tb.bottom)
+            self._bottom_bg_luma = self._sample_band_luma(arr, bb.y, bb.bottom)
         art = Image.fromarray(arr, "RGB")
 
         with self._state_lock:
@@ -673,14 +813,21 @@ class DisplayController:
     def _draw_status_strip(self, draw: ImageDraw.ImageDraw) -> None:
         """Draw the top-band status strip: source badge, clock, play/pause.
 
-        Everything is placed inside ``top_inner`` (an inner ~70% of the band)
-        so nothing lands in the rounded corners. The badge is a small rounded
+        On the rectangular ST7789 the three widgets share one row inside
+        ``top_inner`` (an inner ~70% of the band): the badge is a small rounded
         pill on the left, the clock is centred, and a vector play/pause glyph
-        sits on the right.
+        sits on the right — everything clear of the rounded corners.
+
+        The round GC9A01 uses a two-row layout instead (:meth:`_draw_status_strip_round`):
+        the clock rides at the very top of the circle and the source badge
+        (left) / play-pause glyph (right) sit on the row directly beneath it.
 
         Args:
-            draw: Draw context bound to the full 240x280 frame image.
+            draw: Draw context bound to the full frame image.
         """
+        if self.shape == "round":
+            self._draw_status_strip_round(draw)
+            return
         with self._state_lock:
             source = self.metadata['source']
             art_mode = self.metadata['art_mode']
@@ -694,19 +841,9 @@ class DisplayController:
         top_inner = self.layout.top_inner
         clock_spacing = 20
         cy = band.cy
-        if self.shape == "round":
-            # Clamp the strip to the inscribed circle's chord at the band's
-            # centre row so the badge/clock/glyph sit inside the top arc rather
-            # than in the clipped circular cap.
-            chord = max(1, self._chord_at(cy))
-            arc_x0 = (self.width - chord) // 2
-            arc_x1 = arc_x0 + chord
-            edge = max(arc_x0 + 2, top_inner.x + 2 - clock_spacing)
-            right_edge = min(arc_x1 - 2, top_inner.right - 2 + clock_spacing)
-        else:
-            safe = self.layout.safe
-            edge = max(safe.x + 2, top_inner.x + 2 - clock_spacing)
-            right_edge = min(safe.right - 2, top_inner.right - 2 + clock_spacing)
+        safe = self.layout.safe
+        edge = max(safe.x + 2, top_inner.x + 2 - clock_spacing)
+        right_edge = min(safe.right - 2, top_inner.right - 2 + clock_spacing)
 
         # Source badge (left) — a rounded pill with small bold uppercase label.
         label = textformat.source_label(source, art_mode)
@@ -749,6 +886,34 @@ class DisplayController:
         draw.text((cxp + 1, cyp + 1), clock, font=self.font_clock_status,
                   fill=self.theme.shadow_color)
         draw.text((cxp, cyp), clock, font=self.font_clock_status, fill=text_color)
+
+    def _draw_status_strip_round(self, draw: ImageDraw.ImageDraw) -> None:
+        """Draw the round-panel status strip: the active source, centred at top.
+
+        The round GC9A01 layout drops the dark top bar, the clock, and the
+        play/pause glyph entirely. All that remains is the **active source**
+        (e.g. ``RADIO`` / ``SPOTIFY`` / ``AIRPLAY``) rendered as plain centred
+        text — styled like the old clock (bold, with a shadow so it stays
+        legible straight on the artwork) — near the very top of the circle.
+        The text is clamped to the inscribed circle's chord at that row so it
+        never crosses the circular bezel.
+
+        Args:
+            draw: Draw context bound to the full 240x240 frame image.
+        """
+        with self._state_lock:
+            source = self.metadata['source']
+            art_mode = self.metadata['art_mode']
+        band = self.layout.top_band
+        text_color = self.theme.text_color
+
+        # Active source as plain centred text near the top of the circle.
+        label = textformat.source_label(source, art_mode)
+        lw, lh, ltop = self._measure(label, self.font_clock_status)
+        lx = (self.width - lw) // 2
+        ly = band.cy - lh // 2 - ltop
+        self._draw_text_with_shadow(draw, (lx, ly), label,
+                                    self.font_clock_status, text_color)
 
     def _osd_visible(self) -> bool:
         """Return True while the volume OSD is within its display window."""
@@ -802,6 +967,28 @@ class DisplayController:
                 draw.rectangle((bar_x0, bar_y0, bar_x0 + fill_w, bar_y1),
                                fill=self.theme.osd_fill_color)
 
+    def _draw_image(self, draw: ImageDraw.ImageDraw):
+        """Return the ``PIL.Image`` a draw context is bound to, or ``None``.
+
+        Pillow exposes the target image on ``ImageDraw`` as the private ``_image``
+        attribute (``.im`` is the lower-level core object). We read it so the
+        round OSD can composite a supersampled overlay onto the frame the caller
+        already handed us, without threading the frame through the signature.
+        Defensive: returns ``None`` if the attribute is unavailable so the caller
+        can fall back to non-antialiased drawing.
+        """
+        img = getattr(draw, "_image", None)
+        if isinstance(img, Image.Image):
+            return img
+        return None
+
+    @staticmethod
+    def _as_rgba(color: Tuple[int, ...]) -> Tuple[int, int, int, int]:
+        """Return ``color`` as an opaque RGBA 4-tuple for RGBA overlays."""
+        if len(color) >= 4:
+            return (color[0], color[1], color[2], color[3])
+        return (color[0], color[1], color[2], 255)
+
     def _draw_volume_osd_round(self, draw: ImageDraw.ImageDraw) -> None:
         """Draw the round-panel volume OSD as a ring gauge (Step 5.2 / Step 6).
 
@@ -811,8 +998,10 @@ class DisplayController:
         from ``osd_bar_height``) are configurable from ``display.conf`` so the
         gauge can be tuned without code changes.  The filled portion is
         proportional to ``pct`` and the percentage is drawn in the middle.
-        Reuses ``theme.osd_track_color`` / ``theme.osd_fill_color`` so it themes
-        exactly like the rectangular bar.
+
+        No background track arc is drawn — only the filled portion is visible.
+        Both ends of the fill arc are capped with a small filled circle so the
+        arc appears with rounded rather than flat endpoints.
 
         Args:
             draw: Draw context bound to the full 240x240 frame image.
@@ -829,7 +1018,6 @@ class DisplayController:
                      else max(4, self.theme.osd_bar_height))
         ring_inset = max(thickness, radius // 5)
         rr = max(1, radius - ring_inset)
-        box = (cx - rr, cy - rr, cx + rr, cy + rr)
 
         # Arc gauge: configurable sweep angle from theme (Step 6).  The gap at
         # the bottom (360 - osd_arc_span degrees) is split evenly left/right so
@@ -837,15 +1025,66 @@ class DisplayController:
         span_deg = self.theme.osd_arc_span
         gap_half = (360 - span_deg) // 2
         start_deg = 90 + gap_half
-        end_deg = start_deg + span_deg
         fill_deg = start_deg + int(round(span_deg * max(0, min(100, pct)) / 100))
 
-        # Track (unfilled) then the proportional fill on top.
-        draw.arc(box, start_deg, end_deg, fill=self.theme.osd_track_color,
-                 width=thickness)
+        # Draw only the proportional fill arc — no grey background track.
+        # Rounded caps: a filled circle of radius (thickness // 2) placed at
+        # each endpoint of the fill arc so the ends look rounded instead of flat.
+        #
+        # Antialiasing (supersampling): Pillow's arc/ellipse have no antialiasing
+        # so a thick ring on artwork looks jagged. We therefore render the ring
+        # and its caps into a transparent RGBA overlay scaled by
+        # ``theme.osd_supersample`` and downscale it with LANCZOS before
+        # compositing, which averages the hard edges into smooth ones. The caps
+        # are centred on the stroke's centreline (radius ``rr - thickness/2``),
+        # not on ``rr``; Pillow strokes an arc *inward* from the bounding radius,
+        # so placing caps at ``rr`` left them poking past the arc as separate
+        # circles.
         if fill_deg > start_deg:
-            draw.arc(box, start_deg, fill_deg, fill=self.theme.osd_fill_color,
-                     width=thickness)
+            scale = max(1, int(self.theme.osd_supersample))
+            cap_r = thickness // 2
+            cap_center_r = rr - thickness / 2.0
+
+            frame = self._draw_image(draw)
+            if frame is not None and scale > 1:
+                overlay = Image.new("RGBA", (frame.width * scale,
+                                             frame.height * scale), (0, 0, 0, 0))
+                odraw = ImageDraw.Draw(overlay)
+                sx, sy = cx * scale, cy * scale
+                srr = rr * scale
+                obox = (sx - srr, sy - srr, sx + srr, sy + srr)
+                fill_rgba = self._as_rgba(self.theme.osd_fill_color)
+                odraw.arc(obox, start_deg, fill_deg, fill=fill_rgba,
+                          width=thickness * scale)
+                s_cap_r = cap_r * scale
+                s_cap_center_r = cap_center_r * scale
+                for angle_deg in (start_deg, fill_deg):
+                    rad = math.radians(angle_deg)
+                    px = sx + s_cap_center_r * math.cos(rad)
+                    py = sy + s_cap_center_r * math.sin(rad)
+                    odraw.ellipse(
+                        (px - s_cap_r, py - s_cap_r, px + s_cap_r, py + s_cap_r),
+                        fill=fill_rgba,
+                    )
+                smooth = overlay.resize((frame.width, frame.height),
+                                        Image.Resampling.LANCZOS)
+                frame.paste(smooth, (0, 0), smooth)
+            else:
+                # No overlay handle (defensive) or supersampling disabled:
+                # draw straight onto the frame with centred caps.
+                box = (cx - rr, cy - rr, cx + rr, cy + rr)
+                draw.arc(box, start_deg, fill_deg,
+                         fill=self.theme.osd_fill_color, width=thickness)
+                for angle_deg in (start_deg, fill_deg):
+                    rad = math.radians(angle_deg)
+                    cap_x = cx + cap_center_r * math.cos(rad)
+                    cap_y = cy + cap_center_r * math.sin(rad)
+                    draw.ellipse(
+                        (cap_x - cap_r, cap_y - cap_r,
+                         cap_x + cap_r, cap_y + cap_r),
+                        fill=self.theme.osd_fill_color,
+                    )
+
 
         # Percentage centred inside the ring, with a subtle shadow.
         pct_text = f"{pct}%"

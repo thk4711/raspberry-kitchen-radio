@@ -871,6 +871,93 @@ def test_round_controller_uses_arc_osd_path(monkeypatch):
     assert calls["rect"] == 0
 
 
+def test_round_osd_caps_stay_within_arc_and_antialias(monkeypatch):
+    """Regression for the round volume ring (both reported issues).
+
+    Issue 1 — the rounded end-caps used to be placed on the arc's *outer* edge
+    (radius ``rr``) instead of the stroke centreline, so they poked past the
+    arc as separate circles. Assert no filled pixel lands outside the arc's
+    outer radius ``rr`` (plus a 1px LANCZOS feathering tolerance).
+
+    Issue 2 — the ring was not antialiased. With supersampling on there must be
+    intermediate shades between the black background and the white fill colour,
+    which is the signature of antialiased edges.
+    """
+    from PIL import Image, ImageDraw
+
+    ctrl = _round_controller(monkeypatch)
+    # Deterministic, high-contrast setup: white fill on a black frame, a wide
+    # ring so the caps are clearly measurable, and supersampling enabled.
+    ctrl.theme = ctrl.theme._replace(
+        osd_fill_color=(255, 255, 255),
+        osd_ring_thickness=20,
+        osd_supersample=4,
+    )
+    ctrl.show_volume(65)
+
+    cx, cy, radius = ctrl._round_center_radius()
+    thickness = ctrl.theme.osd_ring_thickness
+    rr = max(1, radius - max(thickness, radius // 5))
+
+    frame = Image.new("RGB", (ctrl.width, ctrl.height), (0, 0, 0))
+    ctrl._draw_volume_osd_round(ImageDraw.Draw(frame))
+
+    px = frame.load()
+    fill_pixels = 0
+    partial_pixels = 0
+    max_r = 0.0
+    for y in range(ctrl.height):
+        for x in range(ctrl.width):
+            r, g, b = px[x, y]
+            lit = max(r, g, b)
+            if lit == 0:
+                continue
+            fill_pixels += 1
+            dist = ((x - cx) ** 2 + (y - cy) ** 2) ** 0.5
+            max_r = max(max_r, dist)
+            # Antialiased edge pixels are neither fully background nor fully
+            # the solid fill colour.
+            if 0 < lit < 255:
+                partial_pixels += 1
+
+    # The ring actually rendered.
+    assert fill_pixels > 0
+    # Caps sit on the stroke centreline (radius rr - thickness/2), not on rr.
+    # The old bug centred them on rr, so their outer edge reached rr + cap_r
+    # and they showed as separate circles beyond the arc. Assert the lit region
+    # stays clearly inside that old bound (a few px of LANCZOS feathering past
+    # the arc's own outer radius rr is expected and fine).
+    cap_r = thickness // 2
+    old_buggy_radius = rr + cap_r
+    assert max_r < old_buggy_radius - 2, (
+        f"caps extend to {max_r:.1f}, near old buggy bound {old_buggy_radius}")
+    assert max_r <= rr + 4.0, f"lit pixels reach {max_r:.1f} > rr={rr}+4"
+    # Supersampling produced smooth (partially lit) edge pixels.
+    assert partial_pixels > 0
+
+
+def test_round_osd_supersample_disabled_still_renders(monkeypatch):
+    """With ``osd_supersample = 1`` the ring still draws (no crash, has pixels).
+
+    This pins the deterministic, non-antialiased fallback path used by callers
+    that turn supersampling off.
+    """
+    from PIL import Image, ImageDraw
+
+    ctrl = _round_controller(monkeypatch)
+    ctrl.theme = ctrl.theme._replace(
+        osd_fill_color=(255, 255, 255),
+        osd_supersample=1,
+    )
+    ctrl.show_volume(50)
+
+    frame = Image.new("RGB", (ctrl.width, ctrl.height), (0, 0, 0))
+    ctrl._draw_volume_osd_round(ImageDraw.Draw(frame))
+    assert any(max(frame.load()[x, y]) > 0
+               for y in range(ctrl.height) for x in range(ctrl.width))
+
+
+
 def test_rect_controller_still_uses_bar_osd_path(controller, monkeypatch):
     # Regression: the default ST7789 controller keeps the rectangular bar OSD.
     calls = {"round": 0, "rect": 0}
@@ -885,6 +972,98 @@ def test_rect_controller_still_uses_bar_osd_path(controller, monkeypatch):
     assert controller.shape == "rect"
     assert calls["rect"] == 1
     assert calls["round"] == 0
+
+
+def test_round_status_strip_draws_source_only(monkeypatch):
+    # The round panel shows the active source as centred text at the top and no
+    # longer draws a clock or a play/pause glyph. Rendering it must not raise
+    # and the frame stays 240x240.
+    from PIL import ImageDraw
+    ctrl = _round_controller(monkeypatch)
+    ctrl.update_metadata("Radio", "Song", "", "0", state=True,
+                         art_mode="radio", source="spotify")
+    frame = ctrl._build_art_layer().copy()
+    draw = ImageDraw.Draw(frame)
+    ctrl._draw_status_strip_round(draw)
+    assert frame.size == (240, 240)
+    # Play vs pause must render identically now (no glyph): the top status row
+    # depends only on the source, not on the play state.
+    def top_row(playing):
+        ctrl.update_metadata("Radio", "Song", "", "0", state=playing,
+                             art_mode="radio", source="spotify")
+        f = ctrl._build_art_layer().copy()
+        d = ImageDraw.Draw(f)
+        ctrl._draw_status_strip_round(d)
+        band = ctrl.layout.top_band
+        return f.crop((0, band.y, 240, band.bottom)).tobytes()
+
+    assert top_row(True) == top_row(False)
+
+
+def test_adaptive_shadow_alpha_zero_over_dark_and_rises_over_light(monkeypatch):
+    # The adaptive glyph outline stays off over dark art (no change to the
+    # shipped look) and fades in as the sampled background gets lighter.
+    ctrl = _round_controller(monkeypatch)
+    y = ctrl.layout.bottom_band.y  # a title/artist row uses the bottom sample.
+
+    ctrl._bottom_bg_luma = 10.0     # very dark background.
+    assert ctrl._shadow_alpha_for(y) == 0
+
+    ctrl._bottom_bg_luma = float(ctrl.theme.adaptive_shadow_luma)  # at threshold.
+    assert ctrl._shadow_alpha_for(y) == 0
+
+    ctrl._bottom_bg_luma = 255.0    # pure-white background => strongest (capped).
+    strong = ctrl._shadow_alpha_for(y)
+    assert strong > 0
+
+    ctrl._bottom_bg_luma = float(ctrl.theme.adaptive_shadow_luma) + 40.0
+    mid = ctrl._shadow_alpha_for(y)
+    # The outline ramps up with luminance and never exceeds the gentle cap.
+    assert 0 < mid < strong <= 140
+
+
+def test_adaptive_shadow_never_on_rect_panel(controller):
+    # The rectangular ST7789 keeps its scrim bands and never gets the outline,
+    # so the alpha is always 0 there regardless of any sampled luminance.
+    controller._bottom_bg_luma = 255.0
+    controller._top_bg_luma = 255.0
+    assert controller.shape == "rect"
+    assert controller._shadow_alpha_for(controller.layout.bottom_band.y) == 0
+
+
+def test_adaptive_shadow_can_be_disabled(monkeypatch):
+    ctrl = _round_controller(monkeypatch)
+    ctrl.theme = ctrl.theme._replace(adaptive_shadow=False)
+    ctrl._bottom_bg_luma = 255.0
+    assert ctrl._shadow_alpha_for(ctrl.layout.bottom_band.y) == 0
+
+
+def test_light_background_changes_rendered_text(monkeypatch):
+    # End-to-end: over a light background the adaptive outline must actually
+    # alter the drawn frame versus the plain drop shadow, improving contrast.
+    from PIL import ImageDraw
+    ctrl = _round_controller(monkeypatch)
+    ctrl.update_metadata("Radio", "A very long song title that scrolls",
+                         "Some Artist Name", "0", state=True,
+                         art_mode="radio", source="mpd")
+    ctrl._build_art_layer()
+
+    def render_bottom(luma):
+        ctrl._top_bg_luma = luma
+        ctrl._bottom_bg_luma = luma
+        frame = ctrl._build_art_layer().copy()
+        draw = ImageDraw.Draw(frame)
+        title = ctrl._advance_scroll('title')
+        name = ctrl._advance_scroll('name')
+        ctrl._draw_row(frame, draw, title)
+        ctrl._draw_row(frame, draw, name)
+        band = ctrl.layout.bottom_band
+        return frame.crop((0, band.y, 240, band.bottom)).tobytes()
+
+    dark = render_bottom(5.0)
+    light = render_bottom(255.0)
+    # The outline only appears over light art, so the two renders differ.
+    assert dark != light
 
 
 def test_round_boot_splash_pushes_240x240_frame(monkeypatch):

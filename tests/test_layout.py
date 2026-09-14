@@ -157,10 +157,23 @@ def test_round_bands_are_horizontally_centred():
 def test_round_text_region_below_top_arc_and_non_overlapping():
     lay = compute_layout(240, 240, band_height=44, bottom_band_height=82,
                          shape="round")
-    # The top-arc band sits above the centred text region; they never meet.
+    # The top status zone sits above the text region; they never meet.
     assert lay.top_band.bottom <= lay.bottom_band.y
-    # The text region straddles the vertical centre (widest chord).
-    assert lay.bottom_band.y <= lay.center.y <= lay.bottom_band.bottom
+    # The text region now hugs the bottom of the circle (below the centre) so
+    # the whole middle is free for the station logo.
+    assert lay.bottom_band.y > lay.center.y
+    # It still stays inside the circle's lower half.
+    assert lay.bottom_band.bottom <= lay.center.y + lay.radius
+
+
+def test_round_status_zone_rides_near_top_edge():
+    lay = compute_layout(240, 240, band_height=44, bottom_band_height=82,
+                         shape="round")
+    top_edge = lay.center.y - lay.radius
+    # The status zone starts near the very top of the circle (small inset).
+    assert lay.top_band.y - top_edge <= lay.radius // 6
+    # And it sits above the vertical centre so the middle is left for the logo.
+    assert lay.top_band.bottom < lay.center.y
 
 
 def test_rect_shape_default_unchanged_by_round_support():

@@ -183,3 +183,19 @@ def test_horizontal_edge_fade_rejects_mismatched_shapes():
     with pytest.raises(ValueError):
         compositor.horizontal_edge_fade(base, region, 1, 1)
 
+
+def test_relative_luminance_black_and_white():
+    assert compositor.relative_luminance((0, 0, 0)) == 0.0
+    assert compositor.relative_luminance((255, 255, 255)) == pytest.approx(255.0)
+
+
+def test_relative_luminance_weights_green_most():
+    # BT.601 weights green (0.587) far above blue (0.114), so pure green is
+    # perceived as much brighter than pure blue of the same intensity.
+    green = compositor.relative_luminance((0, 255, 0))
+    blue = compositor.relative_luminance((0, 0, 255))
+    assert green > blue
+    assert green == pytest.approx(0.587 * 255)
+    assert blue == pytest.approx(0.114 * 255)
+
+

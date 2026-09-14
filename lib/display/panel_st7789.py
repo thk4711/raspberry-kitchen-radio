@@ -22,6 +22,10 @@ class ST7789(PanelBase):
 
     width = 240
     height = 280
+    # ST7789 portrait MADCTL. Matches the value written in ``Init()`` below, so
+    # the per-frame re-assert in ``PanelBase`` is a no-op that keeps the panel
+    # correct. Explicit here so the driver documents its own orientation byte.
+    madctl = 0x00
 
     def Init(self):
         """Initialise the ST7789 panel (power-on command sequence)."""
@@ -31,7 +35,7 @@ class ST7789(PanelBase):
             self.reset()
 
             self.command(0x36)
-            self.data(0x00)
+            self.data(self.madctl)
 
             self.command(0x3A)
             self.data(0x05)

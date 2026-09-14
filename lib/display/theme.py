@@ -92,8 +92,13 @@ class Theme(NamedTuple):
     #   leaves a small gap at the bottom — the classic gauge style.
     # osd_ring_thickness: stroke width in px; 0 = derive from osd_bar_height
     #   (keeps the automatic sizing introduced in Step 5 as the default).
+    # osd_supersample: antialiasing factor for the round ring gauge. The ring +
+    #   rounded caps are rendered into a transparent overlay at this integer
+    #   scale, then downscaled with LANCZOS and composited so the curved edges
+    #   are smooth instead of jagged. 1 disables supersampling (crisp/jaggy).
     osd_arc_span: int = 270
     osd_ring_thickness: int = 0
+    osd_supersample: int = 4
 
     # Preset toast (Workstream 4.5).
     toast_duration: float = 1.6
@@ -112,6 +117,20 @@ class Theme(NamedTuple):
 
     # Master motion switch. False forces ``crossfade_ms``/``edge_fade_px`` to 0.
     animations: bool = True
+
+    # Adaptive text shadow (round GC9A01 only). The round panel drops the dark
+    # chrome bars and draws white text straight onto the artwork, which can wash
+    # out over a very light background. When enabled, the fixed 1px drop shadow
+    # is replaced by a soft dark outline around each glyph that *fades in with
+    # the background luminance*: invisible over dark art (no change to the
+    # shipped look), gently strengthening as the art behind the text gets
+    # lighter so the white glyphs keep a readable edge. The text colour itself
+    # never changes. ``adaptive_shadow_luma`` is the background luminance (0..255,
+    # ITU-R BT.601) at which the outline starts fading in; the outline reaches
+    # full (still semi-transparent) strength as luminance approaches 255.
+    # Ignored on the rectangular ST7789 (which keeps its scrim bars).
+    adaptive_shadow: bool = True
+    adaptive_shadow_luma: int = 150
 
     # Rotate the entire rendered frame 180° in PIL before sending to the panel.
     # Use this when the display is physically mounted upside-down.
@@ -274,6 +293,7 @@ def build_theme(ui: Optional[Mapping[str, Any]]) -> Theme:
         osd_fill_color=parse_color(ui.get("osd_fill_color"), d.osd_fill_color),
         osd_arc_span=parse_int(ui.get("osd_arc_span"), d.osd_arc_span, 1, 360),
         osd_ring_thickness=parse_int(ui.get("osd_ring_thickness"), d.osd_ring_thickness, 0, 120),
+        osd_supersample=parse_int(ui.get("osd_supersample"), d.osd_supersample, 1, 8),
         toast_duration=parse_float(ui.get("toast_duration"), d.toast_duration, 0.0, 30.0),
         toast_bg_color=parse_color(ui.get("toast_bg_color"), d.toast_bg_color),
         toast_opacity=parse_float(ui.get("toast_opacity"), d.toast_opacity, 0.0, 1.0),
@@ -285,6 +305,9 @@ def build_theme(ui: Optional[Mapping[str, Any]]) -> Theme:
         idle_bg_bottom=parse_color(ui.get("idle_bg_bottom"), d.idle_bg_bottom),
         animations=animations,
         rotate_180=parse_bool(ui.get("rotate_180"), d.rotate_180),
+        adaptive_shadow=parse_bool(ui.get("adaptive_shadow"), d.adaptive_shadow),
+        adaptive_shadow_luma=parse_int(ui.get("adaptive_shadow_luma"),
+                                       d.adaptive_shadow_luma, 0, 255),
     )
 
 
