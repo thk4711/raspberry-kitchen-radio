@@ -26,7 +26,7 @@ PyYAML==6.0.3
 # Image handling for the SPI display rendering (display_control.py)
 Pillow==10.4.0
 
-# Framebuffer math for the ST7789 display driver (lcdconfig.py, LCD_1inch69.py)
+# Framebuffer math for the ST7789 display driver (lcdconfig.py, panel_st7789.py)
 numpy==2.2.6
 
 # Userspace SPI access for the display (lcdconfig.py)

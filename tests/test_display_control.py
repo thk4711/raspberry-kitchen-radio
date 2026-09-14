@@ -50,13 +50,13 @@ class _FakePanel:
 def controller(monkeypatch):
     """Build a DisplayController with a fake panel and no live thread.
 
-    The real driver module is swapped for a fake exposing ``LCD_1inch69``, and
+    The real driver module is swapped for a fake exposing ``ST7789``, and
     ``threading.Thread`` is neutralised inside ``display_control`` so the
     compositor loop does not run on its own; tests drive it explicitly.
     """
-    fake_driver = types.ModuleType("display.LCD_1inch69")
-    fake_driver.LCD_1inch69 = _FakePanel
-    monkeypatch.setitem(sys.modules, "display.LCD_1inch69", fake_driver)
+    fake_driver = types.ModuleType("display.panel_st7789")
+    fake_driver.ST7789 = _FakePanel
+    monkeypatch.setitem(sys.modules, "display.panel_st7789", fake_driver)
 
     # Import (or re-import) the controller against the fake driver.
     import importlib
@@ -558,9 +558,9 @@ def test_crossfade_clears_after_window(controller, monkeypatch):
 
 def _controller_with_ui(monkeypatch, ui):
     """Build a DisplayController whose display.conf carries a given [ui] dict."""
-    fake_driver = types.ModuleType("display.LCD_1inch69")
-    fake_driver.LCD_1inch69 = _FakePanel
-    monkeypatch.setitem(sys.modules, "display.LCD_1inch69", fake_driver)
+    fake_driver = types.ModuleType("display.panel_st7789")
+    fake_driver.ST7789 = _FakePanel
+    monkeypatch.setitem(sys.modules, "display.panel_st7789", fake_driver)
 
     import importlib
 

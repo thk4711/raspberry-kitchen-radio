@@ -27,7 +27,7 @@ from time import monotonic, sleep
 from typing import Optional, Tuple
 
 import numpy as np
-from display import LCD_1inch69, compositor, logo_fallback, textformat
+from display import compositor, logo_fallback, panel_st7789, textformat
 from display import layout as layout_mod
 from display import theme as theme_mod
 from display.transient_state import TransientState
@@ -125,7 +125,7 @@ class DisplayController:
         # Display settings
         self.width = conf['display']['width']
         self.height = conf['display']['height']
-        self.disp = LCD_1inch69.LCD_1inch69(
+        self.disp = panel_st7789.ST7789(
             rst=conf['display']['rst'],
             dc=conf['display']['dc'],
             bl=conf['display']['bl'],
