@@ -185,6 +185,14 @@ i2cdetect -y 1          # ADS1115 @ 0x48
 aplay -l                # DAC present
 ```
 
+These manual hardware checks are also available as an optional automated smoke
+suite. It is skipped by default and never runs in CI (it needs the real board);
+run it from a repo checkout on the device with:
+
+```sh
+pytest -m hardware      # i2c ADC, ALSA DAC, SPI display, MPD, AirPlay/Spotify, amp GPIO 26
+```
+
 To debug the app manually, stop the service and run it in the foreground with
 verbose logging (Python app + all media backends) turned on:
 

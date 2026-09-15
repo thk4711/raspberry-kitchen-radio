@@ -185,6 +185,132 @@ class TestDispatch:
         assert ok is False
         assert "firmware installation" in message.lower()
 
+    def test_set_time_saves_validated_values(self, monkeypatch):
+        saved = {}
+        monkeypatch.setattr(
+            helper, "apply_time_files", lambda tz, ntp: saved.update(tz=tz, ntp=ntp)
+        )
+        monkeypatch.setattr(helper.validators, "validate_timezone", lambda v: "Europe/Berlin")
+        monkeypatch.setattr(helper.validators, "validate_ntp_server", lambda v: "pool.ntp.org")
+        ok, message = helper.dispatch("set_time", {"timezone": "x", "ntp_server": "y"})
+        assert ok
+        assert saved == {"tz": "Europe/Berlin", "ntp": "pool.ntp.org"}
+        assert "saved" in message.lower()
+
+    def test_set_time_rejects_non_string(self):
+        ok, message = helper.dispatch("set_time", {"timezone": 5})
+        assert not ok
+        assert "Invalid" in message
+
+    def test_set_time_reports_validation_error(self, monkeypatch):
+        def bad(_v):
+            raise ValueError("bad tz")
+
+        monkeypatch.setattr(helper.validators, "validate_timezone", bad)
+        ok, message = helper.dispatch("set_time", {"timezone": "junk"})
+        assert not ok
+        assert "bad tz" in message
+
+    def test_set_time_reports_write_failure(self, monkeypatch):
+        monkeypatch.setattr(helper.validators, "validate_timezone", lambda v: "Europe/Berlin")
+
+        def boom(_tz, _ntp):
+            raise OSError("read-only fs")
+
+        monkeypatch.setattr(helper, "apply_time_files", boom)
+        ok, message = helper.dispatch("set_time", {"timezone": "x"})
+        assert not ok
+        assert "Could not save" in message
+
+    def test_apply_equalizer_rejects_arguments(self):
+        ok, message = helper.dispatch("apply_equalizer", {"preamp": 1})
+        assert not ok
+        assert "does not accept arguments" in message
+
+    def test_apply_equalizer_live_change_needs_no_restart(self, monkeypatch):
+        monkeypatch.setattr(
+            helper.audio_hardware_apply, "apply_equalizer", lambda: (True, "live: tweaked")
+        )
+        ok, message = helper.dispatch("apply_equalizer", {})
+        assert ok
+        assert "live" in message.lower()
+
+    def test_apply_equalizer_structural_change_restarts_services(self, monkeypatch):
+        monkeypatch.setattr(
+            helper.audio_hardware_apply, "apply_equalizer", lambda: (True, "restart: inserted")
+        )
+        restarts = []
+        monkeypatch.setattr(
+            helper, "_run_argv", lambda argv, ok, fail: (restarts.append(argv) or (True, ok))
+        )
+        ok, message = helper.dispatch("apply_equalizer", {})
+        assert ok
+        assert len(restarts) == 4  # mpd, radio, bluetooth, usb-audio
+        assert "all audio sources" in message
+
+    def test_apply_equalizer_reports_underlying_failure(self, monkeypatch):
+        monkeypatch.setattr(
+            helper.audio_hardware_apply, "apply_equalizer", lambda: (False, "eq broken")
+        )
+        ok, message = helper.dispatch("apply_equalizer", {})
+        assert not ok
+        assert message == "eq broken"
+
+    def test_run_argv_reports_not_found(self, monkeypatch):
+        def boom(*_a, **_k):
+            raise FileNotFoundError("no script")
+
+        monkeypatch.setattr(helper.subprocess, "run", boom)
+        ok, message = helper._run_argv(["/x", "restart"], "ok", "failed")
+        assert not ok
+        assert message == "failed"
+
+    def test_run_argv_reports_timeout(self, monkeypatch):
+        def boom(*_a, **_k):
+            raise helper.subprocess.TimeoutExpired("x", 30)
+
+        monkeypatch.setattr(helper.subprocess, "run", boom)
+        ok, message = helper._run_argv(["/x", "restart"], "ok", "failed")
+        assert not ok
+
+    def test_run_argv_reports_os_error(self, monkeypatch):
+        def boom(*_a, **_k):
+            raise OSError("permission denied")
+
+        monkeypatch.setattr(helper.subprocess, "run", boom)
+        assert helper._run_argv(["/x"], "ok", "failed") == (False, "failed")
+
+    def test_run_argv_reports_nonzero_exit(self, monkeypatch):
+        class R:
+            returncode = 3
+
+        monkeypatch.setattr(helper.subprocess, "run", lambda *a, **k: R())
+        assert helper._run_argv(["/x"], "ok", "failed") == (False, "failed")
+
+    def test_set_wifi_forwards_normalised_config(self, monkeypatch):
+        seen = {}
+        monkeypatch.setattr(
+            helper.network_apply, "apply_wifi", lambda config: (seen.update(config) or (True, "ok"))
+        )
+        ok, _msg = helper.dispatch("set_wifi", {"ssid": "Net", "psk": "12345678", "country": "DE"})
+        assert ok
+        assert seen["ssid"] == "Net"
+        assert set(seen) == {
+            "ssid",
+            "psk",
+            "country",
+            "ip_address",
+            "ip_prefix",
+            "ip_gateway",
+            "ip_dns",
+        }
+
+    def test_wifi_confirm_and_rollback_forward(self, monkeypatch):
+        monkeypatch.setattr(helper.network_apply, "confirm", lambda: (True, "confirmed"))
+        monkeypatch.setattr(helper.network_apply, "rollback", lambda: (True, "reverted"))
+        assert helper.dispatch("wifi_confirm", {}) == (True, "confirmed")
+        assert helper.dispatch("wifi_rollback", {}) == (True, "reverted")
+
 
 class TestSocketServer:
     def test_end_to_end_over_socket(self, monkeypatch):
@@ -235,3 +361,58 @@ class TestSocketServer:
             finally:
                 server.shutdown()
                 server.server_close()
+
+    def test_oversized_request_rejected_over_socket(self):
+        import tempfile
+
+        with tempfile.TemporaryDirectory() as short_dir:
+            sock_path = os.path.join(short_dir, "h.sock")
+            server = helper._Server(sock_path, helper._Handler)
+            thread = threading.Thread(target=server.serve_forever, daemon=True)
+            thread.start()
+            try:
+                with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as client:
+                    client.settimeout(5)
+                    client.connect(sock_path)
+                    oversized = b"x" * (helper_protocol.MAX_MESSAGE_BYTES + 8) + b"\n"
+                    client.sendall(oversized)
+                    reply = client.recv(4096)
+                ok, message = helper_protocol.decode_response(reply)
+                assert ok is False
+                assert "too large" in message.lower()
+            finally:
+                server.shutdown()
+                server.server_close()
+
+
+class TestLifecycle:
+    def test_seed_equalizer_runtime_swallows_oserror(self, monkeypatch):
+        monkeypatch.setattr(helper.equalizer_store, "load_equalizer", lambda: {"enabled": True})
+
+        def boom(_settings):
+            raise OSError("tmpfs missing")
+
+        monkeypatch.setattr(helper.equalizer_store, "write_runtime", boom)
+        # Best-effort: must never raise even when the runtime write fails.
+        helper._seed_equalizer_runtime()
+
+    def test_seed_equalizer_runtime_writes_settings(self, monkeypatch):
+        written = []
+        monkeypatch.setattr(helper.equalizer_store, "load_equalizer", lambda: {"preamp_db": -3})
+        monkeypatch.setattr(helper.equalizer_store, "write_runtime", written.append)
+        helper._seed_equalizer_runtime()
+        assert written == [{"preamp_db": -3}]
+
+    def test_main_configures_logging_and_serves(self, monkeypatch):
+        served = []
+        monkeypatch.setattr(helper, "serve", lambda: served.append(True))
+        monkeypatch.setenv("RADIO_LOG_LEVEL", "DEBUG")
+        helper.main()
+        assert served == [True]
+
+    def test_main_accepts_numeric_log_level(self, monkeypatch):
+        served = []
+        monkeypatch.setattr(helper, "serve", lambda: served.append(True))
+        monkeypatch.setenv("RADIO_LOG_LEVEL", "10")
+        helper.main()
+        assert served == [True]

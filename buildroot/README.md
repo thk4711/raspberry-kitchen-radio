@@ -255,7 +255,10 @@ on `PATH`.
 - The built-in headphone output is the safe generic default. After the first
   network boot, select an external sound card from the web interface and reboot.
 - Validate: `i2cdetect -y 1` (ADS1115 @0x48), `aplay -l` (DAC), SPI display,
-  MPD playback, AirPlay + Spotify discovery, amp GPIO 26.
+  MPD playback, AirPlay + Spotify discovery, amp GPIO 26. These checks are also
+  codified as an optional automated smoke suite: from a checkout on the device
+  run `pytest -m hardware` (skipped by default and in CI; see
+  `tests/test_hardware_smoke.py`).
 - Some `BR2_PACKAGE_*` option symbols may differ slightly by Buildroot release;
   run `make menuconfig` in the Buildroot tree if a symbol is reported unknown,
   then save.

@@ -14,7 +14,15 @@ dynamic = []
 # `sys.path.insert(0, .../lib)`.
 testpaths = ["tests"]
 pythonpath = ["lib", "."]
-addopts = "-ra"
+# ``-m 'not hardware'`` keeps the optional on-target smoke suite
+# (tests/test_hardware_smoke.py, marked ``@pytest.mark.hardware``) out of the
+# default/CI run: it needs a real Raspberry Pi with the audio HAT, SPI display,
+# I2C ADC and amp GPIO wired up. A maintainer runs it on the device with
+# ``pytest -m hardware``. See buildroot/README.md and doc/buildroot.md.
+addopts = "-ra -m 'not hardware'"
+markers = [
+    "hardware: on-target smoke checks; require a real Pi. Skipped by default; run with -m hardware.",
+]
 
 [tool.coverage.run]
 # Measure repository-owned runtime code. Reports may apply narrower omit rules,
