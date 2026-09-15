@@ -71,7 +71,7 @@ artifact paths, sizes, and SHA-256 checksums, for example:
  Install : /home/you/embedded/buildroot/output/images/sdcard.img
  Size    : 1.8G
  SHA256  : <installation-image digest>
- Update  : /home/you/embedded/buildroot/output/images/kitchen-radio-0.1.0.swu
+ Update  : /home/you/embedded/buildroot/output/images/kitchen-radio-<version>.swu
  Size    : <compressed update size>
  SHA256  : <firmware-package digest>
 ```

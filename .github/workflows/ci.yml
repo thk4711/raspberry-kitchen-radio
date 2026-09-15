@@ -9,6 +9,8 @@ jobs:
         python-version: ['3.9', '3.11', '3.13']
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
@@ -16,6 +18,7 @@ jobs:
       - run: ruff check .
       - run: mypy
       - run: pytest -q --cov=lib --cov=radio_web --cov=radio --cov-report=term-missing --cov-fail-under=65
+      - run: python3 scripts/check-release-consistency.py
       - run: python -m compileall -q lib radio.py tests
       - run: find buildroot -type f -name '*.sh' -exec sh -n {} \;
       - run: sudo apt-get update && sudo apt-get install -y shellcheck

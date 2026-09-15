@@ -315,7 +315,12 @@ byte-for-byte (network mirrors permitting):
 
 When cutting a release (see `CHANGELOG.md`): bump `lib/_version.py` +
 `pyproject.toml`, record the pinned Buildroot revision and the backend source
-hashes above in the changelog entry, then tag `vX.Y.Z`. That tuple
+hashes above in the changelog entry, then create an **annotated** `vX.Y.Z` tag.
+Run `python3 scripts/check-release-consistency.py` after tagging and before
+publishing. The checker verifies the versions, changelog date, artifact naming,
+generated rootfs/SWUpdate metadata, documentation examples, and tag type/date.
+The already-published lightweight `v0.2.0` tag is the sole historical exception
+and remains unchanged rather than rewriting public history. That tuple
 (Buildroot revision + defconfig + backend hashes + app version) fully
 identifies a build.
 

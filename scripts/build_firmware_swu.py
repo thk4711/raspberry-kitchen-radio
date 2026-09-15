@@ -20,6 +20,11 @@ PERSISTENT_READER_SCHEMA = 1
 MINIMUM_ROLLBACK_READER_SCHEMA = 1
 
 
+def artifact_name(version: str) -> str:
+    """Return the canonical versioned SWUpdate artifact name."""
+    return f"kitchen-radio-{version}.swu"
+
+
 def project_version(version_file: Path) -> str:
     """Return the one strict semantic version assignment in *version_file*."""
     matches = VERSION_RE.findall(version_file.read_text(encoding="utf-8"))
@@ -232,7 +237,7 @@ def build_archive(
         raise ValueError(f"rootfs is larger than its {slot_size}-byte firmware slot")
     version = project_version(version_file)
     output_dir.mkdir(parents=True, exist_ok=True)
-    artifact = output_dir / f"kitchen-radio-{version}.swu"
+    artifact = output_dir / artifact_name(version)
     for stale in output_dir.glob("kitchen-radio-*.swu"):
         stale.unlink()
 

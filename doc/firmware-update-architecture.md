@@ -256,10 +256,10 @@ and SHA-256 for both artifacts.
 Example host inspection, without installing:
 
 ```sh
-cpio -itv < kitchen-radio-0.1.0.swu
-swupdate -c -i kitchen-radio-0.1.0.swu -e stable,slot-a
-swupdate -c -i kitchen-radio-0.1.0.swu -e stable,slot-b
-sha256sum kitchen-radio-0.1.0.swu
+cpio -itv < kitchen-radio-<version>.swu
+swupdate -c -i kitchen-radio-<version>.swu -e stable,slot-a
+swupdate -c -i kitchen-radio-<version>.swu -e stable,slot-b
+sha256sum kitchen-radio-<version>.swu
 ```
 
 Use a native checker matching the target SWUpdate grammar; the ARM target binary

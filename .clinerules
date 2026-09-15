@@ -1,0 +1,13 @@
+This project turns a Raspberry Pi 3a+ into a multi functional audio device. It is running in a buildroot environment, which is part of the repo as well. 
+-  Documentation is README.md and everything in /doc
+
+### General rules for this task:
+
+- Run only short, focused commands.
+- Ensure each inspection command prints a heading or guaranteed result.
+- Avoid compound diff/status commands that may be silent.
+- Never ever use heredocs.
+- Never use ‘git diff --stat’
+- Never run interactive commands. Also avoid commands which result in paginated output.
+
+
