@@ -68,6 +68,12 @@ repos:
         language: script
         pass_filenames: false
 
+      - id: check-release-consistency
+        name: release metadata consistency
+        entry: python3 scripts/check-release-consistency.py
+        language: system
+        pass_filenames: false
+
       # POSIX-parse the buildroot scripts, matching CI's `sh -n` step.
       - id: shell-parse
         name: sh -n (POSIX parse buildroot scripts)

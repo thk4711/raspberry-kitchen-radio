@@ -12,8 +12,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Amp / Amp+). New experimental audio profile `hifiberry_amp` using the codec's
   hardware `Master` control on ALSA card `sndrpihifiberryamp`; the TAS5713 codec
   driver (`CONFIG_SND_SOC_TAS5713`) is now built into the image.
+- **Automated release-consistency validation** checks the application and package
+  versions, changelog release/date, canonical update artifact name, generated
+  firmware metadata, public documentation examples, and Git tag type/date in CI.
 
-## [0.2.0] - 2026-10-09
+## [0.2.0] - 2026-09-10
 
 ### Added
 - **Local web administration interface** (`radio_web`) for configuring the
@@ -253,16 +256,23 @@ Release checklist (when cutting X.Y.Z):
   2. Move the Unreleased notes under a new "## [X.Y.Z] - DATE" heading.
   3. Record the pinned Buildroot revision + media-backend source hashes
      (see doc/buildroot.md, "Reproducible builds / pinned sources").
-  4. Run a clean supported-host Buildroot build and retain its build log.
-  5. Confirm exactly one fresh, non-empty sdcard.img and one matching versioned
+  4. Commit the release, create an annotated tag dated on the changelog date:
+     git tag -a vX.Y.Z -m "vX.Y.Z"
+  5. Run python3 scripts/check-release-consistency.py.
+  6. Run a clean supported-host Buildroot build and retain its build log.
+  7. Confirm exactly one fresh, non-empty sdcard.img and one matching versioned
      kitchen-radio-X.Y.Z.swu; reject stale or ambiguous outputs.
-  6. Confirm SWUpdate check mode accepts the .swu for both slot-a and slot-b,
+  8. Confirm SWUpdate check mode accepts the .swu for both slot-a and slot-b,
      and verify release metadata, hardware compatibility, payload size/hash,
      and exclusion of credentials or device-specific state.
-  7. Record and publish the size and SHA-256 of both release artifacts.
-  8. On a disposable Pi 3A+ card, test A-to-B and B-to-A installation, healthy
+  9. Record and publish the size and SHA-256 of both release artifacts.
+ 10. On a disposable Pi 3A+ card, test A-to-B and B-to-A installation, healthy
      trial acceptance, automatic rollback, manual switch/rollback, and retained
      persistent configuration. Record the hardware evidence; do not infer this
      result from host tests.
-  9. Commit, then tag: git tag -a vX.Y.Z -m "vX.Y.Z" && git push --tags
+ 11. Push the release commit and its annotated tag: git push origin main vX.Y.Z
+
+Tag policy: release tags must be annotated. v0.2.0 is the sole historical
+exception: it was published as a lightweight tag before this policy was enforced
+and is retained unchanged to avoid rewriting a public tag.
 -->

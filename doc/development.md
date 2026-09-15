@@ -72,6 +72,7 @@ The same `requirements-dev.txt` installs [`ruff`](https://docs.astral.sh/ruff/)
 ruff check .          # lint
 ruff format .         # (optional) auto-format
 mypy                  # type-check the modules listed in pyproject.toml
+python3 scripts/check-release-consistency.py  # release identity and tag policy
 ```
 
 You can also install the [`pre-commit`](https://pre-commit.com/) hooks so these
@@ -104,10 +105,11 @@ flowchart LR
     B --> C["ruff check ."]
     C --> D["mypy"]
     D --> E["pytest -q<br/>(--cov-fail-under=65)"]
-    E --> F["compileall<br/>lib radio.py tests"]
-    F --> G["sh -n<br/>(buildroot/*.sh)"]
-    G --> H["shellcheck<br/>(buildroot/*.sh)"]
-    H --> I["scripts/<br/>check-repository.sh"]
+    E --> F["release consistency<br/>versions · metadata · tag"]
+    F --> G["compileall<br/>lib radio.py tests"]
+    G --> H["sh -n<br/>(buildroot/*.sh)"]
+    H --> I["shellcheck<br/>(buildroot/*.sh)"]
+    I --> J["scripts/<br/>check-repository.sh"]
 ```
 
 Run the Python-level checks locally before pushing to catch failures early:
