@@ -9,7 +9,7 @@ backend (see [`adding-a-music-source.md`](adding-a-music-source.md)).
 
 1. On your phone, open Bluetooth settings and look for the radio. Its name is
    the appliance **hostname** (set through `radio-config.txt` or Device settings;
-   default `changeme`).
+   default `kitchen-radio`).
 2. Tap to connect. **There is no PIN and no confirmation prompt** — the radio
    runs an auto-accept agent that answers the pairing automatically. (Your phone
    may briefly show a pairing/passkey dialog; you do not need to act on it — the

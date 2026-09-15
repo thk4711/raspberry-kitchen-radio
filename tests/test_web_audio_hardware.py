@@ -216,9 +216,9 @@ class TestCatalogConsistency:
         with open(path, encoding="utf-8") as handle:
             config = handle.read()
         for overlay in store.overlay_ids():
-            assert re.search(rf"^#dtoverlay={re.escape(overlay)}(?:,|$)", config, re.MULTILINE), (
-                f"overlay '{overlay}' missing from shipped boot config"
-            )
+            assert re.search(
+                rf"^#dtoverlay={re.escape(overlay)}(?:,|$)", config, re.MULTILINE
+            ), f"overlay '{overlay}' missing from shipped boot config"
 
     def test_kernel_fragment_declares_every_profile_requirement(self):
         root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))

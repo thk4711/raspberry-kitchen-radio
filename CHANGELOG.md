@@ -8,6 +8,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Bounded operational recovery summary** preserves only privacy-safe boot,
+  shutdown, radio-restart, firmware-slot, and health outcomes across reboots
+  while routine logs remain volatile. The 16 KiB/32-event summary is included in
+  diagnostics but excluded from user backup and restore.
+- **Enforced Python formatting baseline** applies Ruff format to all first-party
+  Python and verifies it in CI and pre-commit while excluding vendored code.
 - **TI TAS5713 amplifier support** via the `hifiberry-amp` overlay (HiFiBerry
   Amp / Amp+). New experimental audio profile `hifiberry_amp` using the codec's
   hardware `Master` control on ALSA card `sndrpihifiberryamp`; the TAS5713 codec
@@ -15,6 +21,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Automated release-consistency validation** checks the application and package
   versions, changelog release/date, canonical update artifact name, generated
   firmware metadata, public documentation examples, and Git tag type/date in CI.
+- **Repository-contained build orchestrator** (`scripts/build_image.py`) supports
+  local builds without SSH and opt-in remote builds with verified artifact
+  transfer. A dummy INI example provides reusable settings without embedding a
+  maintainer's host, user, or filesystem paths.
+- **Strict Buildroot checkout validation** rejects non-Git, wrong-revision, and
+  dirty source trees by default. Build logs and firmware metadata record both
+  source commits; an explicit development-only override permits local changes.
 
 ## [0.2.0] - 2026-09-10
 

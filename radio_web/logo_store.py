@@ -192,5 +192,3 @@ def _png_digest(path: str) -> str:
             return hashlib.sha256(handle.read()).hexdigest()[:16]
     except OSError:
         return ""
-
-

@@ -25,6 +25,7 @@ panel shapes:
 A :class:`Rect` is an axis-aligned box in the clean compose-space pixels
 (the driver applies any panel-specific GRAM offset separately).
 """
+
 from __future__ import annotations
 
 import math
@@ -72,18 +73,17 @@ class Layout(NamedTuple):
     the rectangular shape so nothing rectangular has to know about them.
     """
 
-    frame: Rect        # the whole panel (0, 0, width, height)
-    safe: Rect         # inset safe area; nothing legible outside this
-    top_band: Rect     # top chrome band (scrim + clock / badge / play-pause)
+    frame: Rect  # the whole panel (0, 0, width, height)
+    safe: Rect  # inset safe area; nothing legible outside this
+    top_band: Rect  # top chrome band (scrim + clock / badge / play-pause)
     bottom_band: Rect  # bottom chrome band (scrim + title / artist / OSD)
-    top_inner: Rect    # inner ~70%-width region of the top band (never cornered)
+    top_inner: Rect  # inner ~70%-width region of the top band (never cornered)
     bottom_inner: Rect  # inner ~70%-width region of the bottom band
     # Round-shape only (``None`` for ``rect``): the inscribed circle geometry so
     # draw sites can clamp elements to the circular edge via ``chord_width``.
     shape: str = "rect"
     center: Optional[Rect] = None  # a 1x1 Rect marking the circle centre (cx, cy)
-    radius: Optional[int] = None   # inscribed-circle radius in pixels
-
+    radius: Optional[int] = None  # inscribed-circle radius in pixels
 
 
 def inner_rect(band: Rect, pct: float) -> Rect:
@@ -187,8 +187,7 @@ def _round_layout(
     top_y = top_edge + top_inset
     # Clamp the zone's width to the narrowest chord across its rows so the source
     # text stays inside the circle.
-    top_chord = min(chord_width(top_y, radius, cy),
-                    chord_width(top_y + status_h, radius, cy))
+    top_chord = min(chord_width(top_y, radius, cy), chord_width(top_y + status_h, radius, cy))
     top_w = max(1, min(width, top_chord))
     top_band = Rect(cx - top_w // 2, top_y, top_w, status_h)
 
@@ -203,8 +202,7 @@ def _round_layout(
     text_y = bottom_edge - bottom_margin - text_h
     # Never let the text region climb into (or above) the status zone.
     text_y = max(top_band.bottom + 1, text_y)
-    text_chord = min(chord_width(text_y, radius, cy),
-                     chord_width(text_y + text_h, radius, cy))
+    text_chord = min(chord_width(text_y, radius, cy), chord_width(text_y + text_h, radius, cy))
     text_w = max(1, min(width, text_chord))
     bottom_band = Rect(cx - text_w // 2, text_y, text_w, text_h)
 
@@ -222,7 +220,6 @@ def _round_layout(
         center=Rect(cx, cy, 1, 1),
         radius=radius,
     )
-
 
 
 def compute_layout(
@@ -263,8 +260,7 @@ def compute_layout(
         raise ValueError("width and height must be positive")
     inset = max(0, int(inset))
     band_height = max(1, int(band_height))
-    bottom_h = max(1, int(band_height if bottom_band_height is None
-                          else bottom_band_height))
+    bottom_h = max(1, int(band_height if bottom_band_height is None else bottom_band_height))
 
     if shape == "round":
         return _round_layout(width, height, band_height, bottom_h, inner_pct)
@@ -301,4 +297,3 @@ def compute_layout(
         top_inner=top_inner,
         bottom_inner=bottom_inner,
     )
-

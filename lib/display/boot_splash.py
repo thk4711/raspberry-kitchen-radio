@@ -33,6 +33,7 @@ The heavy/hardware imports (the panel driver) are deferred into :func:`main`
 so :func:`render_splash_frame` stays importable — and unit-testable — on a
 plain workstation with only numpy + Pillow available.
 """
+
 from __future__ import annotations
 
 import os
@@ -68,9 +69,12 @@ _SUBTITLE = f"v{_VERSION}" if _VERSION else "starting…"
 _FONTS_DIR = os.path.join(_SCRIPT_DIR, "fonts")
 _BOLD_FONT = os.path.join(_FONTS_DIR, "Roboto-Condensed-Bold.ttf")
 _REGULAR_FONT = os.path.join(_FONTS_DIR, "Roboto-Condensed-Regular.ttf")
+_PROVISION_STATUS_FILE = os.environ.get(
+    "RADIO_PROVISIONING_STATUS_FILE", "/data/radio/provisioning-status"
+)
 
 
-def _load_font(path: str, size: int) -> ImageFont.ImageFont:
+def _load_font(path: str, size: int) -> ImageFont.FreeTypeFont | ImageFont.ImageFont:
     """Load ``path`` at ``size``, falling back to Pillow's default bitmap font.
 
     Keeps the splash rendering even on a partial deploy where a font is missing
@@ -82,19 +86,21 @@ def _load_font(path: str, size: int) -> ImageFont.ImageFont:
         return ImageFont.load_default()
 
 
-def _measure(draw: ImageDraw.ImageDraw, text: str,
-             font: ImageFont.ImageFont) -> tuple[int, int, int]:
+def _measure(
+    draw: ImageDraw.ImageDraw, text: str, font: ImageFont.FreeTypeFont | ImageFont.ImageFont
+) -> tuple[int, int, int]:
     """Return ``(width, height, top)`` of ``text`` in ``font`` via a bbox.
 
     ``top`` is the y-offset of the glyph box so callers can baseline-align the
     text exactly like ``DisplayController._measure`` does.
     """
     left, top, right, bottom = draw.textbbox((0, 0), text, font=font)
-    return right - left, bottom - top, top
+    return int(right - left), int(bottom - top), int(top)
 
 
-def render_splash_frame(width: int, height: int,
-                        theme: theme_mod.Theme) -> Image.Image:
+def render_splash_frame(
+    width: int, height: int, theme: theme_mod.Theme, subtitle: str = _SUBTITLE
+) -> Image.Image:
     """Render the branded boot-splash frame as a full ``width x height`` image.
 
     A dark vertical gradient (the ``[ui]`` idle-backdrop colours) with the
@@ -110,8 +116,7 @@ def render_splash_frame(width: int, height: int,
     Returns:
         A ``PIL.Image`` in RGB mode of size ``(width, height)``.
     """
-    arr = compositor.vertical_gradient(width, height,
-                                       theme.idle_bg_top, theme.idle_bg_bottom)
+    arr = compositor.vertical_gradient(width, height, theme.idle_bg_top, theme.idle_bg_bottom)
     frame = Image.fromarray(arr, "RGB")
     draw = ImageDraw.Draw(frame)
 
@@ -119,14 +124,12 @@ def render_splash_frame(width: int, height: int,
     font_sub = _load_font(_REGULAR_FONT, theme.date_size)
 
     tw, th, ttop = _measure(draw, _TITLE, font_title)
-    sw, sh, stop = _measure(draw, _SUBTITLE, font_sub)
+    sw, sh, stop = _measure(draw, subtitle, font_sub)
     block_h = th + 10 + sh
     y = (height - block_h) // 2
-    draw.text(((width - tw) // 2, y - ttop), _TITLE,
-              font=font_title, fill=theme.text_color)
+    draw.text(((width - tw) // 2, y - ttop), _TITLE, font=font_title, fill=theme.text_color)
     y += th + 10
-    draw.text(((width - sw) // 2, y - stop), _SUBTITLE,
-              font=font_sub, fill=theme.subtext_color)
+    draw.text(((width - sw) // 2, y - stop), subtitle, font=font_sub, fill=theme.subtext_color)
     return frame
 
 
@@ -139,6 +142,7 @@ def _read_display_conf() -> dict:
     """
     try:
         from utilities import UtilityLibrary  # noqa: PLC0415
+
         conf = UtilityLibrary().read_config(os.path.join(_SCRIPT_DIR, "display.conf"))
         return conf or {}
     except Exception:  # pragma: no cover - defensive; never block boot
@@ -166,7 +170,8 @@ def main() -> int:
         panel_name = str(display.get("panel", "st7789"))
         theme = theme_mod.build_theme(conf.get("ui") if isinstance(conf, dict) else None)
 
-        frame = render_splash_frame(width, height, theme)
+        subtitle = "SETUP REQUIRED" if os.path.isfile(_PROVISION_STATUS_FILE) else _SUBTITLE
+        frame = render_splash_frame(width, height, theme, subtitle)
         pix = compositor.pack_rgb565(np.asarray(frame))
 
         # Defer the hardware driver import until here so this module stays
@@ -202,4 +207,3 @@ def main() -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
-

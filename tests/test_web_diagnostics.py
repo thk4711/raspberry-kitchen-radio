@@ -1,4 +1,5 @@
 """Tests for the Phase 7 diagnostics bundle."""
+
 import io
 import tarfile
 
@@ -32,6 +33,17 @@ class TestDiagnostics:
         members = _members(data)
         assert "logs/radio.log" in members
         assert b"hello log" in members["logs/radio.log"]
+
+    def test_includes_persistent_operational_summary(self, monkeypatch, tmp_path):
+        operational = tmp_path / "summary.json"
+        operational.write_text('{"schema":1,"events":[]}\n')
+        monkeypatch.setattr(diagnostics, "OPERATIONAL_SUMMARY_PATH", str(operational))
+        monkeypatch.setattr(diagnostics, "LOG_GLOBS", ())
+        monkeypatch.setattr(diagnostics, "_run", lambda cmd: "")
+        monkeypatch.setattr(diagnostics, "_dmesg_tail", lambda lines=200: "")
+        _filename, data = diagnostics.build_bundle()
+        members = _members(data)
+        assert members["snapshots/operational-summary.json"] == operational.read_bytes()
 
     def test_excludes_secrets(self, monkeypatch, tmp_path):
         # Even if a secret file somehow matched a glob, it must never be added.

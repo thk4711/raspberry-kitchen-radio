@@ -3,6 +3,7 @@
 Pillow only, no hardware — the generated initials tile is deterministic in the
 station name, so these run on any machine.
 """
+
 from display import logo_fallback
 from PIL import ImageFont
 
@@ -43,8 +44,7 @@ class TestTileColor:
         assert logo_fallback.tile_color("KEXP") == logo_fallback.tile_color("KEXP")
 
     def test_case_and_space_insensitive(self):
-        assert (logo_fallback.tile_color("MDR Jump")
-                == logo_fallback.tile_color("  mdr jump "))
+        assert logo_fallback.tile_color("MDR Jump") == logo_fallback.tile_color("  mdr jump ")
 
     def test_different_names_usually_differ(self):
         assert logo_fallback.tile_color("KEXP") != logo_fallback.tile_color("MDR JUMP")
@@ -56,8 +56,7 @@ class TestTileColor:
 
 
 def _font(size=40):
-    return ImageFont.truetype(
-        "lib/display/fonts/Roboto-Condensed-Bold.ttf", size)
+    return ImageFont.truetype("lib/display/fonts/Roboto-Condensed-Bold.ttf", size)
 
 
 class TestRenderTile:
@@ -79,8 +78,7 @@ class TestRenderTile:
         assert a.tobytes() == b.tobytes()
 
     def test_explicit_bg_color_used(self):
-        tile = logo_fallback.render_initials_tile(
-            "X", 60, _font(24), bg_color=(10, 20, 30))
+        tile = logo_fallback.render_initials_tile("X", 60, _font(24), bg_color=(10, 20, 30))
         # The centre pixel is inside the rounded rect -> the bg colour.
         assert tile.getpixel((30, 5))[:3] == (10, 20, 30)
 
@@ -126,7 +124,7 @@ class TestRenderBluetoothTile:
         scale = (size * 0.72) / (gy1 - gy0)  # tall glyph -> height-limited
         off_x = (size - (gx1 - gx0) * scale) / 2.0 - gx0 * scale
         off_y = (size - (gy1 - gy0) * scale) / 2.0 - gy0 * scale
-        spine_x = int(315 * scale + off_x)   # spine vertices are at x=315
+        spine_x = int(315 * scale + off_x)  # spine vertices are at x=315
         # Every point down the spine's vertical extent is the white glyph.
         for gy in (200, 350, 500, 650, 790):
             py = int(gy * scale + off_y)
@@ -138,20 +136,23 @@ class TestRenderBluetoothTile:
         size = 200
         tile = logo_fallback.render_bluetooth_tile(size, glyph_color=(255, 255, 255))
         white = (255, 255, 255)
-        upper_right = any(tile.getpixel((x, y))[:3] == white
-                          for x in range(size // 2, size)
-                          for y in range(0, size // 2))
-        lower_left = any(tile.getpixel((x, y))[:3] == white
-                         for x in range(0, size // 2)
-                         for y in range(size // 2, size))
+        upper_right = any(
+            tile.getpixel((x, y))[:3] == white
+            for x in range(size // 2, size)
+            for y in range(0, size // 2)
+        )
+        lower_left = any(
+            tile.getpixel((x, y))[:3] == white
+            for x in range(0, size // 2)
+            for y in range(size // 2, size)
+        )
         assert upper_right and lower_left
 
     def test_draws_glyph_over_background(self):
         # The rune is drawn in glyph_color, so some pixels differ from the plain
         # background (i.e. the tile is not a flat blue square).
         tile = logo_fallback.render_bluetooth_tile(120, glyph_color=(255, 255, 255))
-        colors = {tile.getpixel((x, y))[:3]
-                  for x in range(0, 120, 4) for y in range(0, 120, 4)}
+        colors = {tile.getpixel((x, y))[:3] for x in range(0, 120, 4) for y in range(0, 120, 4)}
         assert (255, 255, 255) in colors
         assert logo_fallback.BLUETOOTH_TILE_COLOR in colors
 
@@ -162,4 +163,3 @@ class TestRenderBluetoothTile:
     def test_min_size_does_not_crash(self):
         tile = logo_fallback.render_bluetooth_tile(1)
         assert tile.size == (1, 1)
-

@@ -50,6 +50,7 @@ can update settings without gaining access to root-only state elsewhere in
 | --- | --- | --- |
 | `/data/network/wpa_supplicant.conf` | `/etc/wpa_supplicant.conf` | WiFi SSID and passphrase. The new slot must reconnect without reprovisioning. Mode `0600`. |
 | `/data/identity/root-password.hash` | Applied to root's entry in `/etc/shadow` during early boot | Preserves the root password without sharing the complete slot-owned shadow database. Mode `0600`. |
+| `/data/radio/root-credential-provisioned` | Read by the unprivileged web service | Non-secret capability marker allowing the UI to offer SSH only after root has persisted an unlocked password hash. Mode `0644`; contains no credential data. |
 | `/data/identity/dropbear/` | `/etc/dropbear` | Dropbear host keys, preserving the radio's SSH identity and avoiding host-key warnings after an update. |
 | `/data/bluetooth/` | `/var/lib/bluetooth` | BlueZ adapter/device records and phone pairing state. |
 
@@ -74,6 +75,20 @@ Upload files are bounded by the 768 MiB firmware limit and a free-space margin.
 The queue, history, migration backups and resize state are root-owned; only
 `/data/update/upload` is writable by UID/GID 601.
 
+### Bounded operational recovery state
+
+| Canonical path | Lifetime and purpose |
+| --- | --- |
+| `/data/operations/summary.json` | Root-written recovery summary capped at 16 KiB and 32 events: boot ID, firmware slot, clean/unclean reboot classification, radio process-exit/heartbeat restart counters, and the last allowlisted firmware-health result. Mode `0644`. |
+
+This file is the deliberately small exception to volatile logging. It contains
+no free-form log text, credentials, URLs, station/source metadata, network
+identifiers, or hostnames. An `unclean` reboot means only that the normal
+shutdown marker was absent; it cannot reliably distinguish power loss, watchdog
+reset, kernel failure, and another hard reset. The operational tree is excluded
+from web backup and restore, so restoring user configuration cannot replace
+reliability evidence.
+
 ## How the data gets onto partition 4
 
 Persistence is established at image-build time and checked again on every boot.
@@ -81,7 +96,8 @@ Persistence is established at image-build time and checked again on every boot.
 ### 1. The image build creates and seeds `data.ext4`
 
 `buildroot/external/board/radio/post-image.sh` creates a temporary directory tree
-for the data filesystem. It creates the canonical directories, seeds
+for the data filesystem. It creates the canonical directories (including the
+root-owned `/data/operations`), seeds
 `schema-version` and an empty `history.json`, and copies initial mutable state
 from the completed root filesystem:
 
@@ -201,6 +217,10 @@ data unless it is backed up separately.
 Keeping caches, logs and generated implementation details out of the persistence
 surface avoids carrying stale firmware-owned state into a newer or rolled-back
 slot.
+
+The sole operational exception is the bounded, privacy-safe
+`/data/operations/summary.json` described above; it records recovery facts, not
+routine service output.
 
 ## On-device verification
 

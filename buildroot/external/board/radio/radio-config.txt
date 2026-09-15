@@ -23,14 +23,15 @@
 #
 # A bad or missing file never blocks boot — the image's built-in defaults are
 # used instead. See /tmp/provision-from-boot.log on the device for what was
-# applied or skipped. Change the example WiFi values below before first boot.
+# applied or skipped. Uncomment and replace the placeholders below before first
+# boot. Placeholder/example values are rejected rather than installed.
 # =============================================================================
 
 # --- WiFi (REQUIRED: the Pi 3A+ has no Ethernet) -----------------------------
 # Only WPA-PSK (WPA2 personal) networks are supported.
 # The passphrase must be 8..63 characters.
-wifi_ssid=MyNetwork
-wifi_psk=my-wifi-password
+# wifi_ssid=<your-wifi-name>
+# wifi_psk=<your-wifi-password>
 
 # WiFi regulatory domain: an ISO-3166 alpha-2 country code (e.g. DE, US, GB).
 # Applied at boot via `iw reg set` so the radio uses the channels and transmit
@@ -53,11 +54,13 @@ wifi_psk=my-wifi-password
 # --- Identity ----------------------------------------------------------------
 # The hostname is also the AirPlay / Spotify Connect device name.
 # Letters, digits and hyphens only.
-hostname=changeme
+# hostname=kitchen-radio
 
 # --- Access / debugging ------------------------------------------------------
-# Set the root login password (console and SSH).
-root_password=changeme
+# Root password login is locked in the generic image. To use console or SSH
+# login, choose a unique password here; known placeholders such as "changeme"
+# are rejected. SSH cannot be enabled until this password is safely persisted.
+# root_password=<choose-a-unique-password>
 
 # Enable (1) or disable (0) the SSH server (dropbear). Default: disabled.
 enable_ssh=0

@@ -7,4 +7,3 @@ Re-exports the project version so tooling and tests can do
 from ._version import __version__
 
 __all__ = ["__version__"]
-

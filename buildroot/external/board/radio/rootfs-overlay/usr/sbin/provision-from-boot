@@ -58,6 +58,9 @@ WIFI_COUNTRY_FILE=/etc/radio/wifi-country
 # /var/lib/wlan-last-lease.env (IP/PREFIX/
 # ROUTER/DNS) so S41wlan can reuse its apply logic.
 WLAN_STATIC_FILE=/etc/radio/wlan-static.env
+ROOT_HASH_FILE=/data/identity/root-password.hash
+ROOT_CREDENTIAL_MARKER=/data/radio/root-credential-provisioned
+PROVISION_STATUS_FILE=/data/radio/provisioning-status
 
 log() {
 	echo "provision-from-boot: $*" >> "$LOG" 2>/dev/null || true
@@ -89,6 +92,43 @@ mark_consumed() {
 			*) CONSUMED_KEYS="${CONSUMED_KEYS:+$CONSUMED_KEYS }$key" ;;
 		esac
 	done
+}
+
+# Publish only safe setting names, never submitted values. The web UI and radio
+# display use this marker to make incomplete first-boot setup visible.
+INCOMPLETE_SETTINGS=""
+
+mark_incomplete() {
+	for key in "$@"; do
+		case " $INCOMPLETE_SETTINGS " in
+			*" $key "*) ;;
+			*) INCOMPLETE_SETTINGS="${INCOMPLETE_SETTINGS:+$INCOMPLETE_SETTINGS }$key" ;;
+		esac
+	done
+}
+
+write_provision_status() {
+	tmp="${PROVISION_STATUS_FILE}.tmp.$$"
+	if [ -n "$INCOMPLETE_SETTINGS" ]; then
+		if printf '%s\n' "$INCOMPLETE_SETTINGS" > "$tmp" 2>/dev/null && \
+		   chmod 0644 "$tmp" && mv "$tmp" "$PROVISION_STATUS_FILE"; then
+			log "incomplete settings recorded: $INCOMPLETE_SETTINGS"
+		else
+			rm -f "$tmp" 2>/dev/null || true
+			log "could not persist incomplete provisioning status"
+		fi
+	else
+		rm -f "$PROVISION_STATUS_FILE" 2>/dev/null || true
+	fi
+}
+
+has_provisioned_root_password() {
+	[ -r "$ROOT_HASH_FILE" ] || return 1
+	root_hash=$(sed -n '1p' "$ROOT_HASH_FILE" 2>/dev/null)
+	case "$root_hash" in
+		\$1\$*|\$5\$*|\$6\$*|\$y\$*) return 0 ;;
+		*) return 1 ;;
+	esac
 }
 
 # --- Locate the FAT boot partition -------------------------------------------
@@ -144,9 +184,10 @@ apply_wifi() {
 	[ -n "$ssid" ] || { log "wifi: no ssid, skipping"; return; }
 	[ -n "$psk" ] || { log "wifi: no psk, skipping"; return; }
 
-	case "$ssid$psk" in
-		*YOUR_WIFI_*|*YOUR_SSID*|*YOUR_PASSWORD*)
+	case "$ssid:$psk" in
+		MyNetwork:*|KitchenWiFi:*|*:my-wifi-password|*:replace-with-your-private-passphrase|*YOUR_WIFI_*|*YOUR_SSID*|*YOUR_PASSWORD*|*\<your-wifi-*)
 			log "wifi: placeholder credentials ignored"
+			mark_incomplete wifi_ssid wifi_psk
 			return
 			;;
 	esac
@@ -154,6 +195,7 @@ apply_wifi() {
 	psk_len=$(printf '%s' "$psk" | wc -c | tr -d ' ')
 	if [ "$psk_len" -lt 8 ] || [ "$psk_len" -gt 63 ]; then
 		log "wifi: psk length $psk_len out of range (8..63), skipping"
+		mark_incomplete wifi_psk
 		return
 	fi
 
@@ -288,10 +330,19 @@ apply_hostname() {
 		rm -f "$HOSTNAME_LOCK_MARKER" 2>/dev/null || true
 		return
 	fi
+	case "$name" in
+		changeme|CHANGE-ME|ChangeMe)
+			log "hostname: placeholder value ignored"
+			mark_incomplete hostname
+			rm -f "$HOSTNAME_LOCK_MARKER" 2>/dev/null || true
+			return
+			;;
+	esac
 	# Basic sanity: hostnames are letters, digits and hyphens.
 	case "$name" in
 		*[!A-Za-z0-9-]*)
 			log "hostname: invalid '$name' ignored"
+			mark_incomplete hostname
 			rm -f "$HOSTNAME_LOCK_MARKER" 2>/dev/null || true
 			return
 			;;
@@ -311,19 +362,31 @@ apply_hostname() {
 apply_root_password() {
 	pw=$1
 	[ -n "$pw" ] || return
+	case "$pw" in
+		changeme|CHANGE-ME|ChangeMe|password|PASSWORD|replace-with-a-unique-device-password|*YOUR_PASSWORD*|*\<choose-a-unique-password\>*)
+			log "root_password: known placeholder rejected"
+			mark_incomplete root_password
+			return
+			;;
+	esac
 	if command -v chpasswd >/dev/null 2>&1; then
 		if printf 'root:%s\n' "$pw" | chpasswd >/dev/null 2>&1; then
 			if /usr/sbin/radio-persistent-config capture-root-password 2>>"$LOG"; then
+				: > "$ROOT_CREDENTIAL_MARKER" 2>/dev/null || true
+				chmod 0644 "$ROOT_CREDENTIAL_MARKER" 2>/dev/null || true
 				mark_consumed root_password
 				log "root_password: updated and hash persisted"
 			else
 				log "root_password: updated but hash persistence failed"
+				mark_incomplete root_password
 			fi
 		else
 			log "root_password: chpasswd failed"
+			mark_incomplete root_password
 		fi
 	else
 		log "root_password: chpasswd unavailable"
+		mark_incomplete root_password
 	fi
 }
 
@@ -337,6 +400,12 @@ apply_enable_ssh() {
 			ssh_value=false
 			;;
 		1|yes|true|on)
+			if ! has_provisioned_root_password; then
+				: > "$SSH_DISABLE_FLAG" 2>/dev/null || true
+				log "enable_ssh: rejected; provision a unique root password first"
+				mark_incomplete root_password enable_ssh
+				return
+			fi
 			rm -f "$SSH_DISABLE_FLAG" 2>/dev/null || true
 			ssh_value=true
 			;;
@@ -489,6 +558,8 @@ apply_root_password "$p_root_password"
 apply_enable_ssh "$p_enable_ssh"
 apply_timezone "$p_timezone"
 apply_ntp_server "$p_ntp_server"
+[ -s "$WPA_CONF" ] || mark_incomplete wifi_ssid wifi_psk
+write_provision_status
 comment_consumed_settings
 umount "$BOOT_MNT" 2>/dev/null || true
 

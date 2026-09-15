@@ -11,6 +11,7 @@ unit-testable on any machine (consistent with ``layout.py``). Two jobs:
 * :func:`source_label` — the short uppercase badge text for the status strip
   ("RADIO" / "SPOTIFY" / "AIRPLAY").
 """
+
 from __future__ import annotations
 
 from typing import Optional, Tuple

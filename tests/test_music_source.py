@@ -3,6 +3,7 @@
 Covers the pydantic ``Metadata`` model, its thread-safe snapshot helper, and the
 abstract ``MusicSource`` interface.
 """
+
 import pytest
 from music_source import Metadata, MusicSource
 
@@ -26,7 +27,6 @@ class TestMetadata:
         # pydantic v2 coerces where it can, but a dict is not a valid str.
         with pytest.raises(Exception):
             Metadata(name={"not": "a string"}, title="t", cover="", md5="", state=True)
-
 
     def test_snapshot_is_independent(self):
         md = _make_metadata()

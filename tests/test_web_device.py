@@ -75,6 +75,13 @@ class TestDeviceStore:
         assert device_store.load_device()["ssh_enabled"] == "false"
         assert "[remote_access]" in open(device_store.managed_device_path()).read()
 
+    def test_root_password_requires_root_owned_capability_marker(self, monkeypatch, tmp_path):
+        marker = tmp_path / "root-credential-provisioned"
+        monkeypatch.setattr(device_store, "ROOT_CREDENTIAL_MARKER", str(marker))
+        assert device_store.root_password_is_provisioned() is False
+        marker.touch()
+        assert device_store.root_password_is_provisioned() is True
+
     def test_timezone_falls_back_to_localtime_symlink(self, managed, monkeypatch, tmp_path):
         zoneinfo = tmp_path / "zoneinfo"
         (zoneinfo / "Europe").mkdir(parents=True)
@@ -120,20 +127,16 @@ class TestDeviceStore:
         assert "timezone" not in text
         assert "ntp_server" not in text
 
-    def test_serialize_round_trips_through_player_parser(self, managed):
+    def test_serialize_round_trips_through_player_parser(self, managed, tmp_path):
         import sys
 
         sys.path.insert(0, os.path.join(os.getcwd(), "lib"))
         from utilities import UtilityLibrary  # noqa: E402
 
         text = device_store.serialize_device({"name": "radio1", "timezone": "Europe/Berlin"})
-        tmp = os.path.join(os.getcwd(), "tests", "_tmp_device.ini")
-        with open(tmp, "w", encoding="utf-8") as handle:
-            handle.write(text)
-        try:
-            parsed = UtilityLibrary._parse_config(tmp)
-        finally:
-            os.unlink(tmp)
+        tmp = tmp_path / "device.ini"
+        tmp.write_text(text, encoding="utf-8")
+        parsed = UtilityLibrary._parse_config(str(tmp))
         assert parsed["device"]["name"] == "radio1"
         assert parsed["time"]["timezone"] == "Europe/Berlin"
 

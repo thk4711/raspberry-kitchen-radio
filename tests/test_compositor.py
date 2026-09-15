@@ -5,6 +5,7 @@ These functions take no hardware and no Pillow, so they run on any machine
 target runtime dependency and is installed by ``requirements-dev.txt`` so the
 suite runs off-Pi.
 """
+
 import numpy as np
 import pytest
 from display import compositor
@@ -124,8 +125,8 @@ def test_dominant_color_ignores_transparent_pixels():
     # dominant colour should be red (transparent green is ignored), not a
     # muddy average of the two.
     rgb = np.zeros((2, 2, 3), dtype=np.uint8)
-    rgb[0] = (200, 0, 0)   # opaque row
-    rgb[1] = (0, 200, 0)   # transparent row
+    rgb[0] = (200, 0, 0)  # opaque row
+    rgb[1] = (0, 200, 0)  # transparent row
     alpha = np.array([[255, 255], [0, 0]], dtype=np.uint8)
     assert compositor.dominant_color(rgb, alpha) == (200, 0, 0)
 
@@ -197,5 +198,3 @@ def test_relative_luminance_weights_green_most():
     assert green > blue
     assert green == pytest.approx(0.587 * 255)
     assert blue == pytest.approx(0.114 * 255)
-
-

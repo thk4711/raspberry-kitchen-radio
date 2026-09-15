@@ -14,6 +14,7 @@ Hard rules (§13): the bundle is capped at 1 MiB (oldest/largest logs are
 truncated first to stay under the cap) and **never** includes ``admin.secret``
 or ``wpa_supplicant.conf``. Standard library only.
 """
+
 import io
 import logging
 import os
@@ -41,6 +42,7 @@ LOG_GLOBS: Tuple[str, ...] = (
 
 # Never include these, even if a glob or future edit would otherwise match.
 FORBIDDEN_BASENAMES = frozenset({"admin.secret", "wpa_supplicant.conf"})
+OPERATIONAL_SUMMARY_PATH = "/data/operations/summary.json"
 
 # Read-only snapshot commands (argument lists, shell=False, short timeout).
 _SNAPSHOT_TIMEOUT = 3.0
@@ -123,6 +125,9 @@ def build_bundle(now: float = 0.0) -> Tuple[str, bytes]:
         members.append((f"snapshots/{arcname}", _run(cmd).encode("utf-8", "replace")))
     members.append(("snapshots/dmesg-tail.txt", _dmesg_tail().encode("utf-8", "replace")))
     members.append(("snapshots/status.txt", _snapshot_text().encode("utf-8", "replace")))
+    operational_summary = _read_file(OPERATIONAL_SUMMARY_PATH).encode("utf-8", "replace")
+    if operational_summary:
+        members.append(("snapshots/operational-summary.json", operational_summary))
 
     budget = MAX_BUNDLE_BYTES - sum(len(data) for _name, data in members)
     # Add logs largest-first so, if we run out of budget, the biggest offenders
@@ -137,7 +142,7 @@ def build_bundle(now: float = 0.0) -> Tuple[str, bytes]:
             # Keep the tail (most recent) and note the truncation.
             note = b"... [truncated to fit the 1 MiB diagnostics cap] ...\n"
             keep = max(0, budget - len(note))
-            data = note + data[len(data) - keep:] if keep else note
+            data = note + data[len(data) - keep :] if keep else note
         budget -= len(data)
         members.append((f"logs/{os.path.basename(path)}", data))
 

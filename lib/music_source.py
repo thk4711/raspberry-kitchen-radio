@@ -24,10 +24,10 @@ class Metadata(BaseModel):
     exactly how each value is used on screen.
     """
 
-    name: str    # source/station/app name (top display row)
-    title: str   # current track/title (bottom display row)
-    cover: str   # path to a cover-art image file (or "" for none)
-    md5: str     # hash of the cover; the display skips redraw when unchanged
+    name: str  # source/station/app name (top display row)
+    title: str  # current track/title (bottom display row)
+    cover: str  # path to a cover-art image file (or "" for none)
+    md5: str  # hash of the cover; the display skips redraw when unchanged
     state: bool  # True while this source is actively playing
 
     def snapshot(self) -> "Metadata":

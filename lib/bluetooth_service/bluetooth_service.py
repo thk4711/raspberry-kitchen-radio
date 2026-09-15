@@ -97,9 +97,7 @@ class BluetoothService(MusicSource):
 
     def _find_player_path(self, bus: Any) -> Optional[str]:
         """Return the object path of a connected ``MediaPlayer1``, if any."""
-        manager = dbus.Interface(
-            bus.get_object(self.service, BLUEZ_ROOT), OBJECT_MANAGER_IFACE
-        )
+        manager = dbus.Interface(bus.get_object(self.service, BLUEZ_ROOT), OBJECT_MANAGER_IFACE)
         objects = manager.GetManagedObjects()
         for path, interfaces in objects.items():
             if MEDIA_PLAYER_IFACE in interfaces:
@@ -113,14 +111,10 @@ class BluetoothService(MusicSource):
             self._player_path = path
         if path is None:
             with self._lock:
-                self.metadata = Metadata(
-                    name="", title="", cover="", md5="", state=False
-                )
+                self.metadata = Metadata(name="", title="", cover="", md5="", state=False)
             return
 
-        props = dbus.Interface(
-            bus.get_object(self.service, path), PROPERTIES_IFACE
-        )
+        props = dbus.Interface(bus.get_object(self.service, path), PROPERTIES_IFACE)
         status = str(props.Get(MEDIA_PLAYER_IFACE, "Status"))
         try:
             track = props.Get(MEDIA_PLAYER_IFACE, "Track")
@@ -161,9 +155,7 @@ class BluetoothService(MusicSource):
         if bus is None or path is None:
             return False
         try:
-            player = dbus.Interface(
-                bus.get_object(self.service, path), MEDIA_PLAYER_IFACE
-            )
+            player = dbus.Interface(bus.get_object(self.service, path), MEDIA_PLAYER_IFACE)
             if desired_state:
                 player.Play()
             else:

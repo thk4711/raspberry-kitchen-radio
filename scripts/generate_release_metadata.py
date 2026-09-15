@@ -3,6 +3,7 @@
 
 import argparse
 import json
+import os
 from pathlib import Path
 
 from build_firmware_swu import (
@@ -18,10 +19,12 @@ def release_metadata(version_file: Path) -> dict:
     """Return the stable metadata contract used to inspect an inactive slot."""
     return {
         "hardware_revision": HARDWARE_REVISION,
+        "buildroot_commit": os.environ.get("RADIO_BUILDROOT_COMMIT", "unknown"),
         "minimum_rollback_reader_schema": MINIMUM_ROLLBACK_READER_SCHEMA,
         "persistent_reader_schema": PERSISTENT_READER_SCHEMA,
         "persistent_schema": PERSISTENT_SCHEMA,
         "schema": 1,
+        "repository_commit": os.environ.get("RADIO_REPO_COMMIT", "unknown"),
         "version": project_version(version_file),
     }
 

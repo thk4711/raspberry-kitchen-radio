@@ -41,6 +41,10 @@ htmlcov/
 .env.*
 *.local.conf
 secrets.*
+scripts/build-image.ini
+
+# Host-side firmware artifacts produced by scripts/build_image.py
+/artifacts/
 
 # Generated at runtime by SpotifyService.create_config_yml() — not committed
 lib/spotify_service/spotify.conf
@@ -75,3 +79,6 @@ ehthumbs.db
 
 # Editor / tooling backups
 *.bak
+
+# Local Cline instructions
+.clinerules

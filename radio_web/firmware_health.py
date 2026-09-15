@@ -16,7 +16,7 @@ import time
 from pathlib import Path
 from typing import Dict, List, Optional
 
-from . import firmware_installer, persistent_config, sources_store
+from . import firmware_installer, operational_summary, persistent_config, sources_store
 
 logger = logging.getLogger("radio_web.firmware_health")
 
@@ -250,6 +250,7 @@ def _record_result(target_slot: str, result: str, reason: str = "") -> bool:
                 failure_reason=reason or None,
                 target_slot=target_slot,
             )
+            operational_summary.best_effort_health(result, target_slot)
             return True
     return False
 

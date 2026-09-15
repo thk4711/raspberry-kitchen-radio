@@ -176,16 +176,12 @@ class TestDisplayStore:
         assert display_store.DEFAULTS["rotate_180"] == "false"
 
     def test_rotate_180_roundtrip(self, managed):
-        display_store.save_display(
-            {**display_store.DEFAULTS, "rotate_180": "true"}
-        )
+        display_store.save_display({**display_store.DEFAULTS, "rotate_180": "true"})
         loaded = display_store.load_display()
         assert loaded["rotate_180"] == "true"
 
     def test_rotate_180_persisted_in_ui_block(self, managed):
-        display_store.save_display(
-            {**display_store.DEFAULTS, "rotate_180": "true"}
-        )
+        display_store.save_display({**display_store.DEFAULTS, "rotate_180": "true"})
         text = open(display_store.managed_display_path()).read()
         assert "rotate_180 = true" in text
 
@@ -204,23 +200,17 @@ class TestDisplayStore:
         assert display_store.DEFAULTS["panel"] == "st7789"
 
     def test_panel_gc9a01_roundtrip(self, managed):
-        display_store.save_display(
-            {**display_store.DEFAULTS, "panel": "gc9a01"}
-        )
+        display_store.save_display({**display_store.DEFAULTS, "panel": "gc9a01"})
         loaded = display_store.load_display()
         assert loaded["panel"] == "gc9a01"
 
     def test_panel_st7789_roundtrip(self, managed):
-        display_store.save_display(
-            {**display_store.DEFAULTS, "panel": "st7789"}
-        )
+        display_store.save_display({**display_store.DEFAULTS, "panel": "st7789"})
         loaded = display_store.load_display()
         assert loaded["panel"] == "st7789"
 
     def test_panel_writes_display_section_with_geometry(self, managed):
-        display_store.save_display(
-            {**display_store.DEFAULTS, "panel": "gc9a01"}
-        )
+        display_store.save_display({**display_store.DEFAULTS, "panel": "gc9a01"})
         text = open(display_store.managed_display_path()).read()
         assert "[display]" in text
         assert "panel = gc9a01" in text
@@ -228,9 +218,7 @@ class TestDisplayStore:
         assert "height = 240" in text
 
     def test_panel_st7789_writes_correct_geometry(self, managed):
-        display_store.save_display(
-            {**display_store.DEFAULTS, "panel": "st7789"}
-        )
+        display_store.save_display({**display_store.DEFAULTS, "panel": "st7789"})
         text = open(display_store.managed_display_path()).read()
         assert "panel = st7789" in text
         assert "width = 240" in text
@@ -238,9 +226,7 @@ class TestDisplayStore:
 
     def test_invalid_panel_raises_and_writes_nothing(self, managed):
         with pytest.raises(ValueError, match="Unknown display panel"):
-            display_store.save_display(
-                {**display_store.DEFAULTS, "panel": "ili9341"}
-            )
+            display_store.save_display({**display_store.DEFAULTS, "panel": "ili9341"})
         assert not os.path.exists(display_store.managed_display_path())
 
     def test_panel_missing_from_post_defaults_to_st7789(self, managed):

@@ -133,7 +133,9 @@ def test_control_values_order_and_disabled_bypass():
     assert values[3] == 80.0  # band 1 frequency
     # A globally disabled EQ collapses to identity so the live path bypasses.
     disabled = equalizer_store.defaults()
-    assert equalizer_store.control_values(disabled) == [0.0] * equalizer_store.RUNTIME_CONTROL_VALUES
+    assert (
+        equalizer_store.control_values(disabled) == [0.0] * equalizer_store.RUNTIME_CONTROL_VALUES
+    )
 
 
 def test_write_runtime_round_trip_and_generation(managed, monkeypatch, tmp_path):

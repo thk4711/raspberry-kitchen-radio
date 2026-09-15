@@ -49,9 +49,10 @@ def test_busybox_chpasswd_is_enabled_for_root_password_provisioning():
 def test_boot_partition_ships_active_radio_config_under_final_name():
     config = RADIO_CONFIG.read_text(encoding="utf-8")
     post_image = POST_IMAGE.read_text(encoding="utf-8")
-    assert "wifi_ssid=MyNetwork" in config
-    assert "hostname=changeme" in config
-    assert "root_password=changeme" in config
+    active = [line for line in config.splitlines() if line and not line.startswith("#")]
+    assert not any(
+        line.startswith(("wifi_ssid=", "wifi_psk=", "root_password=")) for line in active
+    )
     assert "enable_ssh=0" in config
     assert "timezone=UTC" in config
     assert 'RADIO_CONFIG="${BOARD_DIR}/radio-config.txt"' in post_image
@@ -110,6 +111,30 @@ def test_ssh_is_disabled_without_explicit_enable():
     script = DROPBEAR_INIT.read_text(encoding="utf-8")
     assert 'if ! [ -r "$DEVICE_CONFIG" ] || ! awk' in script
     assert 'if (value == "true") enabled = 1' in script
+    assert "ROOT_HASH_FILE=/data/identity/root-password.hash" in script
+    assert "no provisioned root credential" in script
+
+
+def test_generic_image_locks_root_and_rejects_known_credentials():
+    defconfig = DEFCONFIG.read_text(encoding="utf-8")
+    provisioner = PROVISION_SCRIPT.read_text(encoding="utf-8")
+
+    assert "# BR2_TARGET_ENABLE_ROOT_LOGIN is not set" in defconfig
+    assert "BR2_TARGET_GENERIC_ROOT_PASSWD=" not in defconfig
+    assert "known placeholder rejected" in provisioner
+    assert "placeholder credentials ignored" in provisioner
+    assert "has_provisioned_root_password" in provisioner
+    assert "provision a unique root password first" in provisioner
+    assert "ROOT_CREDENTIAL_MARKER=/data/radio/root-credential-provisioned" in provisioner
+
+
+def test_incomplete_provisioning_is_privacy_safe_and_visible():
+    provisioner = PROVISION_SCRIPT.read_text(encoding="utf-8")
+    post_image = POST_IMAGE.read_text(encoding="utf-8")
+
+    assert "PROVISION_STATUS_FILE=/data/radio/provisioning-status" in provisioner
+    assert "printf '%s\\n' \"$INCOMPLETE_SETTINGS\"" in provisioner
+    assert "printf 'wifi_ssid wifi_psk\\n'" in post_image
 
 
 def test_provisioner_persists_identity_and_device_choices():

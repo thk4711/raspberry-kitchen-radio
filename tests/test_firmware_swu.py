@@ -63,11 +63,13 @@ def test_release_metadata_generator_uses_version_and_hardware_contract(tmp_path)
     output = tmp_path / "radio-release.json"
     subprocess.run(["python3", str(RELEASE_GENERATOR), str(VERSION_FILE), str(output)], check=True)
     assert json.loads(output.read_text(encoding="utf-8")) == {
+        "buildroot_commit": "unknown",
         "hardware_revision": swu.HARDWARE_REVISION,
         "minimum_rollback_reader_schema": swu.MINIMUM_ROLLBACK_READER_SCHEMA,
         "persistent_reader_schema": swu.PERSISTENT_READER_SCHEMA,
         "persistent_schema": swu.PERSISTENT_SCHEMA,
         "schema": 1,
+        "repository_commit": "unknown",
         "version": "0.2.0",
     }
 
@@ -140,6 +142,7 @@ def test_top_level_build_requires_and_reports_both_artifacts():
     assert 'validate-artifacts.sh" "$images_dir" "$version" "$BUILD_MARKER"' in text
     assert 'report_artifact "Install" "$img"' in text
     assert 'report_artifact "Update " "$swu"' in text
+    assert 'BUILD_MARKER="${BUILDROOT_DIR}/output/radio-build.started"' in text
     assert 'touch "$BUILD_MARKER"' in text
 
 

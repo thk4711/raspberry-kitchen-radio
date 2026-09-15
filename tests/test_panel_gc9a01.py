@@ -21,6 +21,7 @@ Covered invariants (Step 7 of the GC9A01 plan):
 * ``Init()`` runs to completion against the stubbed SPI/GPIO and issues the
   sleep-out (0x11) + display-on (0x29) commands.
 """
+
 import pytest
 from display import lcdconfig
 from display.panel_gc9a01 import GC9A01
@@ -85,8 +86,7 @@ def test_show_full_frame_accepts_exact_size(panel):
     pix = bytes(240 * 240 * 2)
     panel.ShowFullFrame(pix)  # must not raise
     # The exact frame buffer is the last (largest) write pushed to SPI.
-    assert any(isinstance(w, bytes) and len(w) == 240 * 240 * 2
-               for w in panel._spi.writes)
+    assert any(isinstance(w, bytes) and len(w) == 240 * 240 * 2 for w in panel._spi.writes)
 
 
 @pytest.mark.parametrize("size", [240 * 240 * 2 - 1, 240 * 240 * 2 + 1, 240 * 280 * 2])

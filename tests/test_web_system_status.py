@@ -4,6 +4,7 @@ Point the module-level path constants at ``tmp_path`` fakes and monkeypatch the
 command runner so the collectors are exercised without any real /proc, /sys or
 network access.
 """
+
 import json
 
 from radio_web import system_status
@@ -67,9 +68,7 @@ class TestWifiInfo:
                 "Connected to aa:bb\n\tSSID: MyNet\n\tsignal: -51 dBm\n"
             ),
         }
-        monkeypatch.setattr(
-            system_status, "_run", lambda cmd: outputs.get(tuple(cmd))
-        )
+        monkeypatch.setattr(system_status, "_run", lambda cmd: outputs.get(tuple(cmd)))
         info = system_status.wifi_info()
         assert info["ip"] == "192.168.1.42"
         assert info["ssid"] == "MyNet"
@@ -150,6 +149,7 @@ class TestCollect:
             "heartbeat_age_seconds",
             "player",
             "bluetooth",
+            "provisioning",
             "source_labels",
         ):
             assert key in data

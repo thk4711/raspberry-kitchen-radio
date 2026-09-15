@@ -3,6 +3,7 @@
 No Pillow, numpy or hardware — the theme layer is pure string/number coercion,
 so these run on any machine (consistent with ``test_layout``/``test_textformat``).
 """
+
 from display import theme
 
 
@@ -34,7 +35,6 @@ def test_adaptive_shadow_overrides_are_parsed_and_clamped():
     assert t.adaptive_shadow is False
     # adaptive_shadow_luma is clamped to the 0..255 range.
     assert t.adaptive_shadow_luma == 255
-
 
 
 class TestParseColor:
@@ -132,11 +132,13 @@ def test_animations_on_keeps_motion_defaults():
 
 
 def test_invalid_values_fall_back_per_key():
-    t = theme.build_theme({
-        "scrim_opacity": "nonsense",
-        "text_color": "notacolor",
-        "title_size": "huge",
-    })
+    t = theme.build_theme(
+        {
+            "scrim_opacity": "nonsense",
+            "text_color": "notacolor",
+            "title_size": "huge",
+        }
+    )
     d = theme.Theme()
     assert t.scrim_opacity == d.scrim_opacity
     assert t.text_color == d.text_color

@@ -1,4 +1,5 @@
 """Tests for bounded, stoppable backend process supervision (item 5)."""
+
 import subprocess
 from unittest import mock
 
@@ -49,9 +50,7 @@ def test_crash_loop_tracks_single_process_and_backs_off(util, monkeypatch):
 
 def test_failed_spawn_does_not_track_and_stops(util, monkeypatch):
     """An OSError on spawn is handled and leaves no tracked process."""
-    monkeypatch.setattr(
-        subprocess, "Popen", mock.Mock(side_effect=OSError("no such binary"))
-    )
+    monkeypatch.setattr(subprocess, "Popen", mock.Mock(side_effect=OSError("no such binary")))
     monkeypatch.setattr(util, "_restart_backoff", lambda d: util._stop.set())
 
     util._start_and_monitor_binary(["missing"], "missing")

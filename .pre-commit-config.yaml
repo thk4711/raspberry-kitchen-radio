@@ -3,12 +3,10 @@
 #   pre-commit install                       # commit-stage gates (fast)
 #   pre-commit install --hook-type pre-push  # + full pytest/coverage on push
 #
-# The auto-run hooks mirror exactly what .github/workflows/ci.yml enforces, so
-# failures are caught locally before they reach CI. Formatting/whitespace
-# FIXERS that CI does NOT gate (ruff-format, trailing-whitespace,
-# end-of-file-fixer, mixed-line-ending) are set to `stages: [manual]` so they
-# never silently rewrite the hand-formatted tree on a normal commit; run them
-# on demand with e.g. `pre-commit run ruff-format --all-files`.
+# The auto-run hooks mirror what .github/workflows/ci.yml enforces, so failures
+# are caught locally before they reach CI. Ruff formatting is applied on normal
+# commits and checked in CI. Generic whitespace fixers that CI does not gate
+# remain manual to avoid unrelated file churn.
 repos:
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v4.6.0
@@ -33,15 +31,14 @@ repos:
     hooks:
       - id: ruff          # lint (matches CI's `ruff check .`)
         args: ["--fix"]
-      - id: ruff-format    # NOT a CI gate; opt-in to avoid reformatting churn
-        stages: [manual]
+      - id: ruff-format    # format locally; CI verifies with `ruff format --check`
 
   - repo: https://github.com/pre-commit/mirrors-mypy
     rev: v1.11.2
     hooks:
       - id: mypy
-        # mypy reads its file list and settings from pyproject.toml; pass no
-        # explicit files so it checks exactly the gated set, as CI does.
+        # mypy reads its repository-wide production scope and settings from
+        # pyproject.toml; pass no explicit files so it matches CI.
         pass_filenames: false
         args: []
         additional_dependencies: ["pydantic>=2.10"]

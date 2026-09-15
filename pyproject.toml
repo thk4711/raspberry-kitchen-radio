@@ -16,6 +16,15 @@ testpaths = ["tests"]
 pythonpath = ["lib", "."]
 addopts = "-ra"
 
+[tool.coverage.run]
+# Measure repository-owned runtime code. Reports may apply narrower omit rules,
+# but collection remains broad so hardware/vendor coverage stays visible.
+source = ["lib", "radio_web", "radio"]
+
+[tool.coverage.report]
+show_missing = true
+skip_empty = true
+
 [tool.ruff]
 # Target the oldest supported interpreter (see requires-python) so lint/format
 # never suggest syntax unavailable on the appliance image or the CI floor.
@@ -65,51 +74,16 @@ python_version = "3.10"
 ignore_missing_imports = true
 follow_imports = "silent"
 warn_redundant_casts = true
+check_untyped_defs = true
 # Vendored third-party driver is out of scope for typing.
 exclude = ["lib/ADS1x15/"]
-# Introduce mypy incrementally: gate CI on the fully-typed, self-contained
-# modules first (this list), then widen it as the older modules gain types.
-# Run `mypy` (no args) to check exactly this set.
+# Check every first-party production Python file. Tests are validated by pytest
+# and compileall; the vendored ADS1x15 driver remains the only source exclusion.
 files = [
     "radio.py",
-    "lib/_version.py",
-    "lib/bluetooth_service/bluetooth_service.py",
-    "lib/usb_audio_service/usb_audio_service.py",
-    "lib/display/transient_state.py",
-    "radio_web/__init__.py",
-    "radio_web/__main__.py",
-    "radio_web/auth.py",
-    "radio_web/config_store.py",
-    "radio_web/server.py",
-    "radio_web/routes.py",
-    "radio_web/sources_store.py",
-    "radio_web/system_status.py",
-    "radio_web/templates.py",
-    "radio_web/device_store.py",
-    "radio_web/diagnostics.py",
-    "radio_web/helper_protocol.py",
-    "radio_web/helper.py",
-    "radio_web/actions.py",
-    "radio_web/artwork.py",
-    "radio_web/logo_store.py",
-    "radio_web/validators.py",
-    "radio_web/display_store.py",
-    "radio_web/audio_store.py",
-    "radio_web/equalizer_store.py",
-    "radio_web/bluetooth_store.py",
-    "radio_web/network_store.py",
-    "radio_web/network_apply.py",
-    "radio_web/data_partition.py",
-    "radio_web/data_backup.py",
-    "radio_web/persistent_config.py",
-    "radio_web/firmware_upload.py",
-    "radio_web/firmware_installer.py",
-    "radio_web/firmware_health.py",
-    "radio_web/firmware_slots.py",
-    "radio_web/firmware_authorization.py",
-    "radio_web/firmware_tracking.py",
-    "radio_web/adc_store.py",
-    "lib/adc_snapshot.py",
+    "lib",
+    "radio_web",
+    "scripts",
 ]
 
 [[tool.mypy.overrides]]

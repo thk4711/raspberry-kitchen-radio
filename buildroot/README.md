@@ -47,6 +47,16 @@ host** from the root of a fresh clone of this repository:
 ./buildroot/build.sh --no-apt        # skip the apt host-package step
 ```
 
+The script pins Buildroot `2026.05.2` to commit
+`72d9d4fa636a371ef9eb99c92a735ce9f6d829d5`. Every new or existing checkout
+must be a clean Git worktree at that exact commit; a different revision,
+untracked file, or local modification stops the build. To repair a reusable
+checkout, save any wanted changes elsewhere and run `git reset --hard
+72d9d4fa636a371ef9eb99c92a735ce9f6d829d5` plus `git clean -fd` in it. For an
+intentional, non-release development build only, pass
+`--allow-unverified-buildroot`; the script emits warnings and records the actual
+commit in the build log and firmware release metadata.
+
 `build.sh` requires and prints both the installation image
 (`output/images/sdcard.img`) and versioned firmware update
 (`output/images/kitchen-radio-<version>.swu`), including each size and SHA-256.
@@ -60,9 +70,30 @@ BUILDROOT_DIR=~/br/buildroot BR2_DL_DIR=~/br/dl BUILDROOT_VERSION=2026.05.2 \
     ./buildroot/build.sh
 ```
 
-No device identity or credentials are embedded during the build. After flashing,
-edit `radio-config.txt` on the FAT boot partition to set WiFi, hostname, root
-password and other first-boot values. The same image can provision many devices.
+No device identity or credentials are embedded during the build. Root password
+login is locked in the generic image. After flashing, edit `radio-config.txt` on
+the FAT boot partition to set WiFi, hostname, a unique root password and other
+first-boot values. SSH remains disabled unless that credential was successfully
+persisted. The same image can provision many devices.
+
+### Artifact helper and remote builds
+
+[`../scripts/build_image.py`](../scripts/build_image.py) wraps this build and
+publishes timestamped, checksum-verified copies of both artifacts. It builds on
+the current host by default, so SSH is optional:
+
+```bash
+python3 scripts/build_image.py --dry-run
+python3 scripts/build_image.py
+```
+
+For reusable local or remote settings, copy
+`scripts/build-image.example.ini` to the git-ignored `scripts/build-image.ini`.
+Set `execution = remote` and the dummy SSH/build paths for remote operation;
+that mode stages the checkout with `rsync`, builds through batch-mode SSH, and
+retrieves it with `scp`. CLI options override configuration values. See
+[`../doc/build-from-scratch.md`](../doc/build-from-scratch.md#optional-collect-named-artifacts-locally-or-build-remotely)
+for examples and run `python3 scripts/build_image.py --help` for every option.
 
 ## Quick start (manual, on the Debian host)
 

@@ -6,10 +6,11 @@
 
 # go-librespot is fetched from upstream GitHub at an immutable release tag.
 #
-# Reproducibility contract (item 8): the accompanying go-librespot.hash pins the
-# SHA-256 of the upstream GitHub source archive for the tag below. That archive
-# is immutable and byte-stable, so a clean build verifies the exact source
-# content before Buildroot's golang infra vendors the module dependencies.
+# Reproducibility contract: Buildroot's golang infrastructure downloads this
+# tag, runs `go mod vendor`, and repacks the source plus dependencies. The
+# accompanying go-librespot.hash pins that final, post-processed `-go2` archive;
+# Buildroot verifies it before extraction. The `-go2` suffix is Buildroot
+# 2026.05.2's Go archive-format version, not the host Go release.
 #
 # The go.mod 'go 1.25' / toolchain go1.25.5 directive is satisfied by the host-Go
 # shipped with the pinned Buildroot version used to build this appliance

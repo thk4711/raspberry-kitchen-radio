@@ -20,6 +20,8 @@ CMDLINE = BOARD / "cmdline.txt"
 UBOOT_FRAGMENT = BOARD / "uboot.fragment"
 UBOOT_ENV = BOARD / "uboot-env.txt"
 HEALTH_SERVICE = OVERLAY / "etc" / "init.d" / "S99firmware-health"
+OPERATIONAL_SERVICE = OVERLAY / "etc" / "init.d" / "S15operational-summary"
+RADIO_SERVICE = OVERLAY / "etc" / "init.d" / "S90radio"
 
 
 def _assignments(path):
@@ -251,6 +253,18 @@ def test_late_health_service_is_backgrounded_and_packaged():
     assert "fw_printenv -n upgrade_available" in service
     assert "radio-firmware-health -- run" in service
     assert "S99firmware-health" in post_build
+
+
+def test_operational_summary_is_packaged_and_records_recovery_boundaries():
+    operational = OPERATIONAL_SERVICE.read_text(encoding="utf-8")
+    radio = RADIO_SERVICE.read_text(encoding="utf-8")
+    post_build = POST_BUILD.read_text(encoding="utf-8")
+    assert "radio_web.operational_summary" in operational
+    assert "record boot" in operational
+    assert "record clean-shutdown" in operational
+    assert "heartbeat_timeout" in radio
+    assert "operational_summary restart" in radio
+    assert "S15operational-summary" in post_build
 
 
 def test_release_metadata_and_fixed_other_slot_mountpoint_are_packaged():

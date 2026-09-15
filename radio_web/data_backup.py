@@ -168,11 +168,7 @@ def _validated() -> Tuple[Dict[str, Any], List[tarfile.TarInfo]]:
                 names.add(member.name)
                 if member.name != "manifest.json":
                     parts = Path(member.name).parts
-                    if (
-                        len(parts) < 2
-                        or parts[0] != "data"
-                        or parts[1] not in INCLUDED_ROOTS
-                    ):
+                    if len(parts) < 2 or parts[0] != "data" or parts[1] not in INCLUDED_ROOTS:
                         raise BackupError("The backup contains unexpected data.")
                 if not (member.isdir() or member.isreg()):
                     raise BackupError("The backup contains an unsupported entry.")
@@ -200,8 +196,7 @@ def _validated() -> Tuple[Dict[str, Any], List[tarfile.TarInfo]]:
             schema = manifest.get("persistent_schema", {})
             if (
                 not isinstance(schema, dict)
-                or int(schema.get("minimum_reader_schema", 999))
-                > persistent_config.CURRENT_SCHEMA
+                or int(schema.get("minimum_reader_schema", 999)) > persistent_config.CURRENT_SCHEMA
             ):
                 raise BackupError("This firmware cannot read the backup schema.")
 
@@ -224,15 +219,21 @@ def _validated() -> Tuple[Dict[str, Any], List[tarfile.TarInfo]]:
                     raise BackupError("The backup contains an unreadable file.")
                 data = source.read()
                 record = expected[name]
-                if (
-                    len(data) != record.get("size")
-                    or hashlib.sha256(data).hexdigest() != record.get("sha256")
-                ):
+                if len(data) != record.get("size") or hashlib.sha256(
+                    data
+                ).hexdigest() != record.get("sha256"):
                     raise BackupError("The backup failed its integrity check.")
             return manifest, members
     except BackupError:
         raise
-    except (OSError, tarfile.TarError, json.JSONDecodeError, KeyError, TypeError, ValueError) as exc:
+    except (
+        OSError,
+        tarfile.TarError,
+        json.JSONDecodeError,
+        KeyError,
+        TypeError,
+        ValueError,
+    ) as exc:
         raise BackupError("The selected file is not a valid radio backup.") from exc
 
 
@@ -240,11 +241,15 @@ def inspect_restore() -> Tuple[bool, str, Dict[str, Any]]:
     """Return bounded, non-secret metadata after complete archive validation."""
     try:
         manifest, members = _validated()
-        return True, "Backup validated.", {
-            "created_at": manifest.get("created_at"),
-            "radio_version": manifest.get("radio_version"),
-            "files": sum(1 for member in members if member.isreg()) - 1,
-        }
+        return (
+            True,
+            "Backup validated.",
+            {
+                "created_at": manifest.get("created_at"),
+                "radio_version": manifest.get("radio_version"),
+                "files": sum(1 for member in members if member.isreg()) - 1,
+            },
+        )
     except BackupError as exc:
         return False, str(exc), {}
 
@@ -263,10 +268,15 @@ def _set_permissions(root: Path) -> None:
                 os.chown(path, 601 if web_owned else 0, 601 if web_owned else 0)
         for name in files:
             path = current_path / name
-            helper_owned = web_owned and path.parent == root and name in {
-                "wifi-country",
-                "wlan-static.env",
-            }
+            helper_owned = (
+                web_owned
+                and path.parent == root
+                and name
+                in {
+                    "wifi-country",
+                    "wlan-static.env",
+                }
+            )
             secret = name == "admin.secret" or not web_owned or helper_owned
             os.chmod(path, 0o600 if secret else 0o644)
             if os.geteuid() == 0:

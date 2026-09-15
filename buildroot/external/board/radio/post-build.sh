@@ -164,7 +164,7 @@ for candidate in "${TARGET_DIR}"/etc/init.d/S??*.disabled; do
 	rm -f "${destination}"
 	mv "${candidate}" "${destination}"
 done
-for script in S12data-resize S13zram S14watchdog S39usb-audio S41wlan S42bluetooth S50mpd S79radio-helper S80radio-web S90radio S99firmware-health S50dropbear; do
+for script in S12data-resize S13zram S14watchdog S15operational-summary S39usb-audio S41wlan S42bluetooth S50mpd S79radio-helper S80radio-web S90radio S99firmware-health S50dropbear; do
 	if [ -f "${TARGET_DIR}/etc/init.d/${script}" ]; then
 		chmod 0755 "${TARGET_DIR}/etc/init.d/${script}"
 	fi

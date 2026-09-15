@@ -12,6 +12,7 @@ optional logo filename. Logo *uploads* are out of scope for v1 (§7.1); only the
 filename of an already-shipped logo is accepted, and it is whitelisted tightly
 so it can never escape the logo directory.
 """
+
 import re
 from urllib.parse import urlsplit
 
@@ -149,9 +150,7 @@ def validate_device_name(value: str) -> str:
     if not name:
         raise ValueError("Device name is required.")
     if len(name) > MAX_HOSTNAME_LENGTH:
-        raise ValueError(
-            f"Device name must be at most {MAX_HOSTNAME_LENGTH} characters."
-        )
+        raise ValueError(f"Device name must be at most {MAX_HOSTNAME_LENGTH} characters.")
     if not _HOSTNAME_RE.match(name):
         raise ValueError(
             "Device name may use letters, digits and hyphens only, and must "
@@ -260,9 +259,7 @@ def validate_overlay_duration(value: str, label: str) -> float:
     except ValueError as exc:
         raise ValueError(f"{label} must be a number.") from exc
     if not 0.0 <= seconds <= _MAX_OVERLAY_DURATION:
-        raise ValueError(
-            f"{label} must be between 0 and {_MAX_OVERLAY_DURATION:g} seconds."
-        )
+        raise ValueError(f"{label} must be between 0 and {_MAX_OVERLAY_DURATION:g} seconds.")
     return seconds
 
 
@@ -287,9 +284,7 @@ def validate_mixer_name(value: str) -> str:
     if not name:
         raise ValueError("Mixer name is required.")
     if len(name) > MAX_MIXER_LENGTH:
-        raise ValueError(
-            f"Mixer name must be at most {MAX_MIXER_LENGTH} characters."
-        )
+        raise ValueError(f"Mixer name must be at most {MAX_MIXER_LENGTH} characters.")
     if not _MIXER_RE.match(name):
         raise ValueError("Mixer name may use letters, digits, spaces, . _ - only.")
     return name
@@ -358,6 +353,7 @@ def validate_audio_profile(value: str) -> str:
 # privileged helper re-validates it before running anything.
 _MAC_RE = re.compile(r"^([0-9A-Fa-f]{2}:){5}[0-9A-Fa-f]{2}$")
 
+
 def validate_mac_address(value: str) -> str:
     """Return an upper-cased MAC address ``AA:BB:CC:DD:EE:FF``, or raise."""
     mac = (value or "").strip()
@@ -391,8 +387,7 @@ def validate_panel(value: str) -> str:
         return "st7789"
     if name not in PANEL_NAMES:
         raise ValueError(
-            f"Unknown display panel '{value}'. "
-            f"Supported values: {', '.join(PANEL_NAMES)}."
+            f"Unknown display panel '{value}'. " f"Supported values: {', '.join(PANEL_NAMES)}."
         )
     return name
 
@@ -427,9 +422,7 @@ def validate_wifi_passphrase(value: str) -> str:
     """Return a cleaned WPA-PSK passphrase (8..63 chars), or raise."""
     psk = value or ""
     if not (WPA_PSK_MIN <= len(psk) <= WPA_PSK_MAX):
-        raise ValueError(
-            f"WiFi password must be {WPA_PSK_MIN}..{WPA_PSK_MAX} characters."
-        )
+        raise ValueError(f"WiFi password must be {WPA_PSK_MIN}..{WPA_PSK_MAX} characters.")
     if _CONTROL_CHARS.search(psk):
         raise ValueError("WiFi password contains invalid control characters.")
     return psk

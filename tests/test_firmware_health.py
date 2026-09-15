@@ -63,6 +63,10 @@ def test_healthy_trial_is_accepted_atomically(monkeypatch, tmp_path):
     monkeypatch.setattr(health.sources_store, "load_sources", lambda: {"internet_radio": True})
     monkeypatch.setattr(health, "_set_environment", lambda values: writes.append(values))
     accepted = []
+    outcomes = []
+    monkeypatch.setattr(
+        health.operational_summary, "best_effort_health", lambda *args: outcomes.append(args)
+    )
     monkeypatch.setattr(
         health.persistent_config, "mark_migration_accepted", lambda: accepted.append(True)
     )
@@ -71,6 +75,7 @@ def test_healthy_trial_is_accepted_atomically(monkeypatch, tmp_path):
     history = json.loads(firmware_installer.HISTORY_PATH.read_text(encoding="utf-8"))
     assert history[-1]["result"] == "accepted"
     assert accepted == [True]
+    assert outcomes == [("accepted", "B")]
 
 
 def test_environment_script_uses_libubootenv_assignment_syntax(monkeypatch, tmp_path):

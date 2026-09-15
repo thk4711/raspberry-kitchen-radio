@@ -23,6 +23,7 @@ building the normalised config dict the helper consumes, and reading the current
 read-only status (SSID, mode, pending-rollback state). All privileged file
 writes and the rollback timer live in the helper. Standard-library only.
 """
+
 import os
 import re
 import subprocess
@@ -34,9 +35,7 @@ from . import validators
 # radio-config.txt is one-shot, so later boots and web edits reuse these files.
 # Overridable so tests never touch the real system paths.
 STATIC_IP_FILE = os.environ.get("RADIO_WLAN_STATIC_FILE", "/etc/radio/wlan-static.env")
-ROLLBACK_MARKER = os.environ.get(
-    "RADIO_WLAN_ROLLBACK_MARKER", "/run/wlan-rollback-pending"
-)
+ROLLBACK_MARKER = os.environ.get("RADIO_WLAN_ROLLBACK_MARKER", "/run/wlan-rollback-pending")
 WIFI_COUNTRY_FILE = os.environ.get("RADIO_WIFI_COUNTRY_FILE", "/etc/radio/wifi-country")
 
 # How long the rollback watcher waits for association + an IP before reverting.
@@ -67,15 +66,9 @@ def validate_wifi_form(form: Dict[str, str]) -> Dict[str, str]:
     if mode not in ("dhcp", "static"):
         raise ValueError("Choose DHCP or a static address.")
     if mode == "static":
-        cleaned["ip_address"] = validators.validate_ipv4(
-            form.get("ip_address", ""), "IP address"
-        )
-        cleaned["ip_prefix"] = str(
-            validators.validate_ipv4_prefix(form.get("ip_prefix", "24"))
-        )
-        cleaned["ip_gateway"] = validators.validate_ipv4(
-            form.get("ip_gateway", ""), "Gateway"
-        )
+        cleaned["ip_address"] = validators.validate_ipv4(form.get("ip_address", ""), "IP address")
+        cleaned["ip_prefix"] = str(validators.validate_ipv4_prefix(form.get("ip_prefix", "24")))
+        cleaned["ip_gateway"] = validators.validate_ipv4(form.get("ip_gateway", ""), "Gateway")
         cleaned["ip_dns"] = validators.validate_dns_list(form.get("ip_dns", ""))
     return cleaned
 

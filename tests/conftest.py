@@ -9,6 +9,7 @@ modules into ``sys.modules`` *before* the tests import the code under test.
 Stubbing (rather than skipping the tests) means the pure-logic units get real
 coverage everywhere, including CI.
 """
+
 import sys
 import types
 from unittest import mock

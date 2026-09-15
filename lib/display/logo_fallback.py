@@ -13,6 +13,7 @@ machine like ``layout.py`` / ``textformat.py`` / ``theme.py``. The colour is a
 deterministic function of the name, so a given station always yields the same
 tile (keeping the art cache stable) without any per-station configuration.
 """
+
 from __future__ import annotations
 
 import colorsys
@@ -46,12 +47,12 @@ BLUETOOTH_TILE_COLOR: Color = (77, 107, 140)  # colorsys.hsv_to_rgb(212/360, 0.4
 _BT_VIEWBOX: Tuple[int, int] = (640, 976)
 _BT_STROKE: int = 53
 _BT_PATH: Tuple[Tuple[int, int], ...] = (
-    (157, 330),   # upper-left knee (path start)
-    (462, 637),   # lower-right tip
-    (315, 815),   # spine bottom
-    (315, 179),   # spine top
-    (462, 349),   # upper-right tip
-    (157, 648),   # lower-left knee
+    (157, 330),  # upper-left knee (path start)
+    (462, 637),  # lower-right tip
+    (315, 815),  # spine bottom
+    (315, 179),  # spine top
+    (462, 349),  # upper-right tip
+    (157, 648),  # lower-left knee
 )
 
 
@@ -103,9 +104,9 @@ def tile_color(name: str) -> Color:
         An ``(r, g, b)`` int triple.
     """
     digest = hashlib.sha256((name or "").strip().lower().encode("utf-8")).digest()
-    hue = digest[0] / 255.0            # 0..1 around the colour wheel
-    sat = 0.45                          # muted, not garish
-    val = 0.55                          # mid brightness, good text contrast
+    hue = digest[0] / 255.0  # 0..1 around the colour wheel
+    sat = 0.45  # muted, not garish
+    val = 0.55  # mid brightness, good text contrast
     r, g, b = colorsys.hsv_to_rgb(hue, sat, val)
     return (int(round(r * 255)), int(round(g * 255)), int(round(b * 255)))
 
@@ -141,8 +142,7 @@ def render_initials_tile(
     tile = Image.new("RGBA", (size, size), (0, 0, 0, 0))
     draw = ImageDraw.Draw(tile)
     radius = max(1, size // 8)
-    draw.rounded_rectangle((0, 0, size - 1, size - 1), radius=radius,
-                           fill=bg_color + (255,))
+    draw.rounded_rectangle((0, 0, size - 1, size - 1), radius=radius, fill=bg_color + (255,))
 
     text = initials(name)
     bbox = draw.textbbox((0, 0), text, font=font)
@@ -185,8 +185,7 @@ def render_bluetooth_tile(
     tile = Image.new("RGBA", (size, size), (0, 0, 0, 0))
     draw = ImageDraw.Draw(tile)
     radius = max(1, size // 8)
-    draw.rounded_rectangle((0, 0, size - 1, size - 1), radius=radius,
-                           fill=bg_color + (255,))
+    draw.rounded_rectangle((0, 0, size - 1, size - 1), radius=radius, fill=bg_color + (255,))
 
     # Scale the official SVG path into a centred region of the tile, preserving
     # its (tall) aspect ratio. The glyph's own bounding box is computed from the
@@ -219,4 +218,3 @@ def render_bluetooth_tile(
     for px, py in (points[0], points[-1]):
         draw.ellipse((px - r, py - r, px + r, py + r), fill=fill)
     return tile
-

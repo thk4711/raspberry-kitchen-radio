@@ -1,0 +1,28 @@
+#!/bin/sh
+# Persist only a bounded, privacy-safe recovery summary; routine logs stay tmpfs-only.
+
+APP_DIR=/opt/raspberry-kitchen-radio
+
+record() {
+	(
+		cd "$APP_DIR" || exit 1
+		/usr/bin/python3 -m radio_web.operational_summary "$@"
+	) >/dev/null 2>&1 || true
+}
+
+case "$1" in
+	start)
+		record boot
+		;;
+	stop)
+		record clean-shutdown
+		;;
+	restart)
+		"$0" stop
+		"$0" start
+		;;
+	*)
+		echo "Usage: $0 {start|stop|restart}" >&2
+		exit 1
+		;;
+esac

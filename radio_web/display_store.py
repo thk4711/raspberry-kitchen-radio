@@ -16,6 +16,7 @@ all theme keys.  The player's :class:`DisplayController` already reads
 
 Standard-library only, mirroring :mod:`radio_web.sources_store`.
 """
+
 import os
 import re
 from typing import Dict
@@ -139,18 +140,12 @@ def validate_settings(submitted: Dict[str, str]) -> Dict[str, str]:
     return {
         "panel": panel,
         "theme_preset": preset,
-        "idle_timeout": str(
-            validators.validate_idle_timeout(submitted.get("idle_timeout", ""))
-        ),
+        "idle_timeout": str(validators.validate_idle_timeout(submitted.get("idle_timeout", ""))),
         "animations": "true" if animations else "false",
         "rotate_180": "true" if rotate_180 else "false",
-        "crossfade_ms": str(
-            validators.validate_crossfade_ms(submitted.get("crossfade_ms", ""))
-        ),
+        "crossfade_ms": str(validators.validate_crossfade_ms(submitted.get("crossfade_ms", ""))),
         "clock_size": str(
-            validators.validate_volume_percent(
-                submitted.get("clock_size", ""), "Clock size"
-            )
+            validators.validate_volume_percent(submitted.get("clock_size", ""), "Clock size")
         ),
         "osd_duration": _fmt_float(
             validators.validate_overlay_duration(
@@ -175,8 +170,15 @@ def _resolve_ui_keys(cleaned: Dict[str, str]) -> Dict[str, str]:
     The ``theme_preset`` marker is kept so the page can re-select it.
     """
     ui: Dict[str, str] = {}
-    for key in ("idle_timeout", "animations", "rotate_180", "crossfade_ms", "clock_size",
-                "osd_duration", "toast_duration"):
+    for key in (
+        "idle_timeout",
+        "animations",
+        "rotate_180",
+        "crossfade_ms",
+        "clock_size",
+        "osd_duration",
+        "toast_duration",
+    ):
         ui[key] = cleaned[key]
     ui.update(PRESETS.get(cleaned.get("theme_preset", "default"), {}))
     # Persist the chosen preset marker; theme.build_theme ignores unknown keys.
@@ -210,9 +212,7 @@ def serialize_display(cleaned: Dict[str, str]) -> str:
 def _backup_existing() -> None:
     current = config_store.read_text(managed_display_path())
     if current is not None:
-        config_store.atomic_write(
-            managed_backup_path(), current, config_store.CONFIG_MODE
-        )
+        config_store.atomic_write(managed_backup_path(), current, config_store.CONFIG_MODE)
 
 
 def save_display(submitted: Dict[str, str]) -> None:
@@ -226,9 +226,7 @@ def save_display(submitted: Dict[str, str]) -> None:
     cleaned = validate_settings(submitted)
     payload = serialize_display(cleaned)
     _backup_existing()
-    config_store.atomic_write(
-        managed_display_path(), payload, config_store.CONFIG_MODE
-    )
+    config_store.atomic_write(managed_display_path(), payload, config_store.CONFIG_MODE)
 
 
 def restore_builtin() -> None:

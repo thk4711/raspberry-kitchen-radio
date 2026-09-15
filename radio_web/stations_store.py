@@ -13,6 +13,7 @@ Its INI reader/writer mirror the coercion-free subset
 of ``lib.utilities.UtilityLibrary._parse_config`` exactly so what we write here
 round-trips through the player's own parser (asserted in the tests).
 """
+
 import os
 import re
 from typing import Dict, List, Optional, Tuple
@@ -31,9 +32,7 @@ STATIONS_BACKUP_FILENAME = "stations.ini.bak"
 # The shipped built-in presets, resolved relative to the application tree.
 # radio_web lives beside lib/ under /opt/raspberry-kitchen-radio.
 _REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-BUILTIN_STATIONS_PATH = os.path.join(
-    _REPO_ROOT, "lib", "mpd_service", "stations.conf"
-)
+BUILTIN_STATIONS_PATH = os.path.join(_REPO_ROOT, "lib", "mpd_service", "stations.conf")
 
 _SECTION_RE = re.compile(r"^\[(.+)\]$")
 
@@ -131,12 +130,7 @@ def serialize_stations(slots: List[Dict[str, str]]) -> str:
         if not name or not url:
             continue
         logo = (slot.get("logo") or "").strip()
-        blocks.append(
-            f"[{name}]\n"
-            f"url = {url}\n"
-            f"logo = {logo}\n"
-            f"name = {name}\n"
-        )
+        blocks.append(f"[{name}]\n" f"url = {url}\n" f"logo = {logo}\n" f"name = {name}\n")
     return "\n".join(blocks) + ("\n" if blocks else "")
 
 
@@ -179,17 +173,13 @@ def save_stations(slots: List[Dict[str, str]]) -> None:
     cleaned = validate_slots(slots)
     payload = serialize_stations(cleaned)
     _backup_existing()
-    config_store.atomic_write(
-        managed_stations_path(), payload, config_store.CONFIG_MODE
-    )
+    config_store.atomic_write(managed_stations_path(), payload, config_store.CONFIG_MODE)
 
 
 def _backup_existing() -> None:
     current = config_store.read_text(managed_stations_path())
     if current is not None:
-        config_store.atomic_write(
-            managed_backup_path(), current, config_store.CONFIG_MODE
-        )
+        config_store.atomic_write(managed_backup_path(), current, config_store.CONFIG_MODE)
 
 
 def restore_builtin() -> None:

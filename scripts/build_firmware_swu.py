@@ -98,7 +98,7 @@ def write_cpio(output: Path, members: List[Tuple[str, Path]]) -> None:
 
 def read_cpio(path: Path) -> List[Tuple[str, bytes]]:
     """Read the restricted newc/CRC form emitted by :func:`write_cpio`."""
-    result = []
+    result: List[Tuple[str, bytes]] = []
     data = path.read_bytes()
     offset = 0
     while offset + 110 <= len(data):

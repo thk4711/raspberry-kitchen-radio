@@ -23,6 +23,7 @@ def _logo_path(module_location: str, filename: str) -> str:
         return managed
     return os.path.join(module_location, "logos", name)
 
+
 class MPDService(MusicSource):
     """Internet-radio playback backend driven by MPD via the ``mpc`` CLI.
 
@@ -36,10 +37,12 @@ class MPDService(MusicSource):
         self.name = "mpd"
         self.module_location = os.path.dirname(os.path.abspath(__file__))
         conf = utility.read_config_preferred(
-            os.path.join(MANAGED_CONFIG_DIR, 'stations.ini'),
-            f'{self.module_location}/stations.conf',
+            os.path.join(MANAGED_CONFIG_DIR, "stations.ini"),
+            f"{self.module_location}/stations.conf",
         )
-        self.stations: List[dict] = [{'name': item, 'url': conf[item]['url'], 'logo': conf[item]['logo']} for item in conf]
+        self.stations: List[dict] = [
+            {"name": item, "url": conf[item]["url"], "logo": conf[item]["logo"]} for item in conf
+        ]
         self.current_station = 0
         self.desired_play_state = False
         self.metadata = Metadata(name="", title="", cover="", md5="", state=False)
@@ -58,7 +61,7 @@ class MPDService(MusicSource):
             run.
         """
         try:
-            result = subprocess.run(['mpc'] + command.split(), capture_output=True, text=True)
+            result = subprocess.run(["mpc"] + command.split(), capture_output=True, text=True)
             if result.returncode != 0:
                 logger.error(f"mpc command failed: {result.stderr.strip()}")
             return result.stdout.strip()
@@ -80,12 +83,11 @@ class MPDService(MusicSource):
         Returns:
             bool: True if MPD is playing, False otherwise.
         """
-        status = self._run_mpc_command('status')
+        status = self._run_mpc_command("status")
         if status is None:
             logger.warning("Unable to get status from MPD.")
             return False
-        return 'playing' in status
-
+        return "playing" in status
 
     def set_play_state(self, should_play: bool) -> bool:
         """
@@ -100,10 +102,10 @@ class MPDService(MusicSource):
         self.desired_play_state = should_play
         if should_play:
             logger.info("Setting MPD to play state.")
-            self._run_mpc_command('play')
+            self._run_mpc_command("play")
         else:
             logger.info("Setting MPD to stop state.")
-            self._run_mpc_command('stop')
+            self._run_mpc_command("stop")
         return True
 
     def play_index(self, index: int) -> bool:
@@ -120,9 +122,9 @@ class MPDService(MusicSource):
         try:
             self.desired_play_state = True
             self.current_station = index - 1
-            self._run_mpc_command('clear')
+            self._run_mpc_command("clear")
             self._run_mpc_command(f'add {self.stations[self.current_station]["url"]}')
-            self._run_mpc_command('play')
+            self._run_mpc_command("play")
             return True
         except Exception as e:
             logger.error(f"Error playing station {self.current_station}: {e}")
@@ -132,13 +134,13 @@ class MPDService(MusicSource):
         """Return True when a line is MPD/mpc status, not stream metadata."""
         lowered = line.lower()
         return (
-            lowered.startswith('[')
-            or lowered.startswith('volume:')
-            or lowered.startswith('repeat:')
-            or lowered.startswith('random:')
-            or lowered.startswith('single:')
-            or lowered.startswith('consume:')
-            or lowered.startswith('error:')
+            lowered.startswith("[")
+            or lowered.startswith("volume:")
+            or lowered.startswith("repeat:")
+            or lowered.startswith("random:")
+            or lowered.startswith("single:")
+            or lowered.startswith("consume:")
+            or lowered.startswith("error:")
         )
 
     def get_metadata(self) -> Metadata:
@@ -152,23 +154,23 @@ class MPDService(MusicSource):
         self.metadata.cover = _logo_path(
             self.module_location, self.stations[self.current_station]["logo"]
         )
-        self.metadata.name = self.stations[self.current_station]['name']
+        self.metadata.name = self.stations[self.current_station]["name"]
         self.metadata.state = self.get_play_state()
 
-        output = self._run_mpc_command('current -f %title%')
+        output = self._run_mpc_command("current -f %title%")
         if output:
             # ``mpc current`` prints only current song/stream metadata, unlike
             # ``mpc status`` which can append status/volume lines while stream
             # metadata is still unavailable. Still filter defensively so bogus
             # lines such as "volume: 22% ..." are never shown on the display.
             title = ""
-            for line in output.split('\n'):
+            for line in output.split("\n"):
                 stripped = line.strip()
                 if not stripped or self._is_status_line(stripped):
                     continue
                 title = stripped
                 break
-            self.metadata.title = f'{title} ' if title else ''
+            self.metadata.title = f"{title} " if title else ""
         else:
             # This is expected shortly after changing an internet-radio stream.
             # Keep the title row blank until real stream metadata arrives.
@@ -190,6 +192,6 @@ class MPDService(MusicSource):
         except Exception as e:
             logger.error(f"Unable to check MPD state: {e}")
             self.set_play_state(False)
-            utility.restart_systemd_service('mpd.service')
+            utility.restart_systemd_service("mpd.service")
             sleep(5)
             self.set_play_state(desired_state)

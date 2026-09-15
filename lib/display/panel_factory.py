@@ -18,6 +18,7 @@ Supported names (case-insensitive):
 Any unknown or blank name falls back silently to ``ST7789`` after logging a
 warning, so a misconfigured ``display.conf`` never prevents boot.
 """
+
 import logging
 
 from .panel_gc9a01 import GC9A01
@@ -51,8 +52,7 @@ def get_panel_class(name: str) -> type:
     cls = _PANELS.get(normalised)
     if cls is None:
         logger.warning(
-            "Unknown display panel %r — falling back to ST7789 (240x280). "
-            "Supported values: %s",
+            "Unknown display panel %r — falling back to ST7789 (240x280). " "Supported values: %s",
             name,
             ", ".join(sorted(_PANELS)),
         )

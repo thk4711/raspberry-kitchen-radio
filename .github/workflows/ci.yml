@@ -16,8 +16,12 @@ jobs:
           python-version: ${{ matrix.python-version }}
       - run: pip install -r requirements-dev.txt
       - run: ruff check .
+      - run: ruff format --check .
       - run: mypy
-      - run: pytest -q --cov=lib --cov=radio_web --cov=radio --cov-report=term-missing --cov-fail-under=65
+      - name: Tests and raw coverage (includes vendor/hardware-only code)
+        run: pytest -q --cov --cov-report=term-missing
+      - name: First-party application coverage gate
+        run: coverage report --omit='lib/ADS1x15/*,lib/display/display_test.py' --fail-under=80
       - run: python3 scripts/check-release-consistency.py
       - run: python -m compileall -q lib radio.py tests
       - run: find buildroot -type f -name '*.sh' -exec sh -n {} \;

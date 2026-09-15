@@ -13,6 +13,7 @@ thread is prevented from auto-starting so the loop can be stepped
 deterministically. numpy + Pillow are target runtime deps installed by
 ``requirements-dev.txt``.
 """
+
 import sys
 import types
 
@@ -64,6 +65,7 @@ def controller(monkeypatch):
     import importlib
 
     import display.display_control as dc
+
     dc = importlib.reload(dc)
 
     class _InertThread:
@@ -108,8 +110,8 @@ def test_push_frame_dedupes_identical_content(controller):
     controller.disp.frames.clear()
     controller._last_frame_sig = None
     frame = controller._render_frame()
-    assert controller._push_frame(frame) is True          # first push transmits
-    assert controller._push_frame(frame) is False         # identical -> no write
+    assert controller._push_frame(frame) is True  # first push transmits
+    assert controller._push_frame(frame) is False  # identical -> no write
     assert len(controller.disp.frames) == 1
 
 
@@ -161,6 +163,7 @@ def test_scrolling_advances_position_each_render(controller):
 
 def test_render_frame_packs_to_expected_byte_length(controller):
     import numpy as np
+
     frame = controller._render_frame()
     packed = compositor.pack_rgb565(np.asarray(frame))
     assert len(packed) == 240 * 280 * 2
@@ -181,8 +184,7 @@ def test_radio_mode_builds_backdrop_and_caches_art_layer(controller, tmp_path):
     logo_path = tmp_path / "logo.png"
     Image.new("RGBA", (160, 120), (10, 200, 40, 255)).save(logo_path)
 
-    controller.update_metadata("Radio", "Song", str(logo_path), "hash1",
-                               art_mode="radio")
+    controller.update_metadata("Radio", "Song", str(logo_path), "hash1", art_mode="radio")
     frame = controller._render_frame()
     assert frame.size == (240, 280)
 
@@ -208,8 +210,9 @@ def test_radio_backdrop_is_darker_than_bright_logo(controller, tmp_path):
     logo_path = tmp_path / "bright.png"
     Image.new("RGBA", (300, 300), (60, 150, 240, 255)).save(logo_path)
 
-    controller.update_metadata("Radio", "", str(logo_path), "bright1",
-                               state=True, art_mode="radio", source="mpd")
+    controller.update_metadata(
+        "Radio", "", str(logo_path), "bright1", state=True, art_mode="radio", source="mpd"
+    )
     controller._transient.clear_crossfade()
     controller._transient.crossfade_until = 0.0
     art = controller._build_art_layer()
@@ -230,8 +233,7 @@ def test_cover_mode_fills_full_frame(controller, tmp_path):
     cover_path = tmp_path / "cover.jpg"
     Image.new("RGB", (600, 600), (200, 30, 30)).save(cover_path)
 
-    controller.update_metadata("Artist", "Track", str(cover_path), "c1",
-                               art_mode="cover")
+    controller.update_metadata("Artist", "Track", str(cover_path), "c1", art_mode="cover")
     art = controller._build_art_layer()
     assert art.size == (240, 280)
 
@@ -246,8 +248,7 @@ def test_scrim_darkens_bottom_band_vs_center(controller, tmp_path):
     # so text stays legible over bright art.
     cover_path = tmp_path / "bright.jpg"
     Image.new("RGB", (600, 600), (240, 240, 240)).save(cover_path)
-    controller.update_metadata("Artist", "Track", str(cover_path), "c2",
-                               art_mode="cover")
+    controller.update_metadata("Artist", "Track", str(cover_path), "c2", art_mode="cover")
     art = controller._build_art_layer()
 
     bottom = controller.layout.bottom_band
@@ -257,8 +258,7 @@ def test_scrim_darkens_bottom_band_vs_center(controller, tmp_path):
 
 
 def test_missing_cover_file_degrades_without_raising(controller, tmp_path):
-    controller.update_metadata("Radio", "Song", str(tmp_path / "nope.png"), "x",
-                               art_mode="radio")
+    controller.update_metadata("Radio", "Song", str(tmp_path / "nope.png"), "x", art_mode="radio")
     # Must not raise; composes a backdrop-only frame.
     frame = controller._render_frame()
     assert frame.size == (240, 280)
@@ -267,11 +267,9 @@ def test_missing_cover_file_degrades_without_raising(controller, tmp_path):
 def test_art_mode_change_flags_dirty(controller, tmp_path):
     cover_path = tmp_path / "c.png"
     Image.new("RGBA", (160, 120), (10, 10, 200, 255)).save(cover_path)
-    controller.update_metadata("Radio", "Song", str(cover_path), "m1",
-                               art_mode="radio")
+    controller.update_metadata("Radio", "Song", str(cover_path), "m1", art_mode="radio")
     controller._dirty = False
-    controller.update_metadata("Radio", "Song", str(cover_path), "m1",
-                               art_mode="cover")
+    controller.update_metadata("Radio", "Song", str(cover_path), "m1", art_mode="cover")
     assert controller._dirty is True
 
 
@@ -284,14 +282,13 @@ def test_state_forwarding_updates_metadata(controller):
     assert controller._dirty is False
 
 
-
-
 # --- Workstream 3: typography & status strip -------------------------------
+
 
 def test_bold_title_font_is_actually_bold(controller):
     # The title font loaded from Roboto-Condensed-Bold.ttf reports Bold style.
     name = controller.font_title.getname()
-    assert "Bold" in name[1] or name == ('Roboto Condensed', 'Bold')
+    assert "Bold" in name[1] or name == ("Roboto Condensed", "Bold")
 
 
 def test_controller_has_three_distinct_fonts(controller):
@@ -303,15 +300,13 @@ def test_controller_has_three_distinct_fonts(controller):
 
 
 def test_artist_title_split_populates_rows_radio(controller):
-    controller.update_metadata("Deutschlandfunk", "Coldplay - Yellow", "", "0",
-                               art_mode="radio")
+    controller.update_metadata("Deutschlandfunk", "Coldplay - Yellow", "", "0", art_mode="radio")
     assert controller.metadata["title"]["text"] == "Yellow"
     assert controller.metadata["name"]["text"] == "Coldplay"
 
 
 def test_artist_title_split_populates_rows_cover(controller):
-    controller.update_metadata("Daft Punk", "One More Time", "", "0",
-                               art_mode="cover")
+    controller.update_metadata("Daft Punk", "One More Time", "", "0", art_mode="cover")
     assert controller.metadata["title"]["text"] == "One More Time"
     assert controller.metadata["name"]["text"] == "Daft Punk"
 
@@ -325,11 +320,13 @@ def test_source_change_flags_dirty(controller):
 
 def test_play_vs_pause_glyph_differs(controller):
     from PIL import ImageDraw
+
     # Render the status strip twice (playing vs paused) and confirm the
     # right-hand glyph region differs.
     def strip_region(playing):
-        controller.update_metadata("Radio", "Song", "", "0", state=playing,
-                                    source="mpd", art_mode="radio")
+        controller.update_metadata(
+            "Radio", "Song", "", "0", state=playing, source="mpd", art_mode="radio"
+        )
         frame = controller._build_art_layer().copy()
         draw = ImageDraw.Draw(frame)
         controller._draw_status_strip(draw)
@@ -348,8 +345,10 @@ def test_play_vs_pause_glyph_differs(controller):
 
 def test_status_strip_renders_within_top_band(controller):
     from PIL import ImageDraw
-    controller.update_metadata("Radio", "Song", "", "0", state=True,
-                               source="spotify", art_mode="cover")
+
+    controller.update_metadata(
+        "Radio", "Song", "", "0", state=True, source="spotify", art_mode="cover"
+    )
     frame = controller._build_art_layer().copy()
     draw = ImageDraw.Draw(frame)
     # Must not raise and must keep the frame the right size.
@@ -370,8 +369,10 @@ def test_clock_string_change_would_flag_dirty(controller):
 
 # --- Workstream 4: motion & states ----------------------------------------
 
+
 def test_show_volume_sets_deadline_and_dirty(controller, monkeypatch):
     import display.display_control as dc
+
     monkeypatch.setattr(dc, "monotonic", lambda: 1000.0)
     controller._dirty = False
     controller.show_volume(42)
@@ -391,6 +392,7 @@ def test_show_volume_clamps_to_0_100(controller):
 
 def test_osd_expires_after_duration(controller, monkeypatch):
     import display.display_control as dc
+
     t = {"now": 1000.0}
     monkeypatch.setattr(dc, "monotonic", lambda: t["now"])
     controller.show_volume(50)
@@ -402,6 +404,7 @@ def test_osd_expires_after_duration(controller, monkeypatch):
 
 def test_render_shows_osd_bar_and_hides_text_rows(controller, monkeypatch):
     import display.display_control as dc
+
     monkeypatch.setattr(dc, "monotonic", lambda: 5000.0)
     # A very long title would normally scroll; with the OSD up it must not be
     # advanced (the OSD replaces the rows), so the frame differs from the plain
@@ -420,6 +423,7 @@ def test_render_shows_osd_bar_and_hides_text_rows(controller, monkeypatch):
 
 def test_render_osd_fill_reflects_volume(controller, monkeypatch):
     import display.display_control as dc
+
     monkeypatch.setattr(dc, "monotonic", lambda: 6000.0)
     controller.update_metadata("Radio", "Song", "", "0", art_mode="radio")
     controller.show_volume(10)
@@ -445,12 +449,14 @@ def test_boot_splash_is_the_single_initial_frame(controller):
     assert len(controller.disp.frames) == 1
     import numpy as np
     from display import compositor
+
     splash = compositor.pack_rgb565(np.asarray(controller._render_splash()))
     assert controller.disp.frames[0] == splash
 
 
 def test_show_toast_sets_deadline_and_dismisses_screensaver(controller, monkeypatch):
     import display.display_control as dc
+
     monkeypatch.setattr(dc, "monotonic", lambda: 2000.0)
     controller.show_toast("MDR JUMP")
     assert controller._transient.toast_text == "MDR JUMP"
@@ -466,6 +472,7 @@ def test_blank_toast_is_not_visible(controller):
 
 def test_toast_expires_after_duration(controller, monkeypatch):
     import display.display_control as dc
+
     t = {"now": 3000.0}
     monkeypatch.setattr(dc, "monotonic", lambda: t["now"])
     controller.show_toast("Preset")
@@ -476,9 +483,9 @@ def test_toast_expires_after_duration(controller, monkeypatch):
 
 def test_toast_changes_the_rendered_frame(controller, monkeypatch):
     import display.display_control as dc
+
     monkeypatch.setattr(dc, "monotonic", lambda: 4000.0)
-    controller.update_metadata("MDR JUMP", "", "", "0", state=True,
-                               art_mode="radio", source="mpd")
+    controller.update_metadata("MDR JUMP", "", "", "0", state=True, art_mode="radio", source="mpd")
     plain = controller._render_frame().tobytes()
     controller.show_toast("MDR JUMP")
     with_toast = controller._render_frame()
@@ -488,6 +495,7 @@ def test_toast_changes_the_rendered_frame(controller, monkeypatch):
 
 def test_screensaver_activates_after_idle_timeout(controller, monkeypatch):
     import display.display_control as dc
+
     t = {"now": 5000.0}
     monkeypatch.setattr(dc, "monotonic", lambda: t["now"])
     # Not playing; last activity long ago.
@@ -502,6 +510,7 @@ def test_screensaver_activates_after_idle_timeout(controller, monkeypatch):
 
 def test_playing_prevents_screensaver(controller, monkeypatch):
     import display.display_control as dc
+
     monkeypatch.setattr(dc, "monotonic", lambda: 6000.0)
     controller.update_metadata("Radio", "Song", "", "0", state=True, art_mode="radio")
     controller._transient.last_activity = 0.0  # long ago, but we are playing
@@ -510,6 +519,7 @@ def test_playing_prevents_screensaver(controller, monkeypatch):
 
 def test_osd_suppresses_screensaver(controller, monkeypatch):
     import display.display_control as dc
+
     t = {"now": 7000.0}
     monkeypatch.setattr(dc, "monotonic", lambda: t["now"])
     controller.update_metadata("Radio", "", "", "0", state=False, art_mode="radio")
@@ -521,6 +531,7 @@ def test_osd_suppresses_screensaver(controller, monkeypatch):
 
 def test_art_change_starts_crossfade(controller, monkeypatch):
     import display.display_control as dc
+
     monkeypatch.setattr(dc, "monotonic", lambda: 8000.0)
     # First art establishes the cache (no crossfade yet).
     controller.update_metadata("A", "", "", "md5-a", art_mode="radio")
@@ -530,12 +541,15 @@ def test_art_change_starts_crossfade(controller, monkeypatch):
     controller.update_metadata("B", "", "", "md5-b", art_mode="radio")
     controller._build_art_layer()
     assert controller._transient.crossfade_from is not None
-    assert controller._transient.crossfade_until == pytest.approx(8000.0 + controller.theme.crossfade_ms / 1000.0)
+    assert controller._transient.crossfade_until == pytest.approx(
+        8000.0 + controller.theme.crossfade_ms / 1000.0
+    )
     assert controller._crossfade_active() is True
 
 
 def test_crossfade_clears_after_window(controller, monkeypatch):
     import display.display_control as dc
+
     t = {"now": 9000.0}
     monkeypatch.setattr(dc, "monotonic", lambda: t["now"])
     # Keep the idle screensaver deterministically OFF: seed the activity
@@ -558,6 +572,7 @@ def test_crossfade_clears_after_window(controller, monkeypatch):
 
 # --- Workstream 5: [ui] theming --------------------------------------------
 
+
 def _controller_with_ui(monkeypatch, ui):
     """Build a DisplayController whose display.conf carries a given [ui] dict."""
     monkeypatch.setattr(panel_factory, "get_panel_class", lambda name: _FakePanel)
@@ -565,6 +580,7 @@ def _controller_with_ui(monkeypatch, ui):
     import importlib
 
     import display.display_control as dc
+
     dc = importlib.reload(dc)
 
     class _InertThread:
@@ -592,27 +608,30 @@ def test_no_ui_section_matches_theme_defaults(controller):
     # With no [ui] section the resolved theme equals the shipped defaults, so
     # the look is byte-identical to before Workstream 5.
     from display import theme
+
     assert controller.theme == theme.Theme()
 
 
 def test_ui_section_changes_theme_and_frame(monkeypatch):
     from display import theme
+
     default = _controller_with_ui(monkeypatch, None)
-    default.update_metadata("Radio", "Song", "", "0", state=True,
-                            art_mode="radio", source="mpd")
+    default.update_metadata("Radio", "Song", "", "0", state=True, art_mode="radio", source="mpd")
     default._transient.clear_crossfade()
     default_bytes = default._render_frame().tobytes()
 
-    themed = _controller_with_ui(monkeypatch, {
-        "text_color": "#FF8800",
-        "scrim_opacity": "0.85",
-        "subtext_color": "255,0,0",
-    })
+    themed = _controller_with_ui(
+        monkeypatch,
+        {
+            "text_color": "#FF8800",
+            "scrim_opacity": "0.85",
+            "subtext_color": "255,0,0",
+        },
+    )
     assert themed.theme.text_color == (255, 136, 0)
     assert themed.theme.scrim_opacity == 0.85
     assert themed.theme != theme.Theme()
-    themed.update_metadata("Radio", "Song", "", "0", state=True,
-                           art_mode="radio", source="mpd")
+    themed.update_metadata("Radio", "Song", "", "0", state=True, art_mode="radio", source="mpd")
     themed._transient.clear_crossfade()
     assert themed._render_frame().tobytes() != default_bytes
 
@@ -638,6 +657,7 @@ def test_ui_animations_off_disables_crossfade(monkeypatch):
 
 
 # --- rotate_180 ---------------------------------------------------------------
+
 
 def test_rotate_180_default_is_false(controller):
     """The shipped default theme must not rotate (backward-compatible default)."""
@@ -685,8 +705,9 @@ def test_rotate_180_true_differs_from_false(monkeypatch):
 
     # Give both controllers the same metadata so their raw frames are identical.
     for ctrl in (ctrl_normal, ctrl_rotated):
-        ctrl.update_metadata("Radio", "Song", "", "sig-x", state=True,
-                             art_mode="radio", source="mpd")
+        ctrl.update_metadata(
+            "Radio", "Song", "", "sig-x", state=True, art_mode="radio", source="mpd"
+        )
         ctrl._transient.clear_crossfade()
 
     frame = ctrl_normal._render_frame()
@@ -705,12 +726,14 @@ def test_rotate_180_true_differs_from_false(monkeypatch):
 
 # --- Workstream 6: generated initials-tile fallback ------------------------
 
+
 def test_radio_without_logo_renders_initials_tile(controller):
     # A radio station with no logo file must not render a flat backdrop: the
     # generated initials tile makes the centre non-uniform and the dominant
     # colour non-neutral, so the frame differs from the no-art baseline.
-    controller.update_metadata("Jazz Radio Berlin", "", "", "no-logo-1",
-                               state=True, art_mode="radio", source="mpd")
+    controller.update_metadata(
+        "Jazz Radio Berlin", "", "", "no-logo-1", state=True, art_mode="radio", source="mpd"
+    )
     controller._transient.clear_crossfade()
     frame = controller._build_art_layer()
     assert frame.size == (240, 280)
@@ -723,13 +746,13 @@ def test_radio_without_logo_renders_initials_tile(controller):
 
 
 def test_different_logoless_stations_differ(controller):
-    controller.update_metadata("Jazz Radio", "", "", "k1", state=True,
-                               art_mode="radio", source="mpd")
+    controller.update_metadata(
+        "Jazz Radio", "", "", "k1", state=True, art_mode="radio", source="mpd"
+    )
     controller._transient.clear_crossfade()
     controller._transient.crossfade_until = 0.0
     a = controller._build_art_layer().tobytes()
-    controller.update_metadata("KEXP", "", "", "k2", state=True,
-                               art_mode="radio", source="mpd")
+    controller.update_metadata("KEXP", "", "", "k2", state=True, art_mode="radio", source="mpd")
     controller._transient.clear_crossfade()
     controller._transient.crossfade_until = 0.0
     b = controller._build_art_layer().tobytes()
@@ -738,8 +761,9 @@ def test_different_logoless_stations_differ(controller):
 
 
 def test_fallback_logo_is_rgba_tile(controller):
-    controller.update_metadata("Some Station", "", "", "0", state=True,
-                               art_mode="radio", source="mpd")
+    controller.update_metadata(
+        "Some Station", "", "", "0", state=True, art_mode="radio", source="mpd"
+    )
     tile = controller._fallback_logo()
     assert tile.mode == "RGBA"
     assert tile.size[0] == tile.size[1]  # square, sized to the logo box
@@ -748,8 +772,7 @@ def test_fallback_logo_is_rgba_tile(controller):
 def test_bluetooth_fallback_is_blue_glyph_tile(controller):
     # Bluetooth carries no cover art; with a blank artist the placeholder must
     # be the dedicated blue Bluetooth-glyph tile, not the "?" initials tile.
-    controller.update_metadata("", "", "", "0", state=True,
-                               art_mode="cover", source="bluetooth")
+    controller.update_metadata("", "", "", "0", state=True, art_mode="cover", source="bluetooth")
     tile = controller._fallback_logo()
     assert tile.mode == "RGBA"
     assert tile.size[0] == tile.size[1]
@@ -761,8 +784,9 @@ def test_bluetooth_fallback_is_blue_glyph_tile(controller):
 def test_non_bluetooth_fallback_still_uses_initials(controller):
     # A logoless radio station keeps its branded initials tile (WS6.3): its
     # body colour is the name-derived tile colour, not the Bluetooth blue.
-    controller.update_metadata("Some Station", "", "", "0", state=True,
-                               art_mode="radio", source="mpd")
+    controller.update_metadata(
+        "Some Station", "", "", "0", state=True, art_mode="radio", source="mpd"
+    )
     tile = controller._fallback_logo()
     body = tile.getpixel((2, tile.size[1] // 2))[:3]
     assert body == logo_fallback.tile_color("Some Station")
@@ -805,12 +829,12 @@ def _round_controller(monkeypatch):
     parsed ``display.conf`` so ``panel = gc9a01`` with matching 240x240 size,
     mirroring how a real round build is provisioned.
     """
-    monkeypatch.setattr(panel_factory, "get_panel_class",
-                        lambda name: _FakeRoundPanel)
+    monkeypatch.setattr(panel_factory, "get_panel_class", lambda name: _FakeRoundPanel)
 
     import importlib
 
     import display.display_control as dc
+
     dc = importlib.reload(dc)
 
     class _InertThread:
@@ -858,12 +882,13 @@ def test_round_controller_builds_240x240_frame(monkeypatch):
 def test_round_controller_uses_arc_osd_path(monkeypatch):
     ctrl = _round_controller(monkeypatch)
     calls = {"round": 0, "rect": 0}
-    monkeypatch.setattr(ctrl, "_draw_volume_osd_round",
-                        lambda draw: calls.__setitem__("round", calls["round"] + 1))
-    monkeypatch.setattr(ctrl, "_draw_volume_osd",
-                        lambda draw: calls.__setitem__("rect", calls["rect"] + 1))
-    ctrl.update_metadata("Radio", "Song", "", "0", state=True,
-                         art_mode="radio", source="mpd")
+    monkeypatch.setattr(
+        ctrl, "_draw_volume_osd_round", lambda draw: calls.__setitem__("round", calls["round"] + 1)
+    )
+    monkeypatch.setattr(
+        ctrl, "_draw_volume_osd", lambda draw: calls.__setitem__("rect", calls["rect"] + 1)
+    )
+    ctrl.update_metadata("Radio", "Song", "", "0", state=True, art_mode="radio", source="mpd")
     ctrl.show_volume(42)
     ctrl._render_frame()
     # The round panel draws the ring gauge, never the rectangular bar.
@@ -929,8 +954,9 @@ def test_round_osd_caps_stay_within_arc_and_antialias(monkeypatch):
     # the arc's own outer radius rr is expected and fine).
     cap_r = thickness // 2
     old_buggy_radius = rr + cap_r
-    assert max_r < old_buggy_radius - 2, (
-        f"caps extend to {max_r:.1f}, near old buggy bound {old_buggy_radius}")
+    assert (
+        max_r < old_buggy_radius - 2
+    ), f"caps extend to {max_r:.1f}, near old buggy bound {old_buggy_radius}"
     assert max_r <= rr + 4.0, f"lit pixels reach {max_r:.1f} > rr={rr}+4"
     # Supersampling produced smooth (partially lit) edge pixels.
     assert partial_pixels > 0
@@ -953,20 +979,21 @@ def test_round_osd_supersample_disabled_still_renders(monkeypatch):
 
     frame = Image.new("RGB", (ctrl.width, ctrl.height), (0, 0, 0))
     ctrl._draw_volume_osd_round(ImageDraw.Draw(frame))
-    assert any(max(frame.load()[x, y]) > 0
-               for y in range(ctrl.height) for x in range(ctrl.width))
-
+    assert any(max(frame.load()[x, y]) > 0 for y in range(ctrl.height) for x in range(ctrl.width))
 
 
 def test_rect_controller_still_uses_bar_osd_path(controller, monkeypatch):
     # Regression: the default ST7789 controller keeps the rectangular bar OSD.
     calls = {"round": 0, "rect": 0}
-    monkeypatch.setattr(controller, "_draw_volume_osd_round",
-                        lambda draw: calls.__setitem__("round", calls["round"] + 1))
-    monkeypatch.setattr(controller, "_draw_volume_osd",
-                        lambda draw: calls.__setitem__("rect", calls["rect"] + 1))
-    controller.update_metadata("Radio", "Song", "", "0", state=True,
-                               art_mode="radio", source="mpd")
+    monkeypatch.setattr(
+        controller,
+        "_draw_volume_osd_round",
+        lambda draw: calls.__setitem__("round", calls["round"] + 1),
+    )
+    monkeypatch.setattr(
+        controller, "_draw_volume_osd", lambda draw: calls.__setitem__("rect", calls["rect"] + 1)
+    )
+    controller.update_metadata("Radio", "Song", "", "0", state=True, art_mode="radio", source="mpd")
     controller.show_volume(42)
     controller._render_frame()
     assert controller.shape == "rect"
@@ -979,18 +1006,20 @@ def test_round_status_strip_draws_source_only(monkeypatch):
     # longer draws a clock or a play/pause glyph. Rendering it must not raise
     # and the frame stays 240x240.
     from PIL import ImageDraw
+
     ctrl = _round_controller(monkeypatch)
-    ctrl.update_metadata("Radio", "Song", "", "0", state=True,
-                         art_mode="radio", source="spotify")
+    ctrl.update_metadata("Radio", "Song", "", "0", state=True, art_mode="radio", source="spotify")
     frame = ctrl._build_art_layer().copy()
     draw = ImageDraw.Draw(frame)
     ctrl._draw_status_strip_round(draw)
     assert frame.size == (240, 240)
+
     # Play vs pause must render identically now (no glyph): the top status row
     # depends only on the source, not on the play state.
     def top_row(playing):
-        ctrl.update_metadata("Radio", "Song", "", "0", state=playing,
-                             art_mode="radio", source="spotify")
+        ctrl.update_metadata(
+            "Radio", "Song", "", "0", state=playing, art_mode="radio", source="spotify"
+        )
         f = ctrl._build_art_layer().copy()
         d = ImageDraw.Draw(f)
         ctrl._draw_status_strip_round(d)
@@ -1006,13 +1035,13 @@ def test_adaptive_shadow_alpha_zero_over_dark_and_rises_over_light(monkeypatch):
     ctrl = _round_controller(monkeypatch)
     y = ctrl.layout.bottom_band.y  # a title/artist row uses the bottom sample.
 
-    ctrl._bottom_bg_luma = 10.0     # very dark background.
+    ctrl._bottom_bg_luma = 10.0  # very dark background.
     assert ctrl._shadow_alpha_for(y) == 0
 
     ctrl._bottom_bg_luma = float(ctrl.theme.adaptive_shadow_luma)  # at threshold.
     assert ctrl._shadow_alpha_for(y) == 0
 
-    ctrl._bottom_bg_luma = 255.0    # pure-white background => strongest (capped).
+    ctrl._bottom_bg_luma = 255.0  # pure-white background => strongest (capped).
     strong = ctrl._shadow_alpha_for(y)
     assert strong > 0
 
@@ -1042,10 +1071,17 @@ def test_light_background_changes_rendered_text(monkeypatch):
     # End-to-end: over a light background the adaptive outline must actually
     # alter the drawn frame versus the plain drop shadow, improving contrast.
     from PIL import ImageDraw
+
     ctrl = _round_controller(monkeypatch)
-    ctrl.update_metadata("Radio", "A very long song title that scrolls",
-                         "Some Artist Name", "0", state=True,
-                         art_mode="radio", source="mpd")
+    ctrl.update_metadata(
+        "Radio",
+        "A very long song title that scrolls",
+        "Some Artist Name",
+        "0",
+        state=True,
+        art_mode="radio",
+        source="mpd",
+    )
     ctrl._build_art_layer()
 
     def render_bottom(luma):
@@ -1053,8 +1089,8 @@ def test_light_background_changes_rendered_text(monkeypatch):
         ctrl._bottom_bg_luma = luma
         frame = ctrl._build_art_layer().copy()
         draw = ImageDraw.Draw(frame)
-        title = ctrl._advance_scroll('title')
-        name = ctrl._advance_scroll('name')
+        title = ctrl._advance_scroll("title")
+        name = ctrl._advance_scroll("name")
         ctrl._draw_row(frame, draw, title)
         ctrl._draw_row(frame, draw, name)
         band = ctrl.layout.bottom_band
@@ -1071,6 +1107,7 @@ def test_round_boot_splash_pushes_240x240_frame(monkeypatch):
     import importlib
 
     import display.boot_splash as bs
+
     bs = importlib.reload(bs)
 
     pushed = {}
@@ -1091,19 +1128,23 @@ def test_round_boot_splash_pushes_240x240_frame(monkeypatch):
         def module_exit(self):
             pass
 
-    monkeypatch.setattr(bs, "_read_display_conf", lambda: {
-        "display": {"width": 240, "height": 240, "rst": 24, "dc": 25, "bl": 12,
-                    "spi_bus": 0, "spi_device": 0, "spi_freq": 40000000,
-                    "panel": "gc9a01"},
-    })
-    monkeypatch.setattr(panel_factory, "get_panel_class",
-                        lambda name: _SplashRoundPanel)
+    monkeypatch.setattr(
+        bs,
+        "_read_display_conf",
+        lambda: {
+            "display": {
+                "width": 240,
+                "height": 240,
+                "rst": 24,
+                "dc": 25,
+                "bl": 12,
+                "spi_bus": 0,
+                "spi_device": 0,
+                "spi_freq": 40000000,
+                "panel": "gc9a01",
+            },
+        },
+    )
+    monkeypatch.setattr(panel_factory, "get_panel_class", lambda name: _SplashRoundPanel)
     assert bs.main() == 0
     assert pushed["size"] == 240 * 240 * 2
-
-
-
-
-
-
-
