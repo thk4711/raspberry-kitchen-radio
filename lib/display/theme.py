@@ -24,6 +24,7 @@ Design constraints honoured:
 ``art_mode`` is intentionally **not** part of the theme: it is decided per
 source by ``radio.py`` (radio for MPD, cover for Spotify/AirPlay).
 """
+
 from __future__ import annotations
 
 import logging
@@ -266,16 +267,18 @@ def build_theme(ui: Optional[Mapping[str, Any]]) -> Theme:
     return Theme(
         safe_inset=parse_int(ui.get("safe_inset"), d.safe_inset, 0, 120),
         top_band_height=parse_int(ui.get("top_band_height"), d.top_band_height, 1, 279),
-        bottom_band_height=parse_int(ui.get("bottom_band_height"),
-                                     d.bottom_band_height, 1, 279),
+        bottom_band_height=parse_int(ui.get("bottom_band_height"), d.bottom_band_height, 1, 279),
         scrim_opacity=parse_float(ui.get("scrim_opacity"), d.scrim_opacity, 0.0, 1.0),
         backdrop_blur=parse_int(ui.get("backdrop_blur"), d.backdrop_blur, 0, 100),
-        backdrop_top_scale=parse_float(ui.get("backdrop_top_scale"),
-                                       d.backdrop_top_scale, 0.0, 4.0),
-        backdrop_bottom_scale=parse_float(ui.get("backdrop_bottom_scale"),
-                                          d.backdrop_bottom_scale, 0.0, 4.0),
-        backdrop_logo_blend=parse_float(ui.get("backdrop_logo_blend"),
-                                        d.backdrop_logo_blend, 0.0, 1.0),
+        backdrop_top_scale=parse_float(
+            ui.get("backdrop_top_scale"), d.backdrop_top_scale, 0.0, 4.0
+        ),
+        backdrop_bottom_scale=parse_float(
+            ui.get("backdrop_bottom_scale"), d.backdrop_bottom_scale, 0.0, 4.0
+        ),
+        backdrop_logo_blend=parse_float(
+            ui.get("backdrop_logo_blend"), d.backdrop_logo_blend, 0.0, 1.0
+        ),
         title_size=parse_int(ui.get("title_size"), d.title_size, 6, 200),
         artist_size=parse_int(ui.get("artist_size"), d.artist_size, 6, 200),
         small_size=parse_int(ui.get("small_size"), d.small_size, 6, 200),
@@ -306,8 +309,7 @@ def build_theme(ui: Optional[Mapping[str, Any]]) -> Theme:
         animations=animations,
         rotate_180=parse_bool(ui.get("rotate_180"), d.rotate_180),
         adaptive_shadow=parse_bool(ui.get("adaptive_shadow"), d.adaptive_shadow),
-        adaptive_shadow_luma=parse_int(ui.get("adaptive_shadow_luma"),
-                                       d.adaptive_shadow_luma, 0, 255),
+        adaptive_shadow_luma=parse_int(
+            ui.get("adaptive_shadow_luma"), d.adaptive_shadow_luma, 0, 255
+        ),
     )
-
-

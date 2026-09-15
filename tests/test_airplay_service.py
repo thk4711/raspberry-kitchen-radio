@@ -30,9 +30,7 @@ def test_config_advertises_exact_system_hostname():
 
 
 def test_constructor_does_not_wait_for_absent_dbus(monkeypatch, tmp_path):
-    monkeypatch.setattr(dbus, "SystemBus", mock.Mock(
-        side_effect=dbus.DBusException("absent")
-    ))
+    monkeypatch.setattr(dbus, "SystemBus", mock.Mock(side_effect=dbus.DBusException("absent")))
     started = time.monotonic()
     service = AirplayService(False, str(tmp_path / "missing-fifo"))
     try:
@@ -48,13 +46,10 @@ def test_connects_when_dbus_appears_later(monkeypatch, tmp_path):
     bus = mock.Mock()
     bus.get_object.return_value = object()
     monkeypatch.setattr(
-        dbus, "SystemBus",
-        mock.Mock(side_effect=[dbus.DBusException("absent"), bus])
+        dbus, "SystemBus", mock.Mock(side_effect=[dbus.DBusException("absent"), bus])
     )
     monkeypatch.setattr(dbus, "Interface", mock.Mock(return_value=interface))
-    monkeypatch.setattr(
-        AirplayService, "_wait", lambda self, delay: self._stop.wait(0.01)
-    )
+    monkeypatch.setattr(AirplayService, "_wait", lambda self, delay: self._stop.wait(0.01))
     service = AirplayService(False, str(tmp_path / "missing-fifo"))
     try:
         assert _wait_until(service.get_play_state)
@@ -66,7 +61,7 @@ def test_disconnect_clears_interface_for_reconnect(monkeypatch, tmp_path):
     interface = mock.Mock()
     interface.Get.side_effect = dbus.DBusException("restarted")
     service = AirplayService.__new__(AirplayService)
-    service._lock = __import__('threading').RLock()
+    service._lock = __import__("threading").RLock()
     service.properties_interface = interface
     assert service.get_play_state() is False
     assert service.properties_interface is None

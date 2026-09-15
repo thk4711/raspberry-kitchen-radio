@@ -12,6 +12,7 @@ Atomic write: a temp file **in the same directory**, flush +
 target. Phase 4 uses it for ``admin.secret`` (mode ``0600``); later phases reuse
 it for the ``*.ini`` files (mode ``0644``).
 """
+
 import os
 import tempfile
 from typing import Optional

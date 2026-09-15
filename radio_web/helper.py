@@ -129,7 +129,12 @@ def _apply_equalizer(args: Dict[str, Any]) -> Tuple[bool, str]:
         return ok, message
     if not message.startswith("restart:"):
         return True, "Equalizer applied live to all audio sources."
-    for script in (_MPD_INIT_SCRIPT, _RADIO_INIT_SCRIPT, _BLUETOOTH_INIT_SCRIPT, _USB_AUDIO_INIT_SCRIPT):
+    for script in (
+        _MPD_INIT_SCRIPT,
+        _RADIO_INIT_SCRIPT,
+        _BLUETOOTH_INIT_SCRIPT,
+        _USB_AUDIO_INIT_SCRIPT,
+    ):
         ok, message = _run_argv(
             [script, "restart"],
             "Equalizer applied.",
@@ -341,9 +346,9 @@ _OPERATIONS: Dict[str, Callable[[Dict[str, Any]], OperationResult]] = {
     "cancel_data_restore": _cancel_data_restore,
 }
 
-assert set(_OPERATIONS) == set(helper_protocol.ACTION_IDS), (
-    "helper operations must match the protocol whitelist exactly"
-)
+assert set(_OPERATIONS) == set(
+    helper_protocol.ACTION_IDS
+), "helper operations must match the protocol whitelist exactly"
 
 
 def dispatch(action: str, args: Dict[str, Any]) -> OperationResult:

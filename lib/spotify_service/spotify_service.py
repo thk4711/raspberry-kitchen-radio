@@ -125,46 +125,54 @@ class SpotifyService(MusicSource):
         Continuously reads and updates metadata from the Spotify client.
         """
         while True:
-            try:
-                json_data = utility.request_json(f"{self.spotify_url}/status")
-                track = json_data.get("track") if json_data else None
-                valid_track = (
-                    isinstance(track, dict)
-                    and isinstance(track.get("artist_names"), list)
-                    and isinstance(track.get("name"), str)
-                )
-                if valid_track:
-                    with self._metadata_lock:
-                        self.metadata.name = " ".join(str(item) for item in track["artist_names"])
-                        self.metadata.title = track["name"]
-                        self.metadata.state = not (
-                            json_data.get("paused") or json_data.get("stopped")
-                        )
-
-                    # Update album cover only if it has changed
-                    album_cover_url = track.get("album_cover_url")
-                    if isinstance(album_cover_url, str) and self.metadata.md5 != album_cover_url:
-                        image_data = utility.request_image(album_cover_url)
-                        cover_path = "/tmp/spotify_cover.jpg"
-                        if image_data:
-                            fd, temporary = tempfile.mkstemp(dir="/tmp", prefix="spotify-cover-")
-                            try:
-                                with os.fdopen(fd, "wb") as file:
-                                    file.write(image_data)
-                                os.chmod(temporary, 0o644)
-                                os.replace(temporary, cover_path)
-                            finally:
-                                if os.path.exists(temporary):
-                                    os.unlink(temporary)
-                            with self._metadata_lock:
-                                self.metadata.cover = cover_path
-                                self.metadata.md5 = album_cover_url
-                else:
-                    with self._metadata_lock:
-                        self.metadata.state = False
-            except Exception as e:
-                logger.error(f"Unable to get Spotify metadata: {e}")
+            self.read_metadata_once()
             sleep(1)
+
+    def read_metadata_once(self) -> None:
+        """Fetch and apply one status response from go-librespot.
+
+        The production reader calls this once per second. The bounded operation
+        is intentionally public so host tests can exercise malformed responses,
+        recovery, and cover replacement without running an infinite thread.
+        """
+        try:
+            json_data = utility.request_json(f"{self.spotify_url}/status")
+            track = json_data.get("track") if json_data else None
+            if isinstance(track, dict):
+                artist_names = track.get("artist_names")
+                track_name = track.get("name")
+            else:
+                artist_names = None
+                track_name = None
+            if isinstance(artist_names, list) and isinstance(track_name, str):
+                with self._metadata_lock:
+                    self.metadata.name = " ".join(str(item) for item in artist_names)
+                    self.metadata.title = track_name
+                    self.metadata.state = not (json_data.get("paused") or json_data.get("stopped"))
+
+                # Update album cover only if it has changed.
+                album_cover_url = track.get("album_cover_url") if isinstance(track, dict) else None
+                if isinstance(album_cover_url, str) and self.metadata.md5 != album_cover_url:
+                    image_data = utility.request_image(album_cover_url)
+                    cover_path = "/tmp/spotify_cover.jpg"
+                    if image_data:
+                        fd, temporary = tempfile.mkstemp(dir="/tmp", prefix="spotify-cover-")
+                        try:
+                            with os.fdopen(fd, "wb") as file:
+                                file.write(image_data)
+                            os.chmod(temporary, 0o644)
+                            os.replace(temporary, cover_path)
+                        finally:
+                            if os.path.exists(temporary):
+                                os.unlink(temporary)
+                        with self._metadata_lock:
+                            self.metadata.cover = cover_path
+                            self.metadata.md5 = album_cover_url
+            else:
+                with self._metadata_lock:
+                    self.metadata.state = False
+        except Exception as e:
+            logger.error(f"Unable to get Spotify metadata: {e}")
 
     def get_play_state(self) -> bool:
         """

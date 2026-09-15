@@ -98,7 +98,7 @@ class TestServer:
         assert b'"X-CSRF-Token"' in body
         assert b'upload.addEventListener("progress"' in body
         assert b"response.status === 404" in body
-        assert b'discardUnavailableTracking()' in body
+        assert b"discardUnavailableTracking()" in body
         assert b'sessionStorage.removeItem("firmwareTrackingToken")' in body
         assert b"if (restoring && !wizard.open)" in body
         assert b"pollTracking(savedToken, true)" in body

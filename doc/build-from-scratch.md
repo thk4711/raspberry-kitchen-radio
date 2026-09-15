@@ -58,6 +58,12 @@ ask for your password via `sudo`), downloads a pinned copy of Buildroot
 (version `2026.05.2`) into `~/embedded/buildroot`, applies this project's
 configuration, and compiles everything.
 
+If that Buildroot directory already exists, the script verifies that it is a
+clean Git checkout at the project's pinned commit. It stops rather than silently
+building a different or locally modified revision. Advanced developers who
+intentionally patch Buildroot may pass `--allow-unverified-buildroot`; do not use
+that override for release artifacts.
+
 > ⏱️ **The first build takes a long time** — typically one to a few hours,
 > depending on your machine and connection — because it compiles a
 > cross-compiler, the Linux kernel, and all the audio backends from source.
@@ -91,36 +97,38 @@ Useful variations:
 - `./buildroot/build.sh --no-apt` — skip the `apt` step (if the build tools are
   already installed, or you can't use `sudo`).
 
-## Optional: build remotely and copy both artifacts to macOS
+## Optional: collect named artifacts locally or build remotely
 
-The development workflow can build the image on the separate x64 Linux host and
-copy both resulting artifacts to macOS with:
+The repository includes [`scripts/build_image.py`](../scripts/build_image.py).
+By default it runs the supported build script **on the current Linux host** and
+copies both results to `artifacts/`, using timestamped names and SHA-256 checks:
 
 ```bash
-python3 /path/to/your/build-helper.py
+python3 scripts/build_image.py
 ```
 
-The script synchronizes the current repository, runs the Buildroot build on the
-configured host, validates `sdcard.img` and the versioned `.swu`, and verifies
-the SHA-256 checksum of each file after `scp` transfers them to:
+No SSH tools are needed in local mode. For settings you use repeatedly, copy the
+dummy example and edit the untracked local file:
 
-```text
-/path/to/your/output-directory/
+```bash
+cp scripts/build-image.example.ini scripts/build-image.ini
+python3 scripts/build_image.py
 ```
 
-The downloaded files are timestamped so a previous build is never overwritten:
+Command-line options override the configuration file. To build on a separate
+x64 Debian/Ubuntu machine, set `execution = remote`, `host`, `remote_root`, and
+the remote Buildroot/cache paths in that file. Remote mode uses passwordless
+batch-mode SSH plus `rsync` and `scp`:
 
-```text
-kitchen-radio-<version>-<timestamp>-sdcard.img
-kitchen-radio-<version>-<timestamp>.swu
+```bash
+python3 scripts/build_image.py --execution remote \
+    --host build-user@build-host.example --remote-root /home/build-user/embedded
 ```
 
-Use the `.img` file for initial installation or complete recovery. Use the
-matching `.swu` file for an A/B firmware update through the radio's Maintenance
-web interface. The script requires `ssh`, `scp`, and `rsync` on macOS and
-passwordless SSH access to the configured build host. Its host, repository,
-Buildroot, and Downloads paths can be changed with the script's command-line
-options; run `built_image.py --help` for the available options.
+The raw image is ZIP-compressed by default; use `--no-zip` to retain a raw
+`.img`. Use the image for installation/recovery and the matching `.swu` through
+the Maintenance web interface. Run `python3 scripts/build_image.py --help` for
+all settings or add `--dry-run` to inspect resolved paths without building.
 
 
 ## Step 3 — Write the image to the SD card
@@ -147,13 +155,15 @@ writing to the wrong disk destroys its data.**
 After flashing, reinsert or remount the SD card and open its small FAT boot
 partition. Edit the existing `radio-config.txt` with a plain-text editor:
 
-- replace `MyNetwork` and `my-wifi-password` with your WiFi details;
-- choose a hostname and a root password;
+- uncomment the WiFi lines and replace their placeholders with your details;
+- optionally choose a hostname and set a unique root password if console or SSH
+  login is needed;
 - optionally set the WiFi country, timezone, static IP, and SSH enablement.
 
 The WiFi password must be 8–63 characters. Save the file and safely eject the
-card. Device-specific credentials are added only now; the built image remains
-generic and reusable.
+card. Known placeholder values are rejected. Device-specific credentials are
+added only now; the built image remains generic and reusable, with root login
+locked until a password is explicitly provisioned.
 
 ## Step 5 — Boot the Pi
 

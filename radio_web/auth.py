@@ -16,6 +16,7 @@ Design notes:
   migration.
 * All secret comparisons use :func:`hmac.compare_digest` to avoid timing leaks.
 """
+
 import hashlib
 import hmac
 import logging
@@ -50,9 +51,7 @@ def hash_password(password: str, *, iterations: int = _PBKDF2_ITERATIONS) -> str
     string suitable for storing in ``admin.secret``. Never logs ``password``.
     """
     salt = secrets.token_bytes(_SALT_BYTES)
-    derived = hashlib.pbkdf2_hmac(
-        _PBKDF2_ALGORITHM, password.encode("utf-8"), salt, iterations
-    )
+    derived = hashlib.pbkdf2_hmac(_PBKDF2_ALGORITHM, password.encode("utf-8"), salt, iterations)
     return f"{_HASH_PREFIX}${iterations}${salt.hex()}${derived.hex()}"
 
 
@@ -71,9 +70,7 @@ def verify_password(password: str, stored: str) -> bool:
         expected = bytes.fromhex(hash_hex)
     except (ValueError, AttributeError):
         return False
-    derived = hashlib.pbkdf2_hmac(
-        _PBKDF2_ALGORITHM, password.encode("utf-8"), salt, iterations
-    )
+    derived = hashlib.pbkdf2_hmac(_PBKDF2_ALGORITHM, password.encode("utf-8"), salt, iterations)
     return hmac.compare_digest(derived, expected)
 
 
@@ -93,9 +90,7 @@ def set_password(password: str) -> None:
     :data:`MIN_PASSWORD_LENGTH`. Never logs the plaintext.
     """
     if password is None or len(password) < MIN_PASSWORD_LENGTH:
-        raise ValueError(
-            f"password must be at least {MIN_PASSWORD_LENGTH} characters"
-        )
+        raise ValueError(f"password must be at least {MIN_PASSWORD_LENGTH} characters")
     serialized = hash_password(password)
     config_store.atomic_write(
         config_store.admin_secret_path(), serialized + "\n", config_store.SECRET_MODE
@@ -140,9 +135,7 @@ class SessionStore:
     access and can be swept eagerly via :meth:`sweep`.
     """
 
-    def __init__(
-        self, ttl_seconds: float = SESSION_TTL_SECONDS, clock=time.monotonic
-    ) -> None:
+    def __init__(self, ttl_seconds: float = SESSION_TTL_SECONDS, clock=time.monotonic) -> None:
         self._ttl = ttl_seconds
         self._clock = clock
         self._lock = threading.Lock()

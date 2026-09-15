@@ -19,11 +19,13 @@ Usage
     python3 scripts/render_sample_frames.py
     python3 scripts/render_sample_frames.py --output-dir /tmp
 """
+
 from __future__ import annotations
 
 import argparse
 import sys
 from pathlib import Path
+from typing import List, TypedDict
 
 # Ensure the repo lib/ is importable when run directly from the repo root.
 _REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -36,7 +38,14 @@ for _p in (str(_LIB_DIR), str(_REPO_ROOT)):
 # and the stdlib — no SPI/GPIO imports are triggered here.
 from display.display_test import draw_test_image  # noqa: E402
 
-_PANELS = [
+
+class PanelDescription(TypedDict):
+    name: str
+    width: int
+    height: int
+
+
+_PANELS: List[PanelDescription] = [
     {"name": "ST7789", "width": 240, "height": 280},
     {"name": "GC9A01", "width": 240, "height": 240},
 ]
@@ -60,8 +69,9 @@ def render_all(output_dir: Path) -> None:
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description=__doc__,
-                                     formatter_class=argparse.RawDescriptionHelpFormatter)
+    parser = argparse.ArgumentParser(
+        description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
+    )
     parser.add_argument(
         "--output-dir",
         type=Path,

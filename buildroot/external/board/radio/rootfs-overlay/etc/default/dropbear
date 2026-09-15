@@ -4,16 +4,14 @@
 # contents of DROPBEAR_ARGS are appended to the dropbear command line.
 #
 # Root login policy for the Raspberry Kitchen Radio appliance:
-#   * Root SSH login is ALLOWED. Dropbear permits root logins unless started
-#     with "-w"; we deliberately do NOT pass "-w".
-#   * Password authentication is ALLOWED. Dropbear enables it unless started
-#     with "-s" (disable all passwords) or "-g" (disable password login for
-#     root); we deliberately do NOT pass either.
-#   * The root password itself is baked into the image via
-#     BR2_TARGET_GENERIC_ROOT_PASSWD ("changeme") in the defconfig.
+#   * The generic image has a locked root account and SSH is disabled.
+#   * Explicit root_password= provisioning unlocks root and persists only its
+#     hash. S50dropbear independently requires that persisted, unlocked hash.
+#   * Password authentication is then allowed on the trusted LAN; Dropbear is
+#     not passed -s or -g.
 #
 # NOTE: the init script disables this service by default. If SSH is explicitly
-# enabled, change the root password and use it only on a trusted network.
+# enabled, use the unique provisioned password only on a trusted network.
 #
 # -p 22   : listen on the standard SSH port.
 DROPBEAR_ARGS="-p 22"

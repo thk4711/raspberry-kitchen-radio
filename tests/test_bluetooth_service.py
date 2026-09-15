@@ -19,9 +19,7 @@ def _wait_until(predicate, timeout=1.0):
 
 
 def test_constructor_does_not_wait_for_absent_dbus(monkeypatch):
-    monkeypatch.setattr(
-        dbus, "SystemBus", mock.Mock(side_effect=dbus.DBusException("absent"))
-    )
+    monkeypatch.setattr(dbus, "SystemBus", mock.Mock(side_effect=dbus.DBusException("absent")))
     started = time.monotonic()
     service = BluetoothService()
     try:
@@ -59,9 +57,7 @@ def test_reads_metadata_from_connected_player(monkeypatch):
 
     monkeypatch.setattr(dbus, "SystemBus", mock.Mock(return_value=mock.Mock()))
     monkeypatch.setattr(dbus, "Interface", mock.Mock(side_effect=_interface))
-    monkeypatch.setattr(
-        BluetoothService, "_wait", lambda self, delay: self._stop.wait(0.01)
-    )
+    monkeypatch.setattr(BluetoothService, "_wait", lambda self, delay: self._stop.wait(0.01))
     service = BluetoothService()
     try:
         assert _wait_until(service.get_play_state)
@@ -82,9 +78,7 @@ def test_no_player_reports_not_playing(monkeypatch):
     }
     monkeypatch.setattr(dbus, "SystemBus", mock.Mock(return_value=mock.Mock()))
     monkeypatch.setattr(dbus, "Interface", mock.Mock(return_value=manager))
-    monkeypatch.setattr(
-        BluetoothService, "_wait", lambda self, delay: self._stop.wait(0.01)
-    )
+    monkeypatch.setattr(BluetoothService, "_wait", lambda self, delay: self._stop.wait(0.01))
     service = BluetoothService()
     try:
         # Give the worker a moment to run a refresh cycle.

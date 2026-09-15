@@ -149,10 +149,12 @@ trap 'rm -rf "${ROOTPATH_TMP:-}" "$DATA_ROOT"' EXIT
 
 mkdir -p "$DATA_ROOT/radio/logos" "$DATA_ROOT/network"
 mkdir -p "$DATA_ROOT/identity/dropbear" "$DATA_ROOT/bluetooth"
+mkdir -p "$DATA_ROOT/operations"
 mkdir -p "$DATA_ROOT/update/upload" "$DATA_ROOT/update/queue"
 mkdir -p "$DATA_ROOT/update/config-backups"
 mkdir -p "$DATA_ROOT/update/backup-restore"
 printf '1\n' > "$DATA_ROOT/radio/schema-version"
+printf 'wifi_ssid wifi_psk\n' > "$DATA_ROOT/radio/provisioning-status"
 printf '[]\n' > "$DATA_ROOT/update/history.json"
 
 # Seed mutable state from the completed rootfs so the first compatibility-link
@@ -188,7 +190,7 @@ set_data_inode /radio/schema-version gid 601
 set_data_inode /radio/schema-version mode 0100644
 for path in /network /network/wpa_supplicant.conf /identity \
 	/identity/dropbear /bluetooth /update /update/history.json \
-	/update/queue /update/config-backups; do
+	/update/queue /update/config-backups /operations; do
 	set_data_inode "$path" uid 0
 	set_data_inode "$path" gid 0
 done

@@ -57,7 +57,7 @@ class TestStationsStore:
         assert slots[0]["name"] == "Deutschlandfunk"
         assert slots[0]["url"].startswith("http")
 
-    def test_serialize_round_trips_through_player_parser(self):
+    def test_serialize_round_trips_through_player_parser(self, tmp_path):
         # What we write must parse back with the SAME player-side parser
         # (lib.utilities), so managed edits load correctly on the device.
         import sys
@@ -70,13 +70,9 @@ class TestStationsStore:
             {"name": "Beta", "url": "http://b.example/s", "logo": ""},
         ] + [{"name": "", "url": "", "logo": ""}] * 4
         text = stations_store.serialize_stations(slots)
-        tmp = os.path.join(os.getcwd(), "tests", "_tmp_stations.conf")
-        with open(tmp, "w", encoding="utf-8") as handle:
-            handle.write(text)
-        try:
-            parsed = UtilityLibrary._parse_config(tmp)
-        finally:
-            os.unlink(tmp)
+        tmp = tmp_path / "stations.conf"
+        tmp.write_text(text, encoding="utf-8")
+        parsed = UtilityLibrary._parse_config(str(tmp))
         assert parsed["Alpha"]["url"] == "https://a.example/s"
         assert parsed["Alpha"]["logo"] == "a.png"
         assert parsed["Beta"]["name"] == "Beta"

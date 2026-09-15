@@ -99,12 +99,14 @@ class AirplayMetadataProcessor:
             return None
 
         item_type, item_code, item_length = self.start_item(line)
-        data = ""
+        data: Union[str, bytes] = ""
 
         if item_length > 0 and self.start_data(pipe.readline()):
             data = self.read_data(pipe.readline(), item_type != "ssnc" or item_code != "PICT")
 
         if item_type == "core":
+            if not isinstance(data, str):
+                return None
             if item_code == "asal":
                 self.meta_data["album"] = data
             elif item_code == "asar":
@@ -112,7 +114,7 @@ class AirplayMetadataProcessor:
             elif item_code == "minm":
                 self.meta_data["track"] = data
 
-        if item_type == "ssnc" and item_code == "PICT" and data:
+        if item_type == "ssnc" and item_code == "PICT" and isinstance(data, bytes) and data:
             file_type = self.guess_image_mime(data)
             filename = f"/tmp/shairport-image.{file_type}"
             fd, temporary = tempfile.mkstemp(dir="/tmp", prefix="shairport-image-")

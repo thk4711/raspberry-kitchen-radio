@@ -15,9 +15,11 @@ def resolve_adc_status_file(config: Dict[str, Any], env_value: Optional[str]) ->
     adc_status = config.get("adc_status", {})
     if adc_status.get("enabled", True) is False:
         return ""
-    path = env_value.strip() if env_value is not None else str(
-        adc_status.get("file", "/tmp/radio-adc.json")
-    ).strip()
+    path = (
+        env_value.strip()
+        if env_value is not None
+        else str(adc_status.get("file", "/tmp/radio-adc.json")).strip()
+    )
     if not path:
         return ""
     try:

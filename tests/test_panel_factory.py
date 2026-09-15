@@ -12,6 +12,7 @@ Covered invariants:
 * Empty string  → ``ST7789`` with a WARNING log entry
 * Extra whitespace is stripped before the lookup
 """
+
 import logging
 
 import pytest
@@ -22,6 +23,7 @@ from display.panel_st7789 import ST7789
 # ---------------------------------------------------------------------------
 # Happy-path: known names
 # ---------------------------------------------------------------------------
+
 
 def test_st7789_exact_name():
     assert get_panel_class("st7789") is ST7789
@@ -59,6 +61,7 @@ def test_gc9a01_with_surrounding_whitespace():
 # Fallback: unknown / blank names → ST7789 + warning
 # ---------------------------------------------------------------------------
 
+
 def test_unknown_name_falls_back_to_st7789(caplog):
     with caplog.at_level(logging.WARNING, logger="display.panel_factory"):
         result = get_panel_class("unknown_panel")
@@ -92,10 +95,14 @@ def test_whitespace_only_falls_back_to_st7789(caplog):
 # Return type is always a class (not an instance)
 # ---------------------------------------------------------------------------
 
-@pytest.mark.parametrize("name,expected", [
-    ("st7789", ST7789),
-    ("gc9a01", GC9A01),
-])
+
+@pytest.mark.parametrize(
+    "name,expected",
+    [
+        ("st7789", ST7789),
+        ("gc9a01", GC9A01),
+    ],
+)
 def test_return_is_the_class_itself(name, expected):
     cls = get_panel_class(name)
     assert cls is expected

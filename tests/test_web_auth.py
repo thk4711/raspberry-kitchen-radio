@@ -1,4 +1,5 @@
 """Unit tests for radio_web.auth and radio_web.config_store (Phase 4)."""
+
 import os
 import stat
 

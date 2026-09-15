@@ -4,6 +4,7 @@ Exercises the simple INI parser: sections, key/value splitting, boolean and
 integer coercion, comment skipping, whitespace handling, and the missing-file
 behaviour (which calls ``exit(1)``).
 """
+
 import pytest
 from utilities import UtilityLibrary
 
@@ -65,9 +66,7 @@ class TestReadConfig:
 class TestReadConfigLayered:
     def test_override_key_wins_and_others_preserved(self, tmp_path):
         default = tmp_path / "default.conf"
-        default.write_text(
-            "[mpd]\nhost = localhost\nport = 6600\n[gpio]\namp = 26\n"
-        )
+        default.write_text("[mpd]\nhost = localhost\nport = 6600\n[gpio]\namp = 26\n")
         override = tmp_path / "device.ini"
         override.write_text("[mpd]\nhost = radio.local\n")
         conf = UtilityLibrary.read_config_layered(str(default), str(override))

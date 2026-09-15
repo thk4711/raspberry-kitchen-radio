@@ -29,23 +29,39 @@
 
 import logging
 import time
+from typing import TYPE_CHECKING
 
 import numpy as np
 import spidev
 from gpiozero import *
 
+if TYPE_CHECKING:
+    from gpiozero import DigitalInputDevice, DigitalOutputDevice, PWMOutputDevice
+
 
 class RaspberryPi:
-    def __init__(self,spi=None,spi_bus=0,spi_device=0,spi_freq=40000000,rst = 13,dc = 25,bl = 18,bl_freq=1000,i2c=None,i2c_freq=100000):
-        self.np=np
+    def __init__(
+        self,
+        spi=None,
+        spi_bus=0,
+        spi_device=0,
+        spi_freq=40000000,
+        rst=13,
+        dc=25,
+        bl=18,
+        bl_freq=1000,
+        i2c=None,
+        i2c_freq=100000,
+    ):
+        self.np = np
         self.INPUT = False
         self.OUTPUT = True
 
-        self.SPEED  =spi_freq
-        self.BL_freq=bl_freq
+        self.SPEED = spi_freq
+        self.BL_freq = bl_freq
 
-        self.RST_PIN= self.gpio_mode(rst,self.OUTPUT)
-        self.DC_PIN = self.gpio_mode(dc,self.OUTPUT)
+        self.RST_PIN = self.gpio_mode(rst, self.OUTPUT)
+        self.DC_PIN = self.gpio_mode(dc, self.OUTPUT)
         self.BL_PIN = self.gpio_pwm(bl)
         self.bl_DutyCycle(0)
 
@@ -54,7 +70,7 @@ class RaspberryPi:
         # rather than as a default argument, avoids sharing one handle between
         # display instances and makes the chip-select configurable.
         self.SPI = spi if spi is not None else spidev.SpiDev(spi_bus, spi_device)
-        if self.SPI!=None :
+        if self.SPI != None:
             self.SPI.max_speed_hz = spi_freq
             self.SPI.mode = 0b00
             # The Pi rounds the requested clock down to the nearest available
@@ -62,16 +78,17 @@ class RaspberryPi:
             try:
                 logging.info(
                     "SPI clock requested=%d Hz, applied=%d Hz",
-                    spi_freq, self.SPI.max_speed_hz,
+                    spi_freq,
+                    self.SPI.max_speed_hz,
                 )
             except Exception:  # pragma: no cover - defensive, never fatal
                 pass
 
-    def gpio_mode(self,Pin,Mode,pull_up = None,active_state = True):
+    def gpio_mode(self, Pin, Mode, pull_up=None, active_state=True):
         if Mode:
-            return DigitalOutputDevice(Pin,active_high = True,initial_value =False)
+            return DigitalOutputDevice(Pin, active_high=True, initial_value=False)
         else:
-            return DigitalInputDevice(Pin,pull_up=pull_up,active_state=active_state)
+            return DigitalInputDevice(Pin, pull_up=pull_up, active_state=active_state)
 
     def digital_write(self, Pin, value):
         if value:
@@ -85,11 +102,11 @@ class RaspberryPi:
     def delay_ms(self, delaytime):
         time.sleep(delaytime / 1000.0)
 
-    def gpio_pwm(self,Pin):
-        return PWMOutputDevice(Pin,frequency = self.BL_freq)
+    def gpio_pwm(self, Pin):
+        return PWMOutputDevice(Pin, frequency=self.BL_freq)
 
     def spi_writebyte(self, data):
-        if self.SPI!=None :
+        if self.SPI != None:
             self.SPI.writebytes(data)
 
     def spi_writebytes2(self, data):
@@ -99,24 +116,24 @@ class RaspberryPi:
         handles chunking/DMA internally, so callers do not need the manual
         4096-byte transaction loops that ``writebytes`` required.
         """
-        if self.SPI!=None :
+        if self.SPI != None:
             self.SPI.writebytes2(data)
 
     def bl_DutyCycle(self, duty):
         self.BL_PIN.value = duty / 100
 
-    def bl_Frequency(self,freq):# Hz
+    def bl_Frequency(self, freq):  # Hz
         self.BL_PIN.frequency = freq
 
     def module_init(self):
-        if self.SPI!=None :
+        if self.SPI != None:
             self.SPI.max_speed_hz = self.SPEED
             self.SPI.mode = 0b00
         return 0
 
     def module_exit(self):
         logging.debug("spi end")
-        if self.SPI!=None :
+        if self.SPI != None:
             self.SPI.close()
 
         logging.debug("gpio cleanup...")
@@ -126,13 +143,12 @@ class RaspberryPi:
         time.sleep(0.001)
 
 
-
-'''
+"""
 if os.path.exists('/sys/bus/platform/drivers/gpiomem-bcm2835'):
     implementation = RaspberryPi()
 
 for func in [x for x in dir(implementation) if not x.startswith('_')]:
     setattr(sys.modules[__name__], func, getattr(implementation, func))
-'''
+"""
 
 ### END OF FILE ###

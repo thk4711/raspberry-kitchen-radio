@@ -67,8 +67,6 @@ class UtilityLibrary:
         with self._processes_lock:
             return list(self._processes.values())
 
-
-
     def start_external_program_in_background(self, cmd: str) -> None:
         """Starts an external program in the background and monitors it.
 
@@ -81,8 +79,10 @@ class UtilityLibrary:
             return
         name = os.path.basename(cmd_array[0])
         monitor_thread = threading.Thread(
-            target=self._start_and_monitor_binary, args=(cmd_array, name),
-            daemon=True, name=f'supervisor-{name}'
+            target=self._start_and_monitor_binary,
+            args=(cmd_array, name),
+            daemon=True,
+            name=f"supervisor-{name}",
         )
         with self._processes_lock:
             self._supervisors.append(monitor_thread)
@@ -98,8 +98,9 @@ class UtilityLibrary:
         self._stop.wait(delay)
         return min(delay * 2, 30.0)
 
-    def _start_and_monitor_binary(self, cmd_array: List[str], name: str,
-                                  check_interval: int = 5) -> None:
+    def _start_and_monitor_binary(
+        self, cmd_array: List[str], name: str, check_interval: int = 5
+    ) -> None:
         """Starts and monitors a binary command in a loop.
 
         Appliance logging policy: by default the child's stdout/stderr are sent
@@ -119,20 +120,20 @@ class UtilityLibrary:
             check_interval (int): Seconds between process-status checks.
         """
         cmd = shlex.join(cmd_array)
-        log_dir = os.environ.get('RADIO_PROCESS_LOG_DIR')
+        log_dir = os.environ.get("RADIO_PROCESS_LOG_DIR")
         try:
-            max_bytes = int(os.environ.get('RADIO_PROCESS_LOG_MAX_BYTES', 256 * 1024))
+            max_bytes = int(os.environ.get("RADIO_PROCESS_LOG_MAX_BYTES", 256 * 1024))
         except (TypeError, ValueError):
             max_bytes = 256 * 1024
 
         # Default (no RADIO_PROCESS_LOG_DIR, or explicitly "none"): discard all
         # backend output to /dev/null. Nothing is written to disk or tmpfs.
-        if not log_dir or log_dir.lower() == 'none':
+        if not log_dir or log_dir.lower() == "none":
             self._monitor_with_devnull(cmd, cmd_array, name, check_interval)
             return
 
-        process_name = re.sub(r'[^A-Za-z0-9_.-]+', '_', name)
-        log_path = os.path.join(log_dir, f'{process_name}.log')
+        process_name = re.sub(r"[^A-Za-z0-9_.-]+", "_", name)
+        log_path = os.path.join(log_dir, f"{process_name}.log")
 
         while not self._stop.is_set():
             delay = 2.0
@@ -140,16 +141,14 @@ class UtilityLibrary:
                 os.makedirs(log_dir, exist_ok=True)
                 # Truncate on every (re)start ('w') so the file can only ever
                 # grow within a single run, never across restarts.
-                with open(log_path, 'w', buffering=1) as log_file:
+                with open(log_path, "w", buffering=1) as log_file:
                     log_file.write(f"--- starting: {cmd}\n")
 
                     # Start the binary. Keep stdout/stderr in a size-capped log so
                     # embedded target failures are diagnosable after a daemon
                     # exits, instead of only reporting an exit code.
                     new_process = subprocess.Popen(
-                        cmd_array,
-                        stdout=log_file,
-                        stderr=subprocess.STDOUT
+                        cmd_array, stdout=log_file, stderr=subprocess.STDOUT
                     )
                     self._register_process(name, new_process)
                     logger.info(
@@ -186,9 +185,9 @@ class UtilityLibrary:
                 break
             delay = self._restart_backoff(delay)
 
-
-    def _monitor_with_devnull(self, cmd: str, cmd_array: List[str], name: str,
-                              check_interval: int) -> None:
+    def _monitor_with_devnull(
+        self, cmd: str, cmd_array: List[str], name: str, check_interval: int
+    ) -> None:
         """Run and monitor ``cmd`` with stdout/stderr discarded to /dev/null.
 
         This is the appliance default: no backend log files are created, so
@@ -200,9 +199,7 @@ class UtilityLibrary:
             delay = 2.0
             try:
                 new_process = subprocess.Popen(
-                    cmd_array,
-                    stdout=subprocess.DEVNULL,
-                    stderr=subprocess.DEVNULL
+                    cmd_array, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
                 )
                 self._register_process(name, new_process)
                 logger.info(
@@ -245,9 +242,7 @@ class UtilityLibrary:
             try:
                 process.wait(timeout=timeout)
             except subprocess.TimeoutExpired:
-                logger.warning(
-                    "Process PID %s did not exit; killing.", process.pid
-                )
+                logger.warning("Process PID %s did not exit; killing.", process.pid)
                 process.kill()
                 try:
                     process.wait(timeout=timeout)
@@ -255,8 +250,9 @@ class UtilityLibrary:
                     logger.error("Process PID %s could not be reaped.", process.pid)
 
     @staticmethod
-    def make_request(url: str, method: str = 'GET',
-                     timeout: float = 5) -> Optional[Union[Dict[str, Any], bytes]]:
+    def make_request(
+        url: str, method: str = "GET", timeout: float = 5
+    ) -> Optional[Union[Dict[str, Any], bytes]]:
         """Makes an HTTP request to the specified URL.
 
         Args:
@@ -270,17 +266,17 @@ class UtilityLibrary:
             dict or bytes: The response in JSON format if applicable, otherwise the raw content.
         """
         try:
-            if method.upper() == 'GET':
+            if method.upper() == "GET":
                 response = requests.get(url, timeout=timeout)
-            elif method.upper() == 'POST':
+            elif method.upper() == "POST":
                 response = requests.post(url, timeout=timeout)
             else:
                 raise ValueError("Unsupported HTTP method. Use 'GET' or 'POST'.")
 
             response.raise_for_status()
-            content_type = response.headers.get('Content-Type', '')
-            media_type = content_type.split(';', 1)[0].strip().lower()
-            if media_type == 'application/json':
+            content_type = response.headers.get("Content-Type", "")
+            media_type = content_type.split(";", 1)[0].strip().lower()
+            if media_type == "application/json":
                 return response.json()
             return response.content
 
@@ -289,24 +285,22 @@ class UtilityLibrary:
             return None
 
     @staticmethod
-    def request_json(url: str, method: str = 'GET',
-                     timeout: float = 5) -> Optional[Dict[str, Any]]:
+    def request_json(url: str, method: str = "GET", timeout: float = 5) -> Optional[Dict[str, Any]]:
         """Return a successful JSON object response, otherwise ``None``."""
         result = UtilityLibrary.make_request(url, method, timeout)
         return result if isinstance(result, dict) else None
 
     @staticmethod
-    def request_image(url: str, timeout: float = 5,
-                      max_bytes: int = 5 * 1024 * 1024) -> Optional[bytes]:
+    def request_image(
+        url: str, timeout: float = 5, max_bytes: int = 5 * 1024 * 1024
+    ) -> Optional[bytes]:
         """Return a bounded successful image response, otherwise ``None``."""
         try:
             response = requests.get(url, timeout=timeout)
             response.raise_for_status()
-            media_type = response.headers.get(
-                'Content-Type', ''
-            ).split(';', 1)[0].strip().lower()
+            media_type = response.headers.get("Content-Type", "").split(";", 1)[0].strip().lower()
             data = response.content
-            if not media_type.startswith('image/') or not data:
+            if not media_type.startswith("image/") or not data:
                 return None
             return data if len(data) <= max_bytes else None
         except requests.RequestException as e:
@@ -333,7 +327,7 @@ class UtilityLibrary:
         with open(config_file) as f:
             content = f.readlines()
 
-        section = ''
+        section = ""
         for line in content:
             line = line.strip()
             if line.startswith("#"):
@@ -342,14 +336,14 @@ class UtilityLibrary:
                 section = re.findall(r"^\[(.+)\]$", line)[0]
                 conf[section] = {}
                 continue
-            if '=' in line:
-                key, value = map(str.strip, line.split('=', 1))
+            if "=" in line:
+                key, value = map(str.strip, line.split("=", 1))
                 coerced: Any = value
-                if value.lower() == 'true':
+                if value.lower() == "true":
                     coerced = True
-                elif value.lower() == 'false':
+                elif value.lower() == "false":
                     coerced = False
-                elif re.match(r'^(\d+)$', value):
+                elif re.match(r"^(\d+)$", value):
                     coerced = int(value)
                 conf[section][key] = coerced
         return conf
@@ -402,9 +396,7 @@ class UtilityLibrary:
         return conf
 
     @staticmethod
-    def read_config_preferred(
-        override_path: str, default_path: str
-    ) -> Dict[str, Dict[str, Any]]:
+    def read_config_preferred(override_path: str, default_path: str) -> Dict[str, Dict[str, Any]]:
         """Return the override file when present, else the required default.
 
         Unlike :meth:`read_config_layered`, this performs a **whole-file**
@@ -443,14 +435,11 @@ class UtilityLibrary:
         try:
             bus = dbus.SystemBus()
             systemd_manager = bus.get_object(
-                'org.freedesktop.systemd1', '/org/freedesktop/systemd1'
+                "org.freedesktop.systemd1", "/org/freedesktop/systemd1"
             )
-            systemd_interface = dbus.Interface(
-                systemd_manager, 'org.freedesktop.systemd1.Manager'
-            )
-            unit = service_name if service_name.endswith('.service') \
-                else f'{service_name}.service'
-            systemd_interface.RestartUnit(unit, 'replace')
+            systemd_interface = dbus.Interface(systemd_manager, "org.freedesktop.systemd1.Manager")
+            unit = service_name if service_name.endswith(".service") else f"{service_name}.service"
+            systemd_interface.RestartUnit(unit, "replace")
             logger.info(f"Service '{unit}' restarted via systemd.")
             return
         except dbus.DBusException as e:
@@ -460,27 +449,25 @@ class UtilityLibrary:
             )
 
         # 2) Fall back to SysV init scripts (BusyBox init / Buildroot image).
-        short_name = service_name[:-len('.service')] \
-            if service_name.endswith('.service') else service_name
+        short_name = (
+            service_name[: -len(".service")] if service_name.endswith(".service") else service_name
+        )
         candidates = [
-            ['/etc/init.d/S50mpd', 'restart'] if short_name == 'mpd'
-            else [f'/etc/init.d/{short_name}', 'restart'],
-            ['service', short_name, 'restart'],
+            ["/etc/init.d/S50mpd", "restart"]
+            if short_name == "mpd"
+            else [f"/etc/init.d/{short_name}", "restart"],
+            ["service", short_name, "restart"],
         ]
         for cmd in candidates:
             try:
-                if cmd[0].startswith('/etc/init.d/') and not os.path.exists(cmd[0]):
+                if cmd[0].startswith("/etc/init.d/") and not os.path.exists(cmd[0]):
                     continue
                 result = subprocess.run(cmd, capture_output=True, text=True)
                 if result.returncode == 0:
                     logger.info(f"Service '{short_name}' restarted via {cmd[0]}.")
                     return
-                logger.debug(
-                    f"'{' '.join(cmd)}' failed: {result.stderr.strip()}"
-                )
+                logger.debug(f"'{' '.join(cmd)}' failed: {result.stderr.strip()}")
             except (FileNotFoundError, OSError) as e:
                 logger.debug(f"'{' '.join(cmd)}' not runnable: {e}")
 
-        logger.error(
-            f"Failed to restart service '{service_name}': no working init backend."
-        )
+        logger.error(f"Failed to restart service '{service_name}': no working init backend.")

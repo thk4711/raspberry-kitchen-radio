@@ -68,7 +68,6 @@ def test_upload_same_name_different_image_gets_suffix(managed):
     assert (managed / "logos" / second).is_file()
 
 
-
 @pytest.mark.parametrize("payload", [b"not an image", b"GIF89a"])
 def test_upload_rejects_invalid_image(managed, payload):
     with pytest.raises(ValueError):

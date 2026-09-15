@@ -63,10 +63,10 @@ class ST7789(PanelBase):
             self.data(0x0D)
 
             self.command(0xC4)
-            self.data(0x20) # VDV, 0x20: 0V
+            self.data(0x20)  # VDV, 0x20: 0V
 
             self.command(0xC6)
-            self.data(0x13) # 0x13: 60Hz
+            self.data(0x13)  # 0x13: 60Hz
 
             self.command(0xD0)
             self.data(0xA4)
@@ -153,4 +153,3 @@ class ST7789(PanelBase):
             self.data(Yend + 20 - 1 >> 8)
             self.data((Yend + 20 - 1) & 0xFF)
             self.command(0x2C)
-

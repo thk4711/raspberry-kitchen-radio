@@ -113,8 +113,11 @@ The usual first setup flow is:
 
    After flashing, remove and reinsert the SD card on your computer. Open the
    small FAT boot partition and edit the existing `radio-config.txt` with a plain
-   text editor. At minimum, set your WiFi SSID and password. You can also set the
-   hostname, root password, timezone, country, display options, and source flags.
+   text editor. Uncomment and set your WiFi SSID and password. You can also set
+   the hostname, a unique root password, timezone, country, display options, and
+   source flags. The generic image has no reusable login: root password access
+   is locked, and SSH cannot be enabled until a non-placeholder password is
+   explicitly provisioned.
 
    Provisioning is one-shot: after applying active settings, the radio comments
    their lines out in `radio-config.txt`. To apply a boot setting again, edit its

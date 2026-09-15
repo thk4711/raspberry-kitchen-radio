@@ -48,6 +48,14 @@ class PanelBase(lcdconfig.RaspberryPi):
     # (height x width) image. Rectangular panels flip row/column exchange here.
     madctl_landscape: int = 0x70
 
+    def Init(self):
+        """Run the concrete panel's power-on command sequence."""
+        raise NotImplementedError
+
+    def SetWindows(self, Xstart, Ystart, Xend, Yend, horizontal=0):
+        """Select a concrete panel's GRAM address window."""
+        raise NotImplementedError
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         # The SPI command stream is stateful: a display update is a sequence

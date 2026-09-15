@@ -57,10 +57,32 @@ it on the amd64 Debian host from the root of a fresh clone of this repository:
 ./buildroot/build.sh --no-apt        # skip the apt host-package step
 ```
 
+Buildroot `2026.05.2` is pinned to commit
+`72d9d4fa636a371ef9eb99c92a735ce9f6d829d5`. The script validates both newly
+cloned and existing directories before building: the directory must be a Git
+checkout at that exact commit with no staged, modified, or untracked files.
+This prevents a reused build directory from silently changing the firmware
+source. To deliberately test a patched or different checkout, use
+`--allow-unverified-buildroot`; this development-only escape hatch prints
+warnings instead of weakening the default. The requested and actual Buildroot
+revision and the radio repository commit are printed in `output/radio-build.log`,
+and the two actual commits are embedded in `/etc/radio-release.json`.
+
 `build.sh` requires and prints both the installation image
 (`output/images/sdcard.img`) and versioned update package
 (`output/images/kitchen-radio-<version>.swu`), with each size and SHA-256. It
 also prints the exact `dd` command for Linux and macOS.
+
+The repository-contained `scripts/build_image.py` orchestrator can additionally
+copy both artifacts to timestamped, checksum-verified output names. It executes
+locally by default and therefore does not require SSH. Copy
+`scripts/build-image.example.ini` to the git-ignored `scripts/build-image.ini`
+to keep recurring paths and options without machine-specific repository
+defaults. Remote execution is opt-in (`execution = remote`) and requires an SSH
+host and staging root; it uses `rsync`, batch-mode SSH, and `scp`. Command-line
+values take precedence over the optional INI file. Run
+`python3 scripts/build_image.py --help` or see the
+[beginner guide](build-from-scratch.md#optional-collect-named-artifacts-locally-or-build-remotely).
 
 Override the build locations with environment variables if the defaults do not
 suit your host:
@@ -221,6 +243,36 @@ when you need to debug.
 - Kernel messages still go to the in-RAM ring buffer (`dmesg`); the console is
   quieted via `cmdline.txt` (`quiet loglevel=3`).
 
+### Bounded recovery summary
+
+The exception to the no-persistent-log policy is
+`/data/operations/summary.json`: a root-written, world-readable, fixed-schema
+recovery summary capped at 16 KiB and the latest 32 events. It contains only the
+kernel boot ID, firmware slot, clean/unclean reboot classification, bounded
+`radio.py` process-exit and heartbeat-timeout restart counters, and the last
+firmware-health result. It never accepts arbitrary messages, credentials, URLs,
+station/source metadata, network identifiers, or hostnames.
+
+`S15operational-summary` opens a boot record and marks a normal SysV shutdown as
+clean. If the previous boot was not marked clean, the next boot records
+`unclean`. This intentionally conservative label covers power loss, watchdog or
+hard reset, and crashes: the Pi/Buildroot combination does not provide a
+dependable reset-cause value that distinguishes those cases. `S90radio` records
+process exits and heartbeat-triggered recoveries, while firmware health records
+accepted trials, failed trials, and automatic rollback. Recorder failures are
+best-effort and can never block boot, restart, health acceptance, or rollback.
+
+Inspect the summary on target with:
+
+```sh
+cat /data/operations/summary.json
+stat -c '%a %s %n' /data/operations/summary.json
+```
+
+The Maintenance diagnostics download includes this safe summary as
+`snapshots/operational-summary.json`. Routine logs remain volatile and are not
+copied into it.
+
 ### Environment variables (the logging knobs)
 
 These are read by the Python app / `lib/utilities.py`:
@@ -303,9 +355,13 @@ byte-for-byte (network mirrors permitting):
   `buildroot/external/configs/radio_rpi3_defconfig` (the 6.12.x kernel pin and
   the proven 32-bit base). The RULE at the top of that file forbids swapping the
   arch/toolchain/kernel-source out from under the proven base.
-- **Media backends compiled from source, each with a source hash:**
-  - `go-librespot` — pinned version + `sha256` in
-    `buildroot/external/package/go-librespot/go-librespot.hash`.
+- **Media backends compiled from source, with download hashes:**
+  - `go-librespot` — the package pins an immutable upstream tag. Buildroot's Go
+    download post-processor runs `go mod vendor`, repacks the source and modules
+    as `go-librespot-v0.9.0-go2.tar.gz`, and verifies that final archive against
+    `buildroot/external/package/go-librespot/go-librespot.hash`. The `-go2`
+    suffix is Buildroot's archive-format version, not the host Go version. The
+    hash file also verifies `LICENSE` when Buildroot collects legal information.
   - `shairport-sync` / `nqptp` — pinned by the upstream Buildroot packages
     selected in the defconfig (moving them means bumping the pinned Buildroot
     revision above).
@@ -598,14 +654,15 @@ Every build produces the same generic image. Device-specific settings belong in
 the FAT ("boot") partition's plain-text `radio-config.txt` — the same idea as
 Raspberry Pi OS's `/boot` provisioning.
 
-The image ships an active `radio-config.txt` on the FAT partition (added by
-`board/radio/post-image.sh`). Edit it directly before the first boot:
+The image ships a `radio-config.txt` template on the FAT partition (added by
+`board/radio/post-image.sh`). Credential placeholders are commented and the
+generic root account is locked. Edit it directly before the first boot:
 
 ```ini
-wifi_ssid=MyNetwork
-wifi_psk=my-wifi-password
-hostname=changeme            # also the AirPlay / Spotify device name
-root_password=changeme
+# wifi_ssid=<your-wifi-name>
+# wifi_psk=<your-private-passphrase>
+# hostname=kitchen-radio     # also the AirPlay / Spotify device name
+# root_password=<your-unique-device-password>
 enable_ssh=0                 # 1 enables the SSH server
 timezone=UTC                 # zoneinfo name
 # ntp_server=pool.ntp.org
@@ -642,6 +699,13 @@ again, edit its value, remove the leading `#`, and reboot.
   `/run/provision-disable-ssh`; the overlay
   `S50dropbear` checks it and skips starting SSH (race-free, since sysinit runs
   before `S50`).
+- **Root login is locked in the generic image.** `root_password` must be an
+  explicit, non-placeholder value. Its hash is persisted only after `chpasswd`
+  succeeds. `enable_ssh=1`, the web UI, and `S50dropbear` all fail closed until
+  that persisted hash exists. Known examples such as `changeme`, `MyNetwork`,
+  and `my-wifi-password` are rejected. Missing or rejected required settings are
+  shown as a setup warning on the display and web dashboard without exposing
+  submitted credential values.
 - **`timezone`** (a zoneinfo name such as `Europe/Berlin`) symlinks
   `/etc/localtime` to the matching entry and writes `/etc/timezone`. It requires
   the tz database (`BR2_TARGET_TZ_INFO`, enabled in the defconfig); otherwise the
@@ -859,15 +923,19 @@ Keep these to avoid regressing the known-good image:
   future/third-party writer that ignores this policy lands in RAM and vanishes
   on reboot rather than filling the SD card. Do not enable a syslog daemon or
   add persistent log paths without revisiting this constraint.
-- **Download hash checking is not forced.** `radio_rpi3_defconfig` leaves
-  `BR2_DOWNLOAD_FORCE_CHECK_HASHES` unset and ships **no `.hash` file** for
-  `go-librespot`. Its digest is the *vendored* archive produced by `go mod
-  vendor`, whose contents and `-go<N>` filename suffix depend on the exact
-  host-go that Buildroot ships, so a pinned hash was brittle and broke fresh
-  builds. Only downloads without a hash entry (in practice just the go-librespot
-  vendored archive) go unverified; every upstream Buildroot package still
-  enforces its own bundled hash. Do not re-enable `FORCE_CHECK_HASHES` without
-  re-pinning a go-librespot hash against the exact pinned Buildroot version.
+- **Declared download hashes are enforced.** The global
+  `BR2_DOWNLOAD_FORCE_CHECK_HASHES` option remains unset; this does not bypass
+  hash entries that exist. Packages from pinned Buildroot 2026.05.2 use its
+  bundled hash files. The external `go-librespot` package ships its own hash for
+  the final `-go2` archive generated after `go mod vendor`, and Buildroot checks
+  that post-processed archive before extraction. Its transient original GitHub
+  archive is not checked as a second, independent artifact. The external
+  `radio-*` packages use local source trees and therefore have no downloads to
+  hash. A Buildroot or go-librespot bump must regenerate and review the vendored
+  archive, then update its filename and digest together rather than removing
+  verification. Enabling forced checking globally is a separate image-wide
+  policy change that requires a clean-build audit of every selected package and
+  custom source.
 
 ## Background and design decisions
 

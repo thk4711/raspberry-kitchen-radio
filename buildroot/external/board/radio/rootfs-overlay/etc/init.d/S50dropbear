@@ -14,6 +14,7 @@ NAME="dropbear sshd"
 PIDFILE=/var/run/dropbear.pid
 SSH_DISABLE_FLAG=/run/provision-disable-ssh
 DEVICE_CONFIG=/etc/radio/device.ini
+ROOT_HASH_FILE=/data/identity/root-password.hash
 
 # Read configuration variable file if it is present.
 # shellcheck disable=SC1091 # This target-side file is supplied by the overlay.
@@ -49,6 +50,18 @@ start() {
 		echo "Not starting dropbear: SSH is disabled by default/device settings"
 		return 0
 	fi
+
+	# Defence in depth: a stale or manually edited device.ini must not expose a
+	# locked, passwordless, or generic account. Only explicit provisioning creates
+	# this persistent hash. Accept the crypt formats supported by Buildroot/glibc.
+	root_hash=$(sed -n '1p' "$ROOT_HASH_FILE" 2>/dev/null || true)
+	case "$root_hash" in
+		\$1\$*|\$5\$*|\$6\$*|\$y\$*) ;;
+		*)
+			echo "Not starting dropbear: no provisioned root credential"
+			return 0
+			;;
+	esac
 
 	# Buildroot installs /etc/dropbear as a symlink to /var/run/dropbear. On a
 	# writable rootfs replace it with a real directory so generated host keys

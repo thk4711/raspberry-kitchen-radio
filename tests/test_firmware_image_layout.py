@@ -222,6 +222,7 @@ def test_persistent_data_reference_covers_layout_links_and_update_state():
         "/data/identity/root-password.hash",
         "/data/identity/dropbear",
         "/data/bluetooth",
+        "/data/operations",
         "/data/update/upload/firmware.swu.part",
         "/data/update/upload/firmware.swu.ready",
         "/data/update/upload/firmware.swu.json",
@@ -258,6 +259,7 @@ def test_persistent_data_reference_names_generated_and_volatile_exclusions():
     ):
         assert excluded in text
     assert "contains no `data.ext4`" in text
+    assert "/data/operations/summary.json" in text
 
 
 def test_data_expansion_preserves_firmware_partition_entries():

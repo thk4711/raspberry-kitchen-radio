@@ -43,6 +43,9 @@ ZONEINFO_DIR = os.environ.get("RADIO_ZONEINFO_DIR", "/usr/share/zoneinfo")
 HOSTNAME_LOCK_MARKER = os.environ.get(
     "RADIO_HOSTNAME_LOCK_MARKER", "/run/provision-hostname-locked"
 )
+ROOT_CREDENTIAL_MARKER = os.environ.get(
+    "RADIO_ROOT_CREDENTIAL_MARKER", "/data/radio/root-credential-provisioned"
+)
 
 _SECTION_RE = re.compile(r"^\[(.+)\]$")
 
@@ -152,6 +155,11 @@ def load_device() -> Dict[str, str]:
     if text is not None:
         settings.update({key: value for key, value in _parse_device(text).items() if value})
     return settings
+
+
+def root_password_is_provisioned() -> bool:
+    """Return whether root published the non-secret credential capability bit."""
+    return os.path.isfile(ROOT_CREDENTIAL_MARKER)
 
 
 def _timezones_from_table(path: str) -> List[str]:

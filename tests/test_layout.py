@@ -3,6 +3,7 @@
 No Pillow, no numpy, no hardware — just pixel-rectangle math, so these run on
 any machine.
 """
+
 import pytest
 from display import layout as layout_mod
 from display.layout import Rect, chord_width, compute_layout, inner_rect
@@ -43,26 +44,22 @@ def test_bands_inside_safe_area_and_non_overlapping():
 def test_bands_clamped_to_fit_and_not_overlap():
     # Huge band heights are clamped so the two bands still fit the safe area
     # and never meet (leaving at least a sliver of art between them).
-    lay = compute_layout(240, 280, inset=0, band_height=1000,
-                         bottom_band_height=1000)
+    lay = compute_layout(240, 280, inset=0, band_height=1000, bottom_band_height=1000)
     assert lay.top_band.bottom <= lay.bottom_band.y
     assert lay.top_band.y >= lay.safe.y
     assert lay.bottom_band.bottom <= lay.safe.bottom
 
 
 def test_separate_top_and_bottom_band_heights():
-    lay = compute_layout(240, 280, inset=14, band_height=44,
-                         bottom_band_height=74)
+    lay = compute_layout(240, 280, inset=14, band_height=44, bottom_band_height=74)
     assert lay.top_band.h == 44
     assert lay.bottom_band.h == 74
     assert lay.top_band.bottom <= lay.bottom_band.y
 
 
-
 def test_inner_regions_never_cornered():
     lay = compute_layout(240, 280, inset=14, band_height=60, inner_pct=0.70)
-    for band, inner in ((lay.top_band, lay.top_inner),
-                        (lay.bottom_band, lay.bottom_inner)):
+    for band, inner in ((lay.top_band, lay.top_inner), (lay.bottom_band, lay.bottom_inner)):
         # Inner region is narrower than and centred within the band.
         assert inner.w < band.w
         assert inner.x > band.x
@@ -130,14 +127,15 @@ def test_round_layout_populates_center_and_radius():
 
 def _within_circle(band: Rect, cx: int, cy: int, radius: int) -> bool:
     """True when both top corners of ``band`` lie inside the inscribed circle."""
+
     def inside(x: int, y: int) -> bool:
-        return (x - cx) ** 2 + (y - cy) ** 2 <= radius ** 2 + 1  # +1 rounding slack
-    return (inside(band.x, band.cy) and inside(band.right, band.cy))
+        return (x - cx) ** 2 + (y - cy) ** 2 <= radius**2 + 1  # +1 rounding slack
+
+    return inside(band.x, band.cy) and inside(band.right, band.cy)
 
 
 def test_round_bands_stay_within_inscribed_circle():
-    lay = compute_layout(240, 240, band_height=44, bottom_band_height=82,
-                         shape="round")
+    lay = compute_layout(240, 240, band_height=44, bottom_band_height=82, shape="round")
     cx, cy, r = lay.center.x, lay.center.y, lay.radius
     # Each band's width must not exceed the chord at its own centre row.
     assert lay.top_band.w <= chord_width(lay.top_band.cy, r, cy)
@@ -155,8 +153,7 @@ def test_round_bands_are_horizontally_centred():
 
 
 def test_round_text_region_below_top_arc_and_non_overlapping():
-    lay = compute_layout(240, 240, band_height=44, bottom_band_height=82,
-                         shape="round")
+    lay = compute_layout(240, 240, band_height=44, bottom_band_height=82, shape="round")
     # The top status zone sits above the text region; they never meet.
     assert lay.top_band.bottom <= lay.bottom_band.y
     # The text region now hugs the bottom of the circle (below the centre) so
@@ -167,8 +164,7 @@ def test_round_text_region_below_top_arc_and_non_overlapping():
 
 
 def test_round_status_zone_rides_near_top_edge():
-    lay = compute_layout(240, 240, band_height=44, bottom_band_height=82,
-                         shape="round")
+    lay = compute_layout(240, 240, band_height=44, bottom_band_height=82, shape="round")
     top_edge = lay.center.y - lay.radius
     # The status zone starts near the very top of the circle (small inset).
     assert lay.top_band.y - top_edge <= lay.radius // 6
@@ -178,12 +174,11 @@ def test_round_status_zone_rides_near_top_edge():
 
 def test_rect_shape_default_unchanged_by_round_support():
     # Regression: the default (rect) path is unaffected by the new shape arg.
-    default = compute_layout(240, 280, inset=14, band_height=44,
-                             bottom_band_height=82)
-    explicit = compute_layout(240, 280, inset=14, band_height=44,
-                              bottom_band_height=82, shape="rect")
+    default = compute_layout(240, 280, inset=14, band_height=44, bottom_band_height=82)
+    explicit = compute_layout(
+        240, 280, inset=14, band_height=44, bottom_band_height=82, shape="rect"
+    )
     assert default == explicit
     assert default.shape == "rect"
     assert default.center is None
     assert default.radius is None
-

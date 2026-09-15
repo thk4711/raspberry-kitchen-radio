@@ -1,4 +1,5 @@
 """Tests for the Phase 6 source feature-flag store and validators."""
+
 import os
 import stat
 
@@ -79,7 +80,7 @@ class TestSourcesStore:
         sources_store.save_sources(flags)
         assert os.path.isfile(sources_store.managed_backup_path())
 
-    def test_serialize_round_trips_through_player_parser(self):
+    def test_serialize_round_trips_through_player_parser(self, tmp_path):
         import sys
 
         sys.path.insert(0, os.path.join(os.getcwd(), "lib"))
@@ -88,13 +89,9 @@ class TestSourcesStore:
         flags = sources_store.default_flags()
         flags["bluetooth"] = False
         text = sources_store.serialize_sources(flags)
-        tmp = os.path.join(os.getcwd(), "tests", "_tmp_sources.ini")
-        with open(tmp, "w", encoding="utf-8") as handle:
-            handle.write(text)
-        try:
-            parsed = UtilityLibrary._parse_config(tmp)
-        finally:
-            os.unlink(tmp)
+        tmp = tmp_path / "sources.ini"
+        tmp.write_text(text, encoding="utf-8")
+        parsed = UtilityLibrary._parse_config(str(tmp))
         # The player parser coerces true/false to bool.
         assert parsed["sources"]["bluetooth"] is False
         assert parsed["sources"]["internet_radio"] is True

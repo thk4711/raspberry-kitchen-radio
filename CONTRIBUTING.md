@@ -26,9 +26,10 @@ Run the same checks CI enforces (see
 [`.github/workflows/ci.yml`](.github/workflows/ci.yml)):
 
 ```bash
-ruff check .            # lint (also: ruff format . to auto-format)
-mypy                    # static type check (the gated module set)
-pytest -q               # the full test suite
+ruff check .             # lint
+ruff format --check .    # verify the enforced Python formatting baseline
+mypy                     # static type check (all first-party production Python)
+pytest -q                # the full test suite
 ```
 
 Install the pre-commit hooks so all of the above (plus the buildroot shellcheck
@@ -47,14 +48,17 @@ your machine rather than in the pipeline:
   used without `from __future__ import annotations` — that syntax is evaluated
   at import time and breaks on the **Python 3.9** appliance floor, even though
   it runs fine on a newer local interpreter.
+- **mypy** checks all first-party production Python in `radio.py`, `lib/`,
+  `radio_web/`, and `scripts/`. The vendored `lib/ADS1x15/` driver is excluded;
+  hardware-only imports without host type stubs are treated as external.
 - **shellcheck** runs the **same version CI uses (0.9.0)** via the pinned
   `koalaman/shellcheck:v0.9.0` Docker image, so it does not drift from the
   pipeline (a newer local shellcheck can miss findings CI still reports). This
   hook needs Docker; if you don't have it, CI still enforces the check.
-- Formatting/whitespace fixers (`ruff-format`, trailing-whitespace, etc.) are
-  **not** CI gates, so they are opt-in (`stages: [manual]`) and never rewrite
-  the hand-formatted tree on a normal commit. Run them on demand, e.g.
-  `pre-commit run ruff-format --all-files`.
+- **Ruff format** runs on normal commits and CI verifies the result with
+  `ruff format --check .`. Run `ruff format .` to fix formatting locally.
+  Generic whitespace fixers remain opt-in (`stages: [manual]`) because they are
+  not CI gates.
 
 ### Guidelines
 

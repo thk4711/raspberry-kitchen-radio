@@ -31,21 +31,21 @@ SOURCE = ROOT / "doc" / "sound-devices.md"
 OUTPUT = ROOT / "doc" / "sound-devices.html"
 
 COLORS: dict[str, tuple[str, str]] = {
-    "display":  ("#d0eaff", "#004080"),
-    "adc":      ("#fff0d0", "#804000"),
-    "sound":    ("#d0ffd4", "#005010"),
+    "display": ("#d0eaff", "#004080"),
+    "adc": ("#fff0d0", "#804000"),
+    "sound": ("#d0ffd4", "#005010"),
     "amp-gpio": ("#fffdd0", "#504000"),
-    "uart":     ("#ffd4d4", "#500000"),
-    "free":     ("#f0f0f0", "#555555"),
+    "uart": ("#ffd4d4", "#500000"),
+    "free": ("#f0f0f0", "#555555"),
 }
 
 LABELS: dict[str, str] = {
-    "display":  "SPI display",
-    "adc":      "ADC (ADS1115)",
-    "sound":    "Sound card (I2S/PCM)",
+    "display": "SPI display",
+    "adc": "ADC (ADS1115)",
+    "sound": "Sound card (I2S/PCM)",
     "amp-gpio": "Amp GPIO controls",
-    "uart":     "UART",
-    "free":     "Free / available",
+    "uart": "UART",
+    "free": "Free / available",
 }
 
 _ANNOTATION_RE = re.compile(
@@ -60,10 +60,7 @@ def _replace_annotation(match: re.Match) -> str:
     if tag not in COLORS:
         return match.group(0)
     bg, fg = COLORS[tag]
-    style = (
-        f"background:{bg};color:{fg};"
-        "padding:1px 4px;border-radius:3px;font-size:0.95em;"
-    )
+    style = f"background:{bg};color:{fg};" "padding:1px 4px;border-radius:3px;font-size:0.95em;"
     return f'<span style="{style}">{text}</span>'
 
 
@@ -135,12 +132,9 @@ def convert(source: str) -> str:  # noqa: C901
                 in_table = False
             level = len(m.group(1))
             heading_text = _inline(m.group(2))
-            anchor = re.sub(r"[^a-z0-9\-]", "",
-                            heading_text.lower().replace(" ", "-"))
+            anchor = re.sub(r"[^a-z0-9\-]", "", heading_text.lower().replace(" ", "-"))
             anchor = re.sub(r"-+", "-", anchor).strip("-")
-            html_parts.append(
-                f'<h{level} id="{anchor}">{heading_text}</h{level}>'
-            )
+            html_parts.append(f'<h{level} id="{anchor}">{heading_text}</h{level}>')
             i += 1
             continue
 
@@ -163,10 +157,7 @@ def convert(source: str) -> str:  # noqa: C901
             if cells and cells[-1] == "":
                 cells = cells[:-1]
             # first data row → <th>
-            is_header = (
-                html_parts and
-                html_parts[-1].startswith("<table")
-            )
+            is_header = html_parts and html_parts[-1].startswith("<table")
             tag = "th" if is_header else "td"
             row = "".join(f"<{tag}>{_inline(c)}</{tag}>" for c in cells)
             html_parts.append(f"<tr>{row}</tr>")
@@ -188,8 +179,7 @@ def convert(source: str) -> str:  # noqa: C901
             flush_paragraph()
             html_parts.append("<ul>")
             while i < len(lines) and (
-                lines[i].strip().startswith("- ") or
-                lines[i].strip().startswith("* ")
+                lines[i].strip().startswith("- ") or lines[i].strip().startswith("* ")
             ):
                 item = lines[i].strip()[2:]
                 html_parts.append(f"<li>{_inline(item)}</li>")
@@ -200,9 +190,7 @@ def convert(source: str) -> str:  # noqa: C901
         # blockquote
         if stripped.startswith("> "):
             flush_paragraph()
-            html_parts.append(
-                f"<blockquote><p>{_inline(stripped[2:])}</p></blockquote>"
-            )
+            html_parts.append(f"<blockquote><p>{_inline(stripped[2:])}</p></blockquote>")
             i += 1
             continue
 
@@ -233,9 +221,7 @@ def _legend_html() -> str:
         "margin:0 -1.5em;padding:0.5em 1.5em;"
         "background:#fafafa;border-bottom:1px solid #ddd;"
         'box-shadow:0 2px 4px rgba(0,0,0,0.12);">'
-        "<strong>Pin description color key:</strong>&nbsp;"
-        + " ".join(items)
-        + "</div>"
+        "<strong>Pin description color key:</strong>&nbsp;" + " ".join(items) + "</div>"
     )
 
 
@@ -308,4 +294,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-

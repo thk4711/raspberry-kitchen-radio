@@ -12,6 +12,7 @@ adapter alias is read-only and follows the system hostname. This module only
 than raising, because the dashboard must render even when Bluetooth is disabled,
 the adapter is missing, or ``bluetoothctl`` is unavailable.
 """
+
 import subprocess
 from typing import Any, Dict, List, Optional
 

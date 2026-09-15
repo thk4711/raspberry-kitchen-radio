@@ -1,4 +1,5 @@
 """Tests for the read-only Bluetooth adapter status reader and MAC validator."""
+
 import pytest
 
 from radio_web import bluetooth_store, validators
@@ -14,9 +15,7 @@ _SHOW = """Controller AA:BB:CC:11:22:33 (public)
 
 class TestBluetoothValidators:
     def test_mac_address_ok(self):
-        assert validators.validate_mac_address("aa:bb:cc:dd:ee:ff") == (
-            "AA:BB:CC:DD:EE:FF"
-        )
+        assert validators.validate_mac_address("aa:bb:cc:dd:ee:ff") == ("AA:BB:CC:DD:EE:FF")
 
     def test_mac_address_rejects_junk(self):
         for bad in ("", "not-a-mac", "AA:BB:CC:DD:EE", "AA:BB:CC:DD:EE:FF:00"):
@@ -44,4 +43,3 @@ class TestBluetoothStore:
         assert info["alias"] == "Kitchen Radio"
         assert info["powered"] is True
         assert info["discoverable"] is False
-

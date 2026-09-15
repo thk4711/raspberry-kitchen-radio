@@ -71,7 +71,7 @@ def read_display_config(path: Path) -> dict:
     }
 
 
-def load_font(size: int) -> ImageFont.ImageFont:
+def load_font(size: int) -> ImageFont.FreeTypeFont | ImageFont.ImageFont:
     """Load the bundled font, falling back to PIL's default bitmap font."""
     try:
         return ImageFont.truetype(str(DEFAULT_FONT), size)
@@ -83,7 +83,7 @@ def draw_centered_text(
     draw: ImageDraw.ImageDraw,
     y: int,
     text: str,
-    font: ImageFont.ImageFont,
+    font: ImageFont.FreeTypeFont | ImageFont.ImageFont,
     image_width: int,
     fill: str,
 ) -> int:
@@ -94,7 +94,7 @@ def draw_centered_text(
     x = (image_width - text_width) // 2
     draw.text((x + 2, y + 2), text, font=font, fill="black")
     draw.text((x, y), text, font=font, fill=fill)
-    return y + text_height + 10
+    return int(y + text_height + 10)
 
 
 def draw_test_image(width: int, height: int, spi_freq: int, panel_label: str = "") -> Image.Image:
@@ -114,7 +114,9 @@ def draw_test_image(width: int, height: int, spi_freq: int, panel_label: str = "
     margin = 12
     draw.rectangle((margin, margin, width - margin - 1, height - margin - 1), fill="black")
     draw.rectangle((0, 0, width - 1, height - 1), outline="white", width=3)
-    draw.rectangle((margin, margin, width - margin - 1, height - margin - 1), outline="orange", width=2)
+    draw.rectangle(
+        (margin, margin, width - margin - 1, height - margin - 1), outline="orange", width=2
+    )
 
     # Diagonals help spot mirroring/rotation.
     draw.line((0, 0, width - 1, height - 1), fill="white", width=2)
@@ -168,15 +170,26 @@ def run_mock_now_playing(args) -> int:
     try:
         print("Radio now-playing: Deutschlandfunk Nova + stream title.")
         display.update_metadata(
-            "Deutschlandfunk Nova", "Chvrches - The Mother We Share",
-            logo("Deutschlandfunk_Nova.png"), "mock-1",
-            state=True, art_mode="radio", source="mpd")
+            "Deutschlandfunk Nova",
+            "Chvrches - The Mother We Share",
+            logo("Deutschlandfunk_Nova.png"),
+            "mock-1",
+            state=True,
+            art_mode="radio",
+            source="mpd",
+        )
         time.sleep(3)
 
         print("Crossfade to a second station (WS4.1).")
         display.update_metadata(
-            "MDR JUMP", "", logo("MDR_JUMP.png"), "mock-2",
-            state=True, art_mode="radio", source="mpd")
+            "MDR JUMP",
+            "",
+            logo("MDR_JUMP.png"),
+            "mock-2",
+            state=True,
+            art_mode="radio",
+            source="mpd",
+        )
         time.sleep(3)
 
         print("Volume OSD sweep (WS4.2).")
@@ -188,14 +201,26 @@ def run_mock_now_playing(args) -> int:
         print("Preset toast (WS4.5).")
         display.show_toast("MDR KULTUR")
         display.update_metadata(
-            "MDR KULTUR", "", logo("MDR_KULTUR.png"), "mock-3",
-            state=True, art_mode="radio", source="mpd")
+            "MDR KULTUR",
+            "",
+            logo("MDR_KULTUR.png"),
+            "mock-3",
+            state=True,
+            art_mode="radio",
+            source="mpd",
+        )
         time.sleep(3)
 
         print("Idle clock screensaver (WS4.4): pausing playback and waiting.")
         display.update_metadata(
-            "MDR KULTUR", "", logo("MDR_KULTUR.png"), "mock-3",
-            state=False, art_mode="radio", source="mpd")
+            "MDR KULTUR",
+            "",
+            logo("MDR_KULTUR.png"),
+            "mock-3",
+            state=False,
+            art_mode="radio",
+            source="mpd",
+        )
         # Force the idle timer well into the past so the screensaver appears.
         with display._state_lock:
             display._transient.last_activity -= 10_000
@@ -246,9 +271,9 @@ def main() -> int:
         "--mock-now-playing",
         action="store_true",
         help="drive the real DisplayController with mock metadata to eyeball the "
-             "redesigned now-playing UI + WS4 motion (crossfade, volume OSD, "
-             "preset toast, idle screensaver) on both ST7789 and GC9A01 panels. "
-             "Ignores --backlight.",
+        "redesigned now-playing UI + WS4 motion (crossfade, volume OSD, "
+        "preset toast, idle screensaver) on both ST7789 and GC9A01 panels. "
+        "Ignores --backlight.",
     )
     args = parser.parse_args()
 
@@ -273,9 +298,7 @@ def main() -> int:
     print(f"  panel:     {PanelClass.__name__}")
     print(f"  size:      {conf['width']}x{conf['height']}")
     print(f"  RST/DC/BL: BCM {conf['rst']} / {conf['dc']} / {conf['bl']}")
-    print(
-        f"  SPI:       bus {conf['spi_bus']}, device CE{conf['spi_device']}, mode 0"
-    )
+    print(f"  SPI:       bus {conf['spi_bus']}, device CE{conf['spi_device']}, mode 0")
     print(f"  SPI freq:  {conf['spi_freq']} Hz")
 
     disp = PanelClass(

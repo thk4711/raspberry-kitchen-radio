@@ -27,9 +27,7 @@ def test_completed_build_with_catalog_overlays_and_symbols_passes(tmp_path):
     kernel = tmp_path / "build" / "linux-test"
     kernel.mkdir(parents=True)
     symbols = {
-        symbol
-        for profile in store.PROFILES.values()
-        for symbol in profile.required_kernel_symbols
+        symbol for profile in store.PROFILES.values() for symbol in profile.required_kernel_symbols
     }
     (kernel / ".config").write_text(
         "".join(f"{symbol}=m\n" for symbol in sorted(symbols)), encoding="utf-8"
@@ -60,15 +58,20 @@ def test_every_audio_profile_has_one_documented_pinout_table():
 
     for index, profile in enumerate(store.PROFILES.values()):
         start = positions[index]
-        end = positions[index + 1] if index + 1 < len(positions) else text.index(
-            "## Stable routing", start
+        end = (
+            positions[index + 1]
+            if index + 1 < len(positions)
+            else text.index("## Stable routing", start)
         )
         section = text[start:end]
         assert f"### {profile.label}" in section
-        assert section.count(
-            "| BCM | Signal / radio connection | Physical pin (odd) | "
-            "Physical pin (even) | Signal / radio connection | BCM |"
-        ) == 1
+        assert (
+            section.count(
+                "| BCM | Signal / radio connection | Physical pin (odd) | "
+                "Physical pin (even) | Signal / radio connection | BCM |"
+            )
+            == 1
+        )
         for odd in range(1, 40, 2):
             assert f"**{odd}** | **{odd + 1}**" in section
         assert any(marker in section for marker in ("🟥", "🟧", "⬛"))

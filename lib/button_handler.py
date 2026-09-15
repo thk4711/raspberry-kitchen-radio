@@ -6,6 +6,7 @@ This provides a hardware button path parallel to the ADC button ladder in
 invokes a callback with the pressed button number (1..6) to match the
 ``RadioController.handle_button_press`` / ``MPDService.play_index`` contract.
 """
+
 import logging
 import time
 from typing import Callable, Optional
@@ -54,22 +55,34 @@ class ButtonHandler:
                 number (1..6) each time a debounced press is detected.
         """
         while True:
-            data = self.read_pcf8574()
-            if data is not None and data != self.last_data:
-                self.last_data = data
-                if time.time() - self.debounce_timer >= self.debounce_time:
-                    pressed_buttons = ~data & 0b00111111
-                    for i in range(6):
-                        if pressed_buttons & (1 << i):
-                            # Buttons are reported 1..6 to match the ADC button
-                            # path (adc_controller.find_button) and the
-                            # RadioController.handle_button_press / MPDService.play_index
-                            # contract.
-                            callback(i + 1)
-                    self.debounce_timer = time.time()
+            self.poll_once(callback)
             time.sleep(self.check_interval)
+
+    def poll_once(self, callback: Callable[[int], None], now: Optional[float] = None) -> None:
+        """Poll and dispatch one reading, allowing deterministic host tests.
+
+        ``monitor_buttons`` remains the production loop. Keeping one iteration
+        here makes debounce, active-low mapping, and I2C failures testable
+        without starting an unbounded thread. ``now`` defaults to the system
+        clock and is injectable only for tests.
+        """
+        data = self.read_pcf8574()
+        if data is None or data == self.last_data:
+            return
+
+        self.last_data = data
+        current_time = time.time() if now is None else now
+        if current_time - self.debounce_timer < self.debounce_time:
+            return
+
+        pressed_buttons = ~data & 0b00111111
+        for i in range(6):
+            if pressed_buttons & (1 << i):
+                # Buttons are reported 1..6 to match the ADC button path and
+                # RadioController/MPDService contracts.
+                callback(i + 1)
+        self.debounce_timer = current_time
 
     def cleanup(self) -> None:
         """Close the underlying I2C bus handle."""
         self.bus.close()
-

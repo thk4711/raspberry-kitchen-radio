@@ -54,14 +54,25 @@ Test discovery and the import path are configured in
 is added to `pythonpath`, so `from music_source import ...` resolves exactly as
 it does at runtime, where `radio.py` does `sys.path.insert(0, .../lib)`).
 
-To also see coverage:
+To see the raw coverage scope, including the vendored ADS1x15 driver and the
+on-target display diagnostic program:
 
 ```bash
-pytest --cov=lib --cov=radio_web --cov=radio --cov-report=term-missing
+pytest --cov --cov-report=term-missing
 ```
 
-CI runs the suite with a **coverage floor** (`--cov-fail-under=65`), so a change
-that drops overall coverage below that threshold fails the build.
+The raw number deliberately shows hardware/vendor gaps but is not a meaningful
+application quality gate. After collecting coverage, generate the separate
+first-party report with:
+
+```bash
+coverage report --omit='lib/ADS1x15/*,lib/display/display_test.py'
+```
+
+Only the vendored driver and the standalone target-hardware diagnostic are
+excluded; hardware-facing first-party adapters and panel drivers remain in the
+gate. CI requires **80% first-party coverage**; raise this ratcheted floor as
+additional runtime paths become safely testable on the host.
 
 ## Linting, formatting and type checks
 
@@ -70,8 +81,9 @@ The same `requirements-dev.txt` installs [`ruff`](https://docs.astral.sh/ruff/)
 
 ```bash
 ruff check .          # lint
-ruff format .         # (optional) auto-format
-mypy                  # type-check the modules listed in pyproject.toml
+ruff format --check . # verify the enforced formatting baseline
+ruff format .         # apply formatting fixes
+mypy                  # type-check all first-party production Python
 python3 scripts/check-release-consistency.py  # release identity and tag policy
 ```
 
@@ -88,9 +100,11 @@ pre-commit install
   the oldest supported interpreter, so lint/format never suggest syntax the
   appliance image or the CI floor cannot run. The vendored `lib/ADS1x15` driver
   is excluded.
-- **mypy** is being introduced incrementally: it currently gates the
-  fully-typed, self-contained modules (its `files` list lives in
-  `pyproject.toml`) and is widened as older modules gain type coverage. Its
+- **mypy** gates all first-party production Python in `radio.py`, `lib/`,
+  `radio_web/`, and `scripts/`: 96 of 96 files at the time this scope was
+  established. It also checks bodies of legacy functions that do not yet have
+  complete signatures. The vendored `lib/ADS1x15/` driver is excluded, and
+  hardware/system imports without host stubs are treated as external. The
   checker target is 3.10 while the runtime floor stays 3.9.
 
 ## Continuous integration
@@ -102,9 +116,9 @@ locally are enforced, plus repository-wide shell and hygiene checks:
 ```mermaid
 flowchart LR
     A["Checkout + setup-python<br/>(3.9 · 3.11 · 3.13)"] --> B["pip install<br/>requirements-dev.txt"]
-    B --> C["ruff check ."]
+    B --> C["ruff check .<br/>ruff format --check ."]
     C --> D["mypy"]
-    D --> E["pytest -q<br/>(--cov-fail-under=65)"]
+    D --> E["pytest -q<br/>raw coverage + first-party floor 80%"]
     E --> F["release consistency<br/>versions · metadata · tag"]
     F --> G["compileall<br/>lib radio.py tests"]
     G --> H["sh -n<br/>(buildroot/*.sh)"]
@@ -115,8 +129,28 @@ flowchart LR
 Run the Python-level checks locally before pushing to catch failures early:
 
 ```bash
-ruff check . && mypy && pytest -q
+ruff check . && ruff format --check . && mypy && pytest -q
 ```
+
+## Module ownership and growth
+
+Large subsystems are split by stable responsibility rather than by arbitrary
+line count. Keep new behavior with its owning domain:
+
+- `radio_web/routes.py` is the public dispatch facade; handlers belong in the
+  `route_*` module for their administration area, with request/response contracts
+  in `route_common.py`.
+- `radio_web/templates.py` is the public rendering facade; page markup belongs
+  in the corresponding `template_*` module and reusable escaped components in
+  `template_common.py`.
+- `lib/display/display_control.py` owns display state, scheduling, and panel I/O;
+  artwork and transient pixel rendering belong in `display_rendering.py`.
+- `radio_web/firmware_installer.py` owns trusted queue and worker lifecycle;
+  restricted SWU/CPIO parsing belongs in `firmware_archive.py`.
+
+The facades preserve existing imports. A new feature that crosses these
+boundaries should include an explicit decomposition decision in its review
+rather than growing a facade or combining unrelated responsibilities.
 
 ## The color-coded pinout HTML page
 

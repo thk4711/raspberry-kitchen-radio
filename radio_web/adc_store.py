@@ -113,9 +113,7 @@ def save_adc(submitted: Dict[str, str]) -> None:
     current = config_store.read_text(managed_adc_path())
     if current is not None:
         config_store.atomic_write(managed_backup_path(), current, config_store.CONFIG_MODE)
-    config_store.atomic_write(
-        managed_adc_path(), serialize_adc(cleaned), config_store.CONFIG_MODE
-    )
+    config_store.atomic_write(managed_adc_path(), serialize_adc(cleaned), config_store.CONFIG_MODE)
 
 
 def restore_builtin() -> None:

@@ -25,6 +25,7 @@ Design constraints honoured here:
 * No new runtime dependencies — numpy only (already on the image).
 * No I/O, no logging, no global state — pure functions.
 """
+
 from __future__ import annotations
 
 from typing import Optional, Sequence, Tuple
@@ -290,7 +291,7 @@ def horizontal_edge_fade(
     if right > 0:
         # Mirror of the left ramp: ~1 just inside falling to 0 at the outer edge.
         ramp = np.linspace(0.0, 1.0, right, endpoint=False, dtype=np.float32)[::-1]
-        alpha[width - right:] = ramp
+        alpha[width - right :] = ramp
 
     a = alpha[None, :, None]  # broadcast over rows and channels
     blended = region.astype(np.float32) * a + base.astype(np.float32) * (1.0 - a)
@@ -319,4 +320,3 @@ def pack_rgb565(rgb: np.ndarray) -> bytes:
     pix[..., 0] = (img[..., 0] & 0xF8) | (img[..., 1] >> 5)
     pix[..., 1] = ((img[..., 1] << 3) & 0xE0) | (img[..., 2] >> 3)
     return pix.tobytes()
-

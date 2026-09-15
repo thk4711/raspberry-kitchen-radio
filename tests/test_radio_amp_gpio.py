@@ -4,6 +4,7 @@ The amp-enable pin is now per sound card and may be absent (a board with no
 power amp). These tests exercise ``_resolve_amp_pin`` and the ``GPIO`` guards
 without running the full, hardware-heavy ``RadioController.__init__``.
 """
+
 import sys
 import types
 from unittest import mock
@@ -14,9 +15,7 @@ def _import_radio(monkeypatch):
     monkeypatch.setitem(sys.modules, "yaml", types.ModuleType("yaml"))
     display_module = types.ModuleType("display.display_control")
     display_module.DisplayController = mock.Mock()
-    monkeypatch.setitem(
-        sys.modules, "display.display_control", display_module
-    )
+    monkeypatch.setitem(sys.modules, "display.display_control", display_module)
     import radio
 
     return radio

@@ -18,6 +18,7 @@ D-Bus and Avahi are **derived** from the user-facing flags and are never exposed
 as switches: :func:`derived_dependencies` computes
 them so the Sources page can show them as read-only notes.
 """
+
 import os
 import re
 from typing import Dict, List, Optional, Tuple
@@ -141,9 +142,7 @@ def serialize_sources(flags: Dict[str, bool]) -> str:
 def _backup_existing() -> None:
     current = config_store.read_text(managed_sources_path())
     if current is not None:
-        config_store.atomic_write(
-            managed_backup_path(), current, config_store.CONFIG_MODE
-        )
+        config_store.atomic_write(managed_backup_path(), current, config_store.CONFIG_MODE)
 
 
 def save_sources(flags: Dict[str, bool]) -> None:
@@ -157,9 +156,7 @@ def save_sources(flags: Dict[str, bool]) -> None:
     cleaned = validate_flags(flags)
     payload = serialize_sources(cleaned)
     _backup_existing()
-    config_store.atomic_write(
-        managed_sources_path(), payload, config_store.CONFIG_MODE
-    )
+    config_store.atomic_write(managed_sources_path(), payload, config_store.CONFIG_MODE)
 
 
 def restore_builtin() -> None:

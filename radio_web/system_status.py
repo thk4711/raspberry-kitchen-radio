@@ -15,6 +15,7 @@ point them at fakes. Every collector is defensive: a missing file or a failing
 command degrades to ``None``/empty rather than raising, because the dashboard
 must render even when the player is down or a metric is unavailable.
 """
+
 import json
 import os
 import shutil
@@ -22,7 +23,7 @@ import subprocess
 import time
 from typing import Any, Dict, List, Optional
 
-from . import bluetooth_store
+from . import bluetooth_store, provisioning_status
 
 # ---------------------------------------------------------------------------
 # Paths / commands (module-level so tests can monkeypatch them).
@@ -71,9 +72,7 @@ def _read_text(path: str) -> Optional[str]:
 def _run(cmd: List[str]) -> Optional[str]:
     """Run a read-only command (``shell=False``); return stdout or ``None``."""
     try:
-        result = subprocess.run(
-            cmd, capture_output=True, text=True, timeout=_COMMAND_TIMEOUT
-        )
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=_COMMAND_TIMEOUT)
     except (OSError, subprocess.SubprocessError):
         return None
     if result.returncode != 0:
@@ -194,7 +193,7 @@ def wifi_info() -> Dict[str, Optional[Any]]:
         for line in link.splitlines():
             stripped = line.strip()
             if stripped.startswith("SSID:"):
-                info["ssid"] = stripped[len("SSID:"):].strip() or None
+                info["ssid"] = stripped[len("SSID:") :].strip() or None
             elif stripped.startswith("signal:"):
                 # e.g. "signal: -51 dBm"
                 tokens = stripped.split()
@@ -294,5 +293,6 @@ def collect(now: Optional[float] = None) -> Dict[str, Any]:
         "heartbeat_age_seconds": heartbeat_age_seconds(now=now),
         "player": player_status(now=now),
         "bluetooth": bluetooth_store.adapter_info(),
+        "provisioning": provisioning_status.incomplete_settings(),
         "source_labels": SOURCE_LABELS,
     }

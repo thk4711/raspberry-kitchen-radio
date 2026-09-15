@@ -14,6 +14,7 @@ The panel driver is replaced with a recording fake by patching
 of which panel name is configured; spidev/gpiozero are already stubbed in
 conftest.
 """
+
 import sys
 import types
 
@@ -60,6 +61,13 @@ def test_render_splash_frame_matches_packed_signature():
     frame = boot_splash.render_splash_frame(240, 280, theme)
     pix = compositor.pack_rgb565(np.asarray(frame))
     assert len(pix) == 240 * 280 * 2
+
+
+def test_setup_required_subtitle_changes_splash():
+    theme = theme_mod.build_theme(None)
+    normal = boot_splash.render_splash_frame(240, 280, theme)
+    warning = boot_splash.render_splash_frame(240, 280, theme, "SETUP REQUIRED")
+    assert warning.tobytes() != normal.tobytes()
 
 
 def test_main_pushes_one_frame_and_lights_backlight(monkeypatch):
@@ -137,4 +145,3 @@ def test_main_never_raises_and_returns_zero(monkeypatch):
     monkeypatch.setattr(panel_factory, "get_panel_class", lambda name: _Boom)
 
     assert boot_splash.main() == 0
-

@@ -138,6 +138,10 @@ applied immediately; disabling it closes new SSH access after the current
 session ends. An SD-card `radio-config.txt` setting of `enable_ssh=0` still
 overrides the web setting.
 
+The generic image has root password login locked. SSH can be enabled only after
+a unique root password has been explicitly provisioned through
+`radio-config.txt`; the web interface cannot create or reveal that credential.
+
 A separate **Physical controls** card links to live ADC debugging and
 calibration for the volume knob, preset buttons and power switch.
 

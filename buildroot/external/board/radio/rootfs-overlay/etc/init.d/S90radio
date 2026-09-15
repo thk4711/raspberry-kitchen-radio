@@ -77,6 +77,20 @@ cd $APP_DIR || exit 1
 export RADIO_LOG_LEVEL="\${RADIO_LOG_LEVEL:-ERROR}"
 export RADIO_I2C_BUS="\${RADIO_I2C_BUS:-1}"
 export RADIO_HEARTBEAT_FILE="$HEARTBEAT"
+RESTART_REASON=/run/radio-restart-reason
+
+record_restart() {
+	reason=\$(cat "\$RESTART_REASON" 2>/dev/null || echo process_exit)
+	case "\$reason" in
+		heartbeat_timeout|process_exit) ;;
+		*) reason=process_exit ;;
+	esac
+	(
+		cd $APP_DIR || exit 1
+		/usr/bin/python3 -m radio_web.operational_summary restart --reason "\$reason"
+	) >/dev/null 2>&1 || true
+	rm -f "\$RESTART_REASON"
+}
 
 wait_for_i2c() {
 	i=0
@@ -139,6 +153,7 @@ while true; do
 	fi
 
 	echo "radio.py exited (\$rc) after \${ran}s, restarting in \${backoff}s" >&2
+	record_restart
 	sleep "\$backoff"
 
 	backoff=\$((backoff * 2))
@@ -201,6 +216,7 @@ while true; do
 		echo "radio.py heartbeat stale (\${age}s > \${TIMEOUT}s); killing frozen app" >&2
 		# Kill only the supervised player so the supervisor respawns it. Drop the
 		# stale heartbeat so we do not immediately kill the fresh instance.
+		printf 'heartbeat_timeout\n' > /run/radio-restart-reason
 		kill_supervised_player
 		rm -f "\$HEARTBEAT" 2>/dev/null || true
 		sleep "\$TIMEOUT"

@@ -109,6 +109,14 @@ class TestTemplates:
         assert 'src="/static/app.js?v=1"' in html
         assert "Playing" in html
 
+    def test_dashboard_shows_incomplete_provisioning_without_values(self):
+        html = templates.dashboard(
+            self._status(provisioning=["WiFi network name", "WiFi password"])
+        )
+        assert "Setup incomplete" in html
+        assert "WiFi network name" in html
+        assert "radio-config.txt" in html
+
     def test_dashboard_shows_bluetooth_adapter_info(self):
         html = templates.dashboard(self._status())
         # Read-only informational block only: name/state, no controls.
@@ -189,7 +197,7 @@ class TestTemplates:
 
     def test_page_uses_shared_application_shell(self):
         html = templates.dashboard(self._status())
-        assert 'href="/static/app.css?v=16"' in html
+        assert 'href="/static/app.css?v=17"' in html
         assert 'href="/static/radio.svg?v=1"' in html
         assert 'class="site-header"' in html
         assert 'aria-label="Main navigation"' in html
@@ -759,6 +767,30 @@ class TestDeviceRoutes:
         status, _c, body, _h = routes.resolve(req)
         assert status == 200
         assert "Device name" in body
+
+    def test_device_rejects_ssh_without_provisioned_root_password(self, monkeypatch, tmp_path):
+        sessions = auth.SessionStore()
+        session = sessions.create()
+        monkeypatch.setattr("radio_web.device_store.root_password_is_provisioned", lambda: False)
+        req = self._ctx(
+            monkeypatch,
+            tmp_path,
+            "POST",
+            "/device",
+            sessions=sessions,
+            session=session,
+            form={
+                "op": "save",
+                "name": "radio1",
+                "timezone": "UTC",
+                "ntp_server": "pool.ntp.org",
+                "ssh_enabled": "true",
+                "csrf_token": session.csrf_token,
+            },
+        )
+        status, _c, body, _h = routes.resolve(req)
+        assert status == 200
+        assert "unique root_password" in body
 
     def test_device_locked_hostname_field_disabled(self, monkeypatch, tmp_path):
         sessions = auth.SessionStore()
@@ -1360,6 +1392,7 @@ class TestSettingsRoutes:
         assert status == 303
         assert ("Location", "/settings?msg=saved") in headers
         from radio_web import display_store
+
         loaded = display_store.load_display()
         assert loaded["rotate_180"] == "true"
 
@@ -1399,6 +1432,7 @@ class TestSettingsRoutes:
         assert status == 303
         assert ("Location", "/settings?msg=saved") in headers
         from radio_web import display_store
+
         loaded = display_store.load_display()
         assert loaded["panel"] == "gc9a01"
         text = open(display_store.managed_display_path()).read()
@@ -1411,6 +1445,7 @@ class TestSettingsRoutes:
         # Save gc9a01 first, then GET should show it selected.
         from radio_web import config_store as cs
         from radio_web import display_store
+
         monkeypatch.setattr(cs, "MANAGED_CONFIG_DIR", str(tmp_path))
         display_store.save_display({**display_store.DEFAULTS, "panel": "gc9a01"})
         req = self._authed(monkeypatch, tmp_path, "GET", "/settings")
@@ -1477,9 +1512,7 @@ class TestAudioHardwareRoutes:
         assert 'name="eq_preamp_db" min="-24" max="0" step="0.1" value="-3.0"' in body
         assert "Save and Apply updates the sound live without interrupting playback" in body
 
-        script = (Path(routes.__file__).with_name("static") / "app.js").read_text(
-            encoding="utf-8"
-        )
+        script = (Path(routes.__file__).with_name("static") / "app.js").read_text(encoding="utf-8")
         stylesheet = (Path(routes.__file__).with_name("static") / "app.css").read_text(
             encoding="utf-8"
         )
@@ -1527,9 +1560,7 @@ class TestAudioHardwareRoutes:
         assert seen == [("apply_equalizer", {})]
         assert equalizer_store.load_equalizer()["bands"][0]["gain_db"] == 4.5
 
-    def test_post_apply_equalizer_ajax_returns_json_without_redirect(
-        self, monkeypatch, tmp_path
-    ):
+    def test_post_apply_equalizer_ajax_returns_json_without_redirect(self, monkeypatch, tmp_path):
         import json
 
         from radio_web import equalizer_store
@@ -1821,9 +1852,7 @@ class TestAudioHardwareRoutes:
         monkeypatch.setattr("radio_web.config_store.MANAGED_CONFIG_DIR", str(tmp_path))
         # Seed a non-default max volume so restore has something to clear.
         audio_store.save_audio({"max_volume": "50"})
-        equalizer_store.save_equalizer(
-            equalizer_store.settings_as_form(equalizer_store.defaults())
-        )
+        equalizer_store.save_equalizer(equalizer_store.settings_as_form(equalizer_store.defaults()))
         assert os.path.exists(audio_store.managed_audio_path())
         assert os.path.exists(equalizer_store.managed_equalizer_path())
         form = {"op": "restore", "csrf_token": session.csrf_token}

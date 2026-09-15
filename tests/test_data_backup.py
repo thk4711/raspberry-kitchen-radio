@@ -17,9 +17,7 @@ def data_tree(monkeypatch, tmp_path):
     (data / "update").mkdir()
     (data / "radio" / "schema-version").write_text("1\n")
     (data / "radio" / "stations.ini").write_text("[one]\nname = Test\n")
-    (data / "radio" / "equalizer.ini").write_text(
-        "[equalizer]\nenabled = true\npreamp_db = -3\n"
-    )
+    (data / "radio" / "equalizer.ini").write_text("[equalizer]\nenabled = true\npreamp_db = -3\n")
     (data / "network" / "wpa_supplicant.conf").write_text("secret-network\n")
     (data / "identity" / "root-password.hash").write_text("secret-hash\n")
     (data / "bluetooth" / "info").write_text("pairing-secret\n")
@@ -38,6 +36,8 @@ def data_tree(monkeypatch, tmp_path):
 
 
 def test_backup_includes_selected_roots_and_excludes_update(data_tree):
+    (data_tree / "operations").mkdir()
+    (data_tree / "operations" / "summary.json").write_text('{"schema":1}\n')
     ok, message = data_backup.create_backup()
     assert ok, message
     with tarfile.open(data_backup.BACKUP_PATH, "r:gz") as archive:
@@ -48,6 +48,7 @@ def test_backup_includes_selected_roots_and_excludes_update(data_tree):
         assert "data/identity/root-password.hash" in names
         assert "data/bluetooth/info" in names
         assert not any(name.startswith("data/update") for name in names)
+        assert not any(name.startswith("data/operations") for name in names)
         manifest = json.load(archive.extractfile("manifest.json"))
     assert manifest["included_roots"] == list(data_backup.INCLUDED_ROOTS)
 

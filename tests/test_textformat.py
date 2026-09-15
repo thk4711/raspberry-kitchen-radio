@@ -2,6 +2,7 @@
 
 No Pillow, no numpy, no hardware — pure string logic, runnable anywhere.
 """
+
 from display import textformat
 
 
@@ -20,22 +21,21 @@ def test_cover_mode_missing_artist_shows_only_title():
 
 def test_radio_mode_splits_artist_dash_title():
     primary, secondary = textformat.split_artist_title(
-        "Deutschlandfunk", "Coldplay - Yellow", "radio")
-    assert primary == "Yellow"      # track is the headline
+        "Deutschlandfunk", "Coldplay - Yellow", "radio"
+    )
+    assert primary == "Yellow"  # track is the headline
     assert secondary == "Coldplay"  # artist is the subtitle
 
 
 def test_radio_mode_splits_on_en_dash():
-    primary, secondary = textformat.split_artist_title(
-        "Station", "Artist \u2013 Track", "radio")
+    primary, secondary = textformat.split_artist_title("Station", "Artist \u2013 Track", "radio")
     assert primary == "Track"
     assert secondary == "Artist"
 
 
 def test_radio_mode_does_not_split_hyphenated_name():
     # A bare hyphen without surrounding spaces must not split.
-    primary, secondary = textformat.split_artist_title(
-        "Station", "Jean-Michel Jarre", "radio")
+    primary, secondary = textformat.split_artist_title("Station", "Jean-Michel Jarre", "radio")
     assert primary == "Jean-Michel Jarre"
     assert secondary == "Station"
 
@@ -48,8 +48,7 @@ def test_radio_mode_no_stream_title_shows_station():
 
 def test_radio_mode_strips_trailing_space_from_stream_title():
     # MPD appends a trailing space to the stream title.
-    primary, secondary = textformat.split_artist_title(
-        "Station", "Nice Song ", "radio")
+    primary, secondary = textformat.split_artist_title("Station", "Nice Song ", "radio")
     assert primary == "Nice Song"
 
 

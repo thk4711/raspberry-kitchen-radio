@@ -32,17 +32,13 @@ BR2_TOOLCHAIN_EXTERNAL_BOOTLIN_ARMV7_EABIHF_GLIBC_BLEEDING_EDGE=y
 # patches (currently the host-visible UAC1 interface-name correction).
 BR2_GLOBAL_PATCH_DIR="board/raspberrypi/patches $(BR2_EXTERNAL_RADIO_PATH)/board/radio/patches"
 # --- Download integrity ------------------------------------------------------
-# BR2_DOWNLOAD_FORCE_CHECK_HASHES is intentionally NOT enabled. The go-librespot
-# package (external tree) is a golang package: Buildroot runs `go mod vendor`
-# as a post-download step and would hash-check the *vendored* archive it
-# produces (go-librespot-v0.9.0-go<N>.tar.gz). That archive's digest — and even
-# its "-go<N>" filename suffix — depend on the exact host-go that Buildroot
-# 2026.05.2 ships, so a pinned hash is brittle across host/toolchain updates and
-# broke fresh builds. We ship no .hash for go-librespot and leave FORCE_CHECK
-# off so a missing hash is not a fatal error. This is a deliberate tradeoff:
-# only downloads *without* a hash entry go unverified (in practice just the
-# go-librespot vendored archive) — every upstream Buildroot package still ships
-# and enforces its own bundled .hash file.
+# go-librespot has a repository-owned hash for the `-go2` archive produced after
+# Buildroot runs `go mod vendor`; Buildroot enforces that entry whether or not
+# forced checking is enabled. Upstream packages use the hash files bundled with
+# pinned Buildroot 2026.05.2, while local radio-* packages download no archives.
+# Keep the global force option unset: it is not needed to enforce existing hash
+# entries and changing that image-wide policy requires a separate clean-build
+# audit of every selected package and custom source.
 # BR2_DOWNLOAD_FORCE_CHECK_HASHES is not set
 
 # Kernel: the exact Raspberry Pi Foundation kernel tarball the proven base
@@ -124,9 +120,12 @@ BR2_ROOTFS_DEVICE_CREATION_DYNAMIC_MDEV=y
 # provision-from-boot uses BusyBox chpasswd to apply root_password= from the
 # SD-card radio-config.txt. The fragment is merged into BusyBox's config.
 BR2_PACKAGE_BUSYBOX_CONFIG_FRAGMENT_FILES="$(BR2_EXTERNAL_RADIO_PATH)/board/radio/busybox.fragment"
-BR2_TARGET_GENERIC_HOSTNAME="changeme"
+BR2_TARGET_GENERIC_HOSTNAME="kitchen-radio"
 BR2_TARGET_GENERIC_ISSUE="Raspberry Kitchen Radio"
-BR2_TARGET_GENERIC_ROOT_PASSWD="changeme"
+# A generic image must never contain a reusable login. Buildroot writes a locked
+# root shadow entry when password login is disabled. Explicit root_password=
+# provisioning uses chpasswd to unlock it and persists only the resulting hash.
+# BR2_TARGET_ENABLE_ROOT_LOGIN is not set
 # No Ethernet on the Pi 3A+ — WiFi is brought up via the overlay (S41wlan +
 # /etc/network/interfaces), so disable the default eth0 DHCP from the base.
 BR2_SYSTEM_DHCP=""
@@ -299,8 +298,8 @@ BR2_PACKAGE_RADIO_APP=y
 
 # --- Remote access -----------------------------------------------------------
 # Dropbear SSH server (ships /etc/init.d/S50dropbear), disabled by default until
-# explicitly enabled in radio-config.txt or the web UI. Root password is set
-# above via BR2_TARGET_GENERIC_ROOT_PASSWD.
+# explicitly enabled in radio-config.txt or the web UI. Both paths additionally
+# require a non-default root password to have been provisioned and persisted.
 BR2_PACKAGE_DROPBEAR=y
 BR2_PACKAGE_DROPBEAR_CLIENT=y
 
