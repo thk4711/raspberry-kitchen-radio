@@ -93,6 +93,7 @@ install_host_packages() {
 	# Packages required by Buildroot's host prerequisites plus what our kernel /
 	# firmware / go builds need. See buildroot/README.md and the Buildroot manual.
 	pkgs="build-essential bc bison flex libncurses-dev libssl-dev swupdate \
+		libubootenv-tool \
 		rsync cpio unzip wget file git python3 gawk perl \
 		mtools dosfstools genext2fs"
 
@@ -111,6 +112,46 @@ install_host_packages() {
 	$sudo_cmd apt-get update
 	# shellcheck disable=SC2086 # word-splitting the package list is intended.
 	$sudo_cmd apt-get install -y $pkgs
+}
+
+# --- Preflight: a runnable native SWUpdate checker must exist -----------------
+# The final image step validates the generated .swu with a native amd64
+# "swupdate" checker (build-swu.sh). It must actually run — a binary whose
+# shared libraries (for example libubootenv.so.0) cannot be resolved exits 127.
+# Verify this up front (even with --no-apt) so a missing tool fails in seconds
+# instead of after a full build.
+checker_runs() {
+	probe=$(mktemp) || return 1
+	"$1" -c -i "$probe" -e stable,slot-a >/dev/null 2>&1
+	status=$?
+	rm -f "$probe"
+	[ "$status" -ne 127 ]
+}
+
+preflight_tooling() {
+	checker=""
+	if [ -n "${SWUPDATE_CHECKER:-}" ]; then
+		checker="$SWUPDATE_CHECKER"
+	else
+		buildroot_parent=$(CDPATH='' cd -- "${BUILDROOT_DIR}/.." && pwd 2>/dev/null || true)
+		for candidate in \
+			"${buildroot_parent}/swupdate-checker-build/swupdate" \
+			"${buildroot_parent}/swupdate-native/usr/bin/swupdate" \
+			"$(command -v swupdate || true)"; do
+			if [ -n "$candidate" ] && [ -x "$candidate" ] && checker_runs "$candidate"; then
+				checker="$candidate"
+				break
+			fi
+		done
+	fi
+	if [ -z "$checker" ] || [ ! -x "$checker" ] || ! checker_runs "$checker"; then
+		echo "build.sh: preflight found no working native swupdate checker." >&2
+		echo "build.sh: install the swupdate package (Debian/Ubuntu: apt-get install swupdate," >&2
+		echo "build.sh: which pulls libubootenv0.1) or set SWUPDATE_CHECKER to a runnable binary." >&2
+		echo "build.sh: (run without --no-apt to install host packages automatically)." >&2
+		die "required SWUpdate checker tooling is missing"
+	fi
+	echo "build.sh: preflight OK — swupdate checker = $checker"
 }
 
 # --- 2/3. Working dirs + stock Buildroot checkout ----------------------------
@@ -247,6 +288,7 @@ echo
 
 install_host_packages
 prepare_buildroot
+preflight_tooling
 build_image
 report_images
 

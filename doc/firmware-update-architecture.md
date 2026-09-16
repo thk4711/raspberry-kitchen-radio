@@ -213,6 +213,15 @@ failed payload write must not intentionally select a partially written slot.
 The target does not run an SWUpdate daemon or web server. The application starts
 SWUpdate locally for one fixed package and one derived software selection.
 
+On the target, hardware compatibility is verified against the device's real
+`/etc/hwrevision`. The build host has no such file, so the host-side self-check
+(`swupdate -c`) passes the revision explicitly with `-H radio:<revision>` (the
+revision comes from `HARDWARE_REVISION` in `scripts/build_firmware_swu.py`, the
+same value written into the manifest and release metadata). The board token is
+only logged; SWUpdate matches solely the revision against the manifest's
+`hardware-compatibility` list, so the check remains meaningful — a mismatched
+revision still fails — while never depending on host state.
+
 ## `.swu` format and build
 
 `post-image.sh` invokes `build-swu.sh` after the root filesystem is complete.
@@ -263,7 +272,13 @@ sha256sum kitchen-radio-<version>.swu
 ```
 
 Use a native checker matching the target SWUpdate grammar; the ARM target binary
-cannot run on an amd64 build host.
+cannot run on an amd64 build host. The build selects the checker in this order:
+`SWUPDATE_CHECKER`, then the staged `swupdate-checker-build`/`swupdate-native`
+trees beside the Buildroot checkout, then `swupdate` on `PATH`. A candidate is
+only accepted if it actually runs — a binary whose shared libraries (for example
+`libubootenv.so.0`, from the `libubootenv0.1` package) cannot be resolved exits
+127 and is skipped. `build.sh` preflights this before the long build and fails
+fast with an actionable message when no runnable checker is found.
 
 ## Linux installation tooling
 

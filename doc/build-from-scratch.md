@@ -127,8 +127,11 @@ python3 scripts/build_image.py --execution remote \
 
 The raw image is ZIP-compressed by default; use `--no-zip` to retain a raw
 `.img`. Use the image for installation/recovery and the matching `.swu` through
-the Maintenance web interface. Run `python3 scripts/build_image.py --help` for
-all settings or add `--dry-run` to inspect resolved paths without building.
+the Maintenance web interface. Parallel `make` jobs auto-detect the build host's
+core count by default, so a remote build scales to the remote machine; set
+`--jobs N` (or `jobs = N` in the INI) only to cap parallelism. Run
+`python3 scripts/build_image.py --help` for all settings or add `--dry-run` to
+inspect resolved paths without building.
 
 
 ## Step 3 — Write the image to the SD card

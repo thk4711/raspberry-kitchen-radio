@@ -30,6 +30,7 @@ CONFIG_KEYS = {
     "execution",
     "repository",
     "host",
+    "ssh_port",
     "remote_root",
     "buildroot_dir",
     "download_cache",
@@ -38,6 +39,7 @@ CONFIG_KEYS = {
     "zip_image",
     "delete_remote_files",
     "install_host_packages",
+    "allow_unverified_buildroot",
 }
 
 
@@ -76,20 +78,25 @@ def remote(
     host: str,
     command: str,
     *,
+    port: int = 22,
     check: bool = True,
     capture_output: bool = False,
 ) -> subprocess.CompletedProcess[str]:
     """Run one non-interactive SSH command."""
+    ssh = ["ssh", "-o", "BatchMode=yes", "-o", "ConnectTimeout=15"]
+    if port != 22:
+        ssh += ["-p", str(port)]
+    ssh += [host, command]
     return run(
-        ["ssh", "-o", "BatchMode=yes", "-o", "ConnectTimeout=15", host, command],
+        ssh,
         check=check,
         capture_output=capture_output,
     )
 
 
-def remote_output(host: str, command: str) -> str:
+def remote_output(host: str, command: str, *, port: int = 22) -> str:
     """Run a remote command and return trimmed standard output."""
-    return remote(host, command, capture_output=True).stdout.strip()
+    return remote(host, command, port=port, capture_output=True).stdout.strip()
 
 
 def sha256(path: Path) -> str:
@@ -198,9 +205,13 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     config_path = preliminary.config.expanduser().resolve() if explicit_config else DEFAULT_CONFIG
     values = config_values(config_path, explicit=explicit_config)
     try:
-        jobs = int(values.get("jobs", max(1, os.cpu_count() or 1)))
+        jobs = int(values["jobs"]) if "jobs" in values else None
     except ValueError as exc:
         raise BuildError("configuration option jobs must be an integer") from exc
+    try:
+        ssh_port = int(values.get("ssh_port", 22))
+    except ValueError as exc:
+        raise BuildError("configuration option ssh_port must be an integer") from exc
 
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
@@ -220,6 +231,12 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
         default=Path(values.get("repository", str(DEFAULT_REPOSITORY))),
     )
     parser.add_argument("--host", default=values.get("host", ""))
+    parser.add_argument(
+        "--ssh-port",
+        type=int,
+        default=ssh_port,
+        help="SSH/scp/rsync port for remote execution (default: 22; only needed for non-standard ports)",
+    )
     parser.add_argument("--remote-root", default=values.get("remote_root", ""))
     parser.add_argument(
         "--buildroot-dir",
@@ -236,7 +253,13 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
         type=Path,
         default=Path(values.get("artifacts_dir", str(DEFAULT_REPOSITORY / "artifacts"))),
     )
-    parser.add_argument("--jobs", type=int, default=jobs)
+    parser.add_argument(
+        "--jobs",
+        type=int,
+        default=jobs,
+        help="parallel make jobs on the build host "
+        "(default: auto-detect the build host's core count)",
+    )
     parser.add_argument("--dry-run", action="store_true")
     mode = parser.add_mutually_exclusive_group()
     mode.add_argument("--fast", action="store_true")
@@ -258,17 +281,37 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     )
     apt_group.add_argument("--no-apt", dest="install_host_packages", action="store_false")
     parser.set_defaults(install_host_packages=_config_bool(values, "install_host_packages", False))
+    unverified_group = parser.add_mutually_exclusive_group()
+    unverified_group.add_argument(
+        "--allow-unverified-buildroot",
+        dest="allow_unverified_buildroot",
+        action="store_true",
+        help="force the build even if the Buildroot checkout is dirty or not the pinned commit "
+        "(development only)",
+    )
+    unverified_group.add_argument(
+        "--verified-buildroot", dest="allow_unverified_buildroot", action="store_false"
+    )
+    parser.set_defaults(
+        allow_unverified_buildroot=_config_bool(values, "allow_unverified_buildroot", False)
+    )
     return parser.parse_args(argv)
 
 
 def build_flags(args: argparse.Namespace) -> list[str]:
-    flags = ["--jobs", str(args.jobs)]
+    # Only forward --jobs when explicitly configured; otherwise let build.sh
+    # default to nproc, which over SSH is the remote build host's core count.
+    flags: list[str] = []
+    if args.jobs is not None:
+        flags += ["--jobs", str(args.jobs)]
     if not args.install_host_packages:
         flags.append("--no-apt")
     if args.dirclean:
         flags.append("--dirclean")
     elif args.clean:
         flags.append("--clean")
+    if args.allow_unverified_buildroot:
+        flags.append("--allow-unverified-buildroot")
     return flags
 
 
@@ -293,11 +336,21 @@ def local_build(args: argparse.Namespace, repository: Path) -> tuple[Path, Path]
     return images / "sdcard.img", images / f"kitchen-radio-{args.version}.swu"
 
 
+def scp_base(args: argparse.Namespace) -> list[str]:
+    """Return the scp command prefix, adding the port only when non-standard."""
+    command = ["scp", "-o", "BatchMode=yes"]
+    if args.ssh_port != 22:
+        command += ["-P", str(args.ssh_port)]
+    return command
+
+
 def remote_build(args: argparse.Namespace, repository: Path) -> tuple[str, str]:
     """Stage the checkout, build it remotely, and return artifact paths."""
     remote_repository = f"{args.remote_root.rstrip('/')}/radio-repo-{args.version}-{args.stamp}"
-    remote(args.host, f"mkdir -p {shlex.quote(remote_repository)}")
+    remote(args.host, f"mkdir -p {shlex.quote(remote_repository)}", port=args.ssh_port)
     sync = ["rsync", "-az"]
+    if args.ssh_port != 22:
+        sync += ["-e", f"ssh -p {args.ssh_port}"]
     if args.delete_remote_files:
         sync.append("--delete")
     sync.extend(
@@ -323,18 +376,22 @@ def remote_build(args: argparse.Namespace, repository: Path) -> tuple[str, str]:
         f"BR2_DL_DIR={shlex.quote(str(args.download_cache))} "
         f"./buildroot/build.sh {flags}"
     )
-    remote(args.host, build)
+    remote(args.host, build, port=args.ssh_port)
     if args.fast:
         fast = (
             f"cd {shlex.quote(str(args.buildroot_dir))} && "
             "make radio-app-dirclean radio-equalizer-dirclean && "
             f"make -j{args.jobs}"
         )
-        remote(args.host, fast)
+        remote(args.host, fast, port=args.ssh_port)
     images = f"{str(args.buildroot_dir).rstrip('/')}/output/images"
     image = f"{images}/sdcard.img"
     swu = f"{images}/kitchen-radio-{args.version}.swu"
-    remote(args.host, f"test -s {shlex.quote(image)} && test -s {shlex.quote(swu)}")
+    remote(
+        args.host,
+        f"test -s {shlex.quote(image)} && test -s {shlex.quote(swu)}",
+        port=args.ssh_port,
+    )
     return image, swu
 
 
@@ -357,8 +414,10 @@ def main(argv: Sequence[str] | None = None) -> int:
         raise BuildError("remote execution requires both host and remote_root")
     if not repository.is_dir() or not (repository / "buildroot" / "build.sh").is_file():
         raise BuildError(f"not a Raspberry Kitchen Radio repository: {repository}")
-    if args.jobs < 1:
+    if args.jobs is not None and args.jobs < 1:
         raise BuildError("jobs must be at least 1")
+    if not 1 <= args.ssh_port <= 65535:
+        raise BuildError("ssh_port must be between 1 and 65535")
 
     args.version = firmware_version(repository)
     revision = git_revision(repository)
@@ -372,8 +431,15 @@ def main(argv: Sequence[str] | None = None) -> int:
     print(f"Repository: {repository}")
     print(f"Buildroot: {args.buildroot_dir}")
     print(f"Download cache: {args.download_cache}")
+    if args.jobs is None:
+        print("Parallel jobs: auto (nproc on the build host)")
+    else:
+        print(f"Parallel jobs: {args.jobs}")
+    if args.allow_unverified_buildroot:
+        print("Allow unverified Buildroot: yes (dirty/unpinned checkout permitted)")
     if args.execution == "remote":
         print(f"SSH host: {args.host}")
+        print(f"SSH port: {args.ssh_port}")
         print(f"Remote staging root: {args.remote_root}")
     print(f"Image output: {image_output}")
     print(f"Firmware update output: {swu_output}")
@@ -402,9 +468,13 @@ def main(argv: Sequence[str] | None = None) -> int:
             copy_local(source_image, image_output, image_hash)
     else:
         remote_image, remote_swu = remote_build(args, repository)
-        image_hash = remote_output(args.host, f"sha256sum {shlex.quote(remote_image)}").split()[0]
-        swu_hash = remote_output(args.host, f"sha256sum {shlex.quote(remote_swu)}").split()[0]
-        run(["scp", "-o", "BatchMode=yes", f"{args.host}:{remote_swu}", str(swu_output)])
+        image_hash = remote_output(
+            args.host, f"sha256sum {shlex.quote(remote_image)}", port=args.ssh_port
+        ).split()[0]
+        swu_hash = remote_output(
+            args.host, f"sha256sum {shlex.quote(remote_swu)}", port=args.ssh_port
+        ).split()[0]
+        run([*scp_base(args), f"{args.host}:{remote_swu}", str(swu_output)])
         if sha256(swu_output) != swu_hash:
             swu_output.unlink(missing_ok=True)
             raise BuildError("firmware checksum mismatch after transfer")
@@ -419,12 +489,13 @@ def main(argv: Sequence[str] | None = None) -> int:
                 args.host,
                 f"python3 -c {shlex.quote(python)} {shlex.quote(remote_zip)} "
                 f"{shlex.quote(remote_image)} {shlex.quote(raw_name)}",
+                port=args.ssh_port,
             )
-            run(["scp", "-o", "BatchMode=yes", f"{args.host}:{remote_zip}", str(image_output)])
-            remote(args.host, f"rm -f {shlex.quote(remote_zip)}", check=False)
+            run([*scp_base(args), f"{args.host}:{remote_zip}", str(image_output)])
+            remote(args.host, f"rm -f {shlex.quote(remote_zip)}", port=args.ssh_port, check=False)
             verify_zip_member_sha256(image_output, raw_name, image_hash)
         else:
-            run(["scp", "-o", "BatchMode=yes", f"{args.host}:{remote_image}", str(image_output)])
+            run([*scp_base(args), f"{args.host}:{remote_image}", str(image_output)])
             if sha256(image_output) != image_hash:
                 image_output.unlink(missing_ok=True)
                 raise BuildError("image checksum mismatch after transfer")

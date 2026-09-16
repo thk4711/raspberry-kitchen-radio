@@ -260,6 +260,12 @@ def build_archive(
                 [
                     str(swupdate_checker),
                     "-c",
+                    # Supply the hardware revision explicitly so the host-side
+                    # check matches the manifest's "hardware-compatibility" list
+                    # without an /etc/hwrevision on the build host. The board
+                    # token is only logged; SWUpdate matches solely the revision.
+                    "-H",
+                    f"radio:{HARDWARE_REVISION}",
                     "-i",
                     str(candidate),
                     "-e",

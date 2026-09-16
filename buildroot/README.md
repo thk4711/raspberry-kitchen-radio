@@ -23,7 +23,19 @@ Docker involved. Only flashing the SD card is done on your workstation.
 - An **x64 (amd64) Debian** build host with the Buildroot host prerequisites
   installed (build-essential, bison, flex, libncurses-dev, rsync, cpio, unzip,
   bc, python3, git, wget, file, …) and the native `swupdate` package used to
-  check the completed update archive without installing it.
+  check the completed update archive without installing it. The `swupdate`
+  package pulls its `libubootenv0.1` runtime dependency, so `libubootenv.so.0`
+  resolves on the default loader path. `build.sh`'s apt step installs both (it
+  lists `swupdate` and `libubootenv-tool`); when you run with `--no-apt`,
+  install them yourself (`apt-get install swupdate`). Before the long build,
+  `build.sh` runs a preflight that verifies a native `swupdate` checker
+  actually **runs** (a binary whose libraries cannot be resolved exits 127 and
+  is rejected), failing fast with an actionable message otherwise. Point
+  `SWUPDATE_CHECKER` at a runnable binary to override the search. The host-side
+  check runs `swupdate -c -H radio:<revision>` so the manifest's
+  `hardware-compatibility` list is satisfied without an `/etc/hwrevision` on the
+  build host (the device still validates against its own `/etc/hwrevision` at
+  install time).
 - A **stock Buildroot checkout** on that host (the working setup uses
   `~/embedded/buildroot`).
 - A shared download cache reused across builds via `BR2_DL_DIR`
@@ -55,7 +67,9 @@ checkout, save any wanted changes elsewhere and run `git reset --hard
 72d9d4fa636a371ef9eb99c92a735ce9f6d829d5` plus `git clean -fd` in it. For an
 intentional, non-release development build only, pass
 `--allow-unverified-buildroot`; the script emits warnings and records the actual
-commit in the build log and firmware release metadata.
+commit in the build log and firmware release metadata. When building through
+`scripts/build_image.py`, the same override is available with
+`--allow-unverified-buildroot` (or INI key `allow_unverified_buildroot = true`).
 
 `build.sh` requires and prints both the installation image
 (`output/images/sdcard.img`) and versioned firmware update
