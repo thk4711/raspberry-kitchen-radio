@@ -4,7 +4,6 @@ This directory collects the project documentation.
 
 | Document | Purpose |
 | --- | --- |
-| [project-maturity-assessment.md](project-maturity-assessment.md) | **Dated project maturity assessment and improvement roadmap.** Evidence-based scoring across code, testing, Buildroot, releases, security, reliability, documentation, operations, and governance, followed by ordered work packages and a ready-to-create issue backlog. |
 | [../CHANGELOG.md](../CHANGELOG.md) | Release notes / version history (Keep a Changelog); includes the release checklist. |
 | [development.md](development.md) | **Developer / contributor guide.** Local setup (virtualenv), running the pytest suite & coverage, linting (`ruff`), type checks (`mypy`), and the CI pipeline. |
 | [build-from-scratch.md](build-from-scratch.md) | Beginner's step-by-step guide from a fresh download to a flashed A/B SD card and its matching update package (no embedded-Linux experience assumed). |
