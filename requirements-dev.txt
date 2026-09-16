@@ -24,6 +24,12 @@ pytest-cov>=5.0
 ruff==0.6.9
 mypy>=1.11
 
+# Type stubs mypy requires for third-party libs it flags as import-untyped
+# (requests -> utilities.py, PyYAML -> spotify_service.py). ignore_missing_imports
+# does not silence these because mypy knows an official stub package exists.
+types-requests
+types-PyYAML
+
 # Runtime packages the tested modules import directly:
 #   - pydantic : music_source.py (Metadata model)
 #   - requests : utilities.py (make_request)
