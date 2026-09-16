@@ -152,6 +152,43 @@ def test_checker_receives_hardware_revision_override(tmp_path, monkeypatch):
         assert cmd[-2:] == ["-e", selection]
 
 
+def test_checker_invocation_is_bounded_and_detached(tmp_path, monkeypatch):
+    # The native check must never be able to hang the build: its standard
+    # streams are detached (so a stray progress reader/socket cannot hold the
+    # call open) and it is bounded by a timeout. Regression guard for the SSH
+    # build hang observed when a lingering swupdate-progress kept the pipe open.
+    kwargs_seen = []
+
+    def fake_run(cmd, *args, **kwargs):
+        kwargs_seen.append(kwargs)
+        return subprocess.CompletedProcess(cmd, 0)
+
+    monkeypatch.setattr(swu.subprocess, "run", fake_run)
+    rootfs = tmp_path / "rootfs.ext4"
+    rootfs.write_bytes(b"rootfs")
+    swu.build_archive(rootfs, TEMPLATE, VERSION_FILE, tmp_path, 1024, tmp_path / "swupdate")
+    assert len(kwargs_seen) == 2
+    for kwargs in kwargs_seen:
+        assert kwargs["stdin"] == subprocess.DEVNULL
+        assert kwargs["stdout"] == subprocess.DEVNULL
+        assert kwargs["stderr"] == subprocess.DEVNULL
+        assert isinstance(kwargs["timeout"], (int, float)) and kwargs["timeout"] > 0
+        assert kwargs["check"] is True
+
+
+def test_checker_timeout_raises_actionable_error(tmp_path, monkeypatch):
+    # If the native check does not return within its bound, the build must fail
+    # fast with an actionable message instead of blocking forever.
+    def fake_run(cmd, *args, **kwargs):
+        raise subprocess.TimeoutExpired(cmd, kwargs.get("timeout", 0))
+
+    monkeypatch.setattr(swu.subprocess, "run", fake_run)
+    rootfs = tmp_path / "rootfs.ext4"
+    rootfs.write_bytes(b"rootfs")
+    with pytest.raises(ValueError, match="did not complete within"):
+        swu.build_archive(rootfs, TEMPLATE, VERSION_FILE, tmp_path, 1024, tmp_path / "swupdate")
+
+
 def test_manifest_has_no_old_or_unresolved_placeholders():
     text = TEMPLATE.read_text(encoding="utf-8")
     assert "@ROOTFS_ARCHIVE_SIZE@" in text

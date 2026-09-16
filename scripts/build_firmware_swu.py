@@ -256,23 +256,42 @@ def build_archive(
         write_cpio(candidate, [("sw-description", manifest_path), (PAYLOAD_NAME, payload)])
         validate_archive(candidate, rootfs)
         for selection in ("slot-a", "slot-b"):
-            subprocess.run(
-                [
-                    str(swupdate_checker),
-                    "-c",
-                    # Supply the hardware revision explicitly so the host-side
-                    # check matches the manifest's "hardware-compatibility" list
-                    # without an /etc/hwrevision on the build host. The board
-                    # token is only logged; SWUpdate matches solely the revision.
-                    "-H",
-                    f"radio:{HARDWARE_REVISION}",
-                    "-i",
-                    str(candidate),
-                    "-e",
-                    f"stable,{selection}",
-                ],
-                check=True,
-            )
+            # Bound the native check and detach its standard streams. In check
+            # mode SWUpdate opens its progress IPC socket; if a stray progress
+            # reader on the build host keeps that pipe open, an inherited stdout
+            # can leave the call (and any SSH channel invoking it) blocked even
+            # though the check itself succeeded. Redirecting the streams and
+            # applying a timeout guarantees the build cannot hang here. This
+            # mirrors the on-device check in radio_web/firmware_installer.py.
+            try:
+                subprocess.run(
+                    [
+                        str(swupdate_checker),
+                        "-c",
+                        # Supply the hardware revision explicitly so the host-side
+                        # check matches the manifest's "hardware-compatibility" list
+                        # without an /etc/hwrevision on the build host. The board
+                        # token is only logged; SWUpdate matches solely the revision.
+                        "-H",
+                        f"radio:{HARDWARE_REVISION}",
+                        "-i",
+                        str(candidate),
+                        "-e",
+                        f"stable,{selection}",
+                    ],
+                    stdin=subprocess.DEVNULL,
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL,
+                    timeout=300,
+                    check=True,
+                )
+            except subprocess.TimeoutExpired as exc:
+                raise ValueError(
+                    f"SWUpdate check for {selection} did not complete within "
+                    "300s; a stray swupdate progress reader/socket on the build "
+                    "host may be holding the check open"
+                ) from exc
+
         # The staging directory may live on a different filesystem from the
         # Buildroot output (for example, /tmp is tmpfs on the build host).
         # Copy into the destination directory first, then atomically publish.
