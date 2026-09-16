@@ -51,7 +51,8 @@ Given a release number `X.Y.Z` and a markdown notes file, `scripts/release.py`:
 6. **Stages the published assets** — copies the timestamped build outputs to
    their clean, version-named forms and writes `SHA256SUMS`.
 7. **Creates and uploads the GitHub release** with `gh`, attaching the SD card
-   image, the `.swu`, and `SHA256SUMS`.
+   image, the `.swu`, and `SHA256SUMS`. A draft binds to the current branch and
+   leaves the tag unpushed for review; `--publish` pushes the tag first.
 
 What stays manual (human gates):
 
@@ -184,10 +185,18 @@ python3 scripts/release.py <version> --notes FILE.md [options]
 8. **Checksums.** Writes `SHA256SUMS` next to the assets, in the standard
    `<hex>␠␠<name>` format.
 
-9. **Publish.** If no release exists for the tag, runs `gh release create` (with
-   `--draft` unless `--publish`) and attaches the SD card image, the `.swu`, and
-   `SHA256SUMS`. If a release/draft already exists, it updates the title/notes
-   and re-uploads the assets with `--clobber` — but only under `--force`.
+9. **Publish.** If no release exists for the tag, runs `gh release create` and
+   attaches the SD card image, the `.swu`, and `SHA256SUMS`. The tag handling
+   differs by mode:
+   - **Draft** (default): the release is created with `--draft` bound to the
+     current branch (`--target <branch>`). A draft does **not** materialize the
+     tag, so nothing is pushed — the tag stays local for review. Publishing the
+     draft later creates `vX.Y.Z` at that branch's tip.
+   - **`--publish`**: the tag must exist on the remote, so the script pushes it
+     (`git push origin vX.Y.Z`) first, then creates the published release.
+
+   If a release/draft already exists, it updates the title/notes and re-uploads
+   the assets with `--clobber` — but only under `--force`.
 
 10. **Summary.** Prints the tag, each asset's name, size, and SHA-256, and the
     release URL. When publishing (not a draft) it prints a reminder that the
@@ -262,7 +271,7 @@ the rest stays manual.
 | 8. SWUpdate check-mode acceptance for both slots | **Manual** (on hardware / in tests) |
 | 9. Record and publish size + SHA-256 of both artifacts | **`release.py`** (`SHA256SUMS` + summary) |
 | 10. On-hardware A/B, rollback, retained data test | **Manual** (cannot be automated) |
-| 11. Push the release commit and tag | **Manual** (`git push origin main vX.Y.Z`) |
+| 11. Push the release commit and tag | **Manual commit push** (`git push origin main`); the **tag** is pushed by `release.py` on `--publish` |
 
 ## Draft then publish
 
@@ -270,7 +279,8 @@ The default flow produces a **draft** so you can complete step 10 before making
 the release public:
 
 1. Run `python3 scripts/release.py X.Y.Z --notes notes.md` — creates the draft
-   and uploads assets.
+   and uploads assets. The draft is bound to the current branch and the tag is
+   **not** pushed yet, so the release stays reviewable and reversible.
 2. Open the draft on GitHub, verify the notes render and the three assets are
    attached.
 3. Flash the `-sdcard.img.zip` to a disposable Pi 3A+ card and exercise the A/B
@@ -282,9 +292,10 @@ the release public:
    $ python3 scripts/release.py X.Y.Z --notes notes.md --skip-build --publish --force
    ```
 
-   `--skip-build` reuses the already-staged assets; `--force` lets the script
-   update the existing draft. When publishing, the script prints a reminder that
-   the on-hardware test must have passed.
+   `--skip-build` reuses the already-staged assets and `--force` updates the
+   existing draft. Publishing pushes the tag `vX.Y.Z` to origin (so the
+   published release materializes it) and prints a reminder that the on-hardware
+   test must have passed.
 
 ## Retrying safely
 
@@ -328,12 +339,10 @@ $ python3 scripts/release.py X.Y.Z --notes /tmp/notes-X.Y.Z.md --clean
 
 # 6. Test the draft's image on real Pi 3A+ hardware (checklist step 10).
 
-# 7. Publish, reusing the staged assets.
+# 7. Push the release commit, then publish (which pushes the tag itself).
+$ git push origin main
 $ python3 scripts/release.py X.Y.Z --notes /tmp/notes-X.Y.Z.md \
       --skip-build --publish --force
-
-# 8. Push the release commit and tag (checklist step 11).
-$ git push origin main vX.Y.Z
 ```
 
 The successful run ends with a summary like:
@@ -359,6 +368,10 @@ https://github.com/thk4711/raspberry-kitchen-radio/releases/tag/vX.Y.Z
 | `refusing to overwrite existing …; pass --force` | A differing clean asset is already staged. Pass `--force` to replace it. |
 | `a release for vX.Y.Z already exists; pass --force to update it` | A draft/release already exists (e.g. a hand-made draft). Pass `--force` to update it, or delete it first. |
 | `checksum mismatch after staging …` | The copy did not match the source (rare I/O issue). Re-run; investigate the artifact if it persists. |
+| Remote build appears to "hang" after the artifacts are built | The SSH build command is invoked with `ssh -n`, and the native SWU check is bounded and detached, specifically to prevent this. If it recurs, look for a stray `swupdate`/`swupdate-progress` process holding the build host's `/run/swupdate` progress socket open and clear it. |
+| `SWUpdate is built for signed images` during `--fast` | The `--fast` rebuild must use the project's unsigned native checker, not a signed-only `swupdate` on `PATH`. `release.py`/`build_image.py` pass `SWUPDATE_CHECKER=<buildroot_parent>/swupdate-checker-build/swupdate` for this; ensure that checker exists (a full `build.sh` run builds it). |
+| `SWUpdate check for slot-X did not complete within 300s` | The native check did not return in time — usually a stray progress reader/socket on the build host. Clear it and retry. |
+| `tag vX.Y.Z … has not been pushed` from `gh` on `--publish` | Only happens if the tag push was declined. `--publish` pushes the tag automatically; ensure you have push rights, or push `vX.Y.Z` manually and re-run. |
 
 For the build itself (Buildroot, SSH remote builds, artifact contents), see
 [`buildroot.md`](buildroot.md) and the `build_image.py` header. For the update
