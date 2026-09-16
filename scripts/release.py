@@ -333,6 +333,17 @@ def release_exists(tag: str, dry_run: bool) -> bool:
     return result.returncode == 0
 
 
+def tag_on_remote(repository: Path, tag: str) -> bool:
+    """Return True if the annotated tag already exists on origin."""
+    result = subprocess.run(
+        ["git", "-C", str(repository), "ls-remote", "--tags", "origin", tag],
+        check=False,
+        text=True,
+        capture_output=True,
+    )
+    return result.returncode == 0 and bool(result.stdout.strip())
+
+
 def publish_release(args: argparse.Namespace, tag: str, assets: list[Path]) -> None:
     """Create the release, or update it under --force, and attach assets."""
     title = f"Raspberry Kitchen Radio {tag}"
@@ -349,6 +360,11 @@ def publish_release(args: argparse.Namespace, tag: str, assets: list[Path]) -> N
             dry_run=args.dry_run,
         )
         return
+    # gh binds a new release to a Git ref that exists on the remote. If the tag
+    # has not been pushed, gh refuses. Push it first (checklist step 11) unless
+    # this is a dry run, so the release can be cut in one command.
+    if not args.dry_run and not tag_on_remote(args.repository, tag):
+        run(["git", "-C", str(args.repository), "push", "origin", tag])
     command = ["gh", "release", "create", tag, "--title", title, "--notes-file", str(args.notes)]
     if args.draft:
         command.append("--draft")

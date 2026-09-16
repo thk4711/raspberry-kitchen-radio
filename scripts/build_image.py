@@ -82,8 +82,15 @@ def remote(
     check: bool = True,
     capture_output: bool = False,
 ) -> subprocess.CompletedProcess[str]:
-    """Run one non-interactive SSH command."""
-    ssh = ["ssh", "-o", "BatchMode=yes", "-o", "ConnectTimeout=15"]
+    """Run one non-interactive SSH command.
+
+    ``-n`` redirects the remote stdin from /dev/null so the SSH channel does not
+    stay open waiting on an inherited stdin. Without it, a long remote build can
+    leave the ``ssh`` process blocked after the remote command has already
+    finished (observed as a build that "hangs" once the artifacts exist),
+    because the session's standard input is never closed.
+    """
+    ssh = ["ssh", "-n", "-o", "BatchMode=yes", "-o", "ConnectTimeout=15"]
     if port != 22:
         ssh += ["-p", str(port)]
     ssh += [host, command]
@@ -331,6 +338,19 @@ def build_flags(args: argparse.Namespace) -> list[str]:
     return flags
 
 
+def native_swupdate_checker(buildroot_dir: Path) -> str:
+    """Return build.sh's preferred native SWUpdate checker path.
+
+    The ``--fast`` phase runs ``make`` directly instead of ``build.sh``, so it
+    does not inherit build.sh's ``SWUPDATE_CHECKER`` selection. Without it,
+    ``build-swu.sh`` falls back to ``swupdate`` on PATH, which on many hosts is
+    built for signed images and rejects the deliberately unsigned package. Point
+    the fast rebuild at the same unsigned native checker build.sh prefers.
+    """
+    parent = buildroot_dir.parent
+    return str(parent / "swupdate-checker-build" / "swupdate")
+
+
 def local_build(args: argparse.Namespace, repository: Path) -> tuple[Path, Path]:
     """Run the supported build helper directly on this host."""
     environment = os.environ.copy()
@@ -347,7 +367,9 @@ def local_build(args: argparse.Namespace, repository: Path) -> tuple[Path, Path]
             cwd=args.buildroot_dir,
             env=environment,
         )
-        run(["make", f"-j{args.jobs}"], cwd=args.buildroot_dir, env=environment)
+        fast_env = dict(environment)
+        fast_env["SWUPDATE_CHECKER"] = native_swupdate_checker(args.buildroot_dir)
+        run(["make", f"-j{args.jobs}"], cwd=args.buildroot_dir, env=fast_env)
     images = args.buildroot_dir / "output" / "images"
     return images / "sdcard.img", images / f"kitchen-radio-{args.version}.swu"
 
@@ -396,10 +418,11 @@ def remote_build(args: argparse.Namespace, repository: Path) -> tuple[str, str]:
     )
     remote(args.host, build, port=args.ssh_port)
     if args.fast:
+        checker = native_swupdate_checker(args.buildroot_dir)
         fast = (
             f"cd {shlex.quote(str(args.buildroot_dir))} && "
             "make radio-app-dirclean radio-equalizer-dirclean && "
-            f"make -j{args.jobs}"
+            f"SWUPDATE_CHECKER={shlex.quote(checker)} make -j{args.jobs}"
         )
         remote(args.host, fast, port=args.ssh_port)
     images = f"{str(args.buildroot_dir).rstrip('/')}/output/images"
