@@ -28,7 +28,7 @@ def checker(tmp_path):
     # Mirror the exact host-side check invocation, including the hardware
     # revision override that satisfies the manifest without /etc/hwrevision.
     path.write_text(
-        '#!/bin/sh\n'
+        "#!/bin/sh\n"
         '[ "$1" = -c ] && [ "$2" = -H ] && [ "$3" = "radio:'
         + swu.HARDWARE_REVISION
         + '" ] && [ "$4" = -i ] && [ "$6" = -e ]\n',
@@ -144,9 +144,7 @@ def test_checker_receives_hardware_revision_override(tmp_path, monkeypatch):
     monkeypatch.setattr(swu.subprocess, "run", fake_run)
     rootfs = tmp_path / "rootfs.ext4"
     rootfs.write_bytes(b"rootfs")
-    swu.build_archive(
-        rootfs, TEMPLATE, VERSION_FILE, tmp_path, 1024, tmp_path / "swupdate"
-    )
+    swu.build_archive(rootfs, TEMPLATE, VERSION_FILE, tmp_path, 1024, tmp_path / "swupdate")
     check_calls = [[str(part) for part in cmd] for cmd in calls if "-c" in cmd]
     assert len(check_calls) == 2
     for selection, cmd in zip(("stable,slot-a", "stable,slot-b"), check_calls):
@@ -203,13 +201,13 @@ def test_checker_runs_probe_rejects_loader_failures(tmp_path):
     good.chmod(0o755)
 
     probe = (
-        'checker_runs() {\n'
-        '  p=$(mktemp) || return 1\n'
+        "checker_runs() {\n"
+        "  p=$(mktemp) || return 1\n"
         '  "$1" -c -i "$p" -e stable,slot-a >/dev/null 2>&1\n'
-        '  s=$?\n'
+        "  s=$?\n"
         '  rm -f "$p"\n'
         '  [ "$s" -ne 127 ]\n'
-        '}\n'
+        "}\n"
         'if checker_runs "$1"; then echo RUN; else echo SKIP; fi\n'
     )
     script = tmp_path / "probe.sh"
@@ -239,7 +237,6 @@ def test_build_sh_preflights_a_runnable_swupdate_checker():
     # The checker package is installed by the apt step.
     assert "swupdate" in text
     assert "libubootenv-tool" in text
-
 
 
 def _validate_artifacts(tmp_path, *, image=b"image", update=b"update", stale=False):

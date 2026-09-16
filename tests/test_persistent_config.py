@@ -168,3 +168,132 @@ def test_persistence_surface_keeps_adc_calibration_but_excludes_runtime_state():
         "asound.state",
     ):
         assert transient not in script
+
+
+def _seed_schema_1(data):
+    """Create a minimal migrated schema-1 tree so set/render have inputs."""
+    radio = data / "radio"
+    radio.mkdir(parents=True, exist_ok=True)
+    (radio / "schema-version").write_text("1\n", encoding="ascii")
+
+
+class TestSetDevice:
+    def test_sets_validated_name(self, persistent_paths):
+        data, _shadow = persistent_paths
+        _seed_schema_1(data)
+        persistent_config.set_device("name", "kitchen")
+        assert persistent_config.device_store.load_device()["name"] == "kitchen"
+
+    def test_sets_ssh_enabled_flag(self, persistent_paths):
+        data, _shadow = persistent_paths
+        _seed_schema_1(data)
+        persistent_config.set_device("ssh_enabled", "true")
+        assert persistent_config.device_store.load_device()["ssh_enabled"] == "true"
+
+    def test_rejects_invalid_ssh_value(self, persistent_paths):
+        data, _shadow = persistent_paths
+        _seed_schema_1(data)
+        with pytest.raises(ValueError, match="invalid SSH setting"):
+            persistent_config.set_device("ssh_enabled", "maybe")
+
+    def test_rejects_unsupported_key(self, persistent_paths):
+        data, _shadow = persistent_paths
+        _seed_schema_1(data)
+        with pytest.raises(ValueError, match="unsupported device setting"):
+            persistent_config.set_device("root_password", "x")
+
+    def test_rejects_invalid_name_value(self, persistent_paths):
+        data, _shadow = persistent_paths
+        _seed_schema_1(data)
+        with pytest.raises(ValueError):
+            persistent_config.set_device("name", "bad name!")
+
+
+class TestRenderRuntime:
+    def test_applies_managed_device_and_audio(self, persistent_paths, monkeypatch):
+        data, _shadow = persistent_paths
+        _seed_schema_1(data)
+        persistent_config.set_device("name", "kitchen")
+        seen = {}
+        monkeypatch.setattr(
+            persistent_config.device_store,
+            "apply_hostname_files",
+            lambda name: seen.setdefault("host", name),
+        )
+        monkeypatch.setattr(
+            persistent_config.device_store,
+            "apply_time_files",
+            lambda tz, ntp: seen.setdefault("time", (tz, ntp)),
+        )
+        monkeypatch.setattr(
+            persistent_config.audio_hardware_apply,
+            "_write_alsa_mpd_modules",
+            lambda profile, mpd_template=None: seen.setdefault("audio", True),
+        )
+        persistent_config.render_runtime()
+        assert seen["host"] == "kitchen"
+        assert seen["audio"] is True
+
+    def test_without_managed_device_still_writes_audio(self, persistent_paths, monkeypatch):
+        data, _shadow = persistent_paths
+        _seed_schema_1(data)
+        seen = {}
+        monkeypatch.setattr(
+            persistent_config.device_store,
+            "apply_hostname_files",
+            lambda name: seen.setdefault("host", name),
+        )
+        monkeypatch.setattr(
+            persistent_config.audio_hardware_apply,
+            "_write_alsa_mpd_modules",
+            lambda profile, mpd_template=None: seen.setdefault("audio", True),
+        )
+        persistent_config.render_runtime()
+        assert "host" not in seen
+        assert seen["audio"] is True
+
+
+class TestPrepareAndMain:
+    def test_prepare_runs_migrate_and_root_password(self, persistent_paths, monkeypatch):
+        calls = []
+        monkeypatch.setattr(persistent_config, "migrate", lambda: calls.append("migrate"))
+        monkeypatch.setattr(persistent_config, "apply_root_password", lambda: calls.append("root"))
+        persistent_config.prepare()
+        assert calls == ["migrate", "root"]
+
+    def test_main_prepare(self, monkeypatch):
+        calls = []
+        monkeypatch.setattr(persistent_config, "prepare", lambda: calls.append("prepare"))
+        monkeypatch.setattr("sys.argv", ["persistent_config", "prepare"])
+        assert persistent_config.main() == 0
+        assert calls == ["prepare"]
+
+    def test_main_render(self, monkeypatch):
+        calls = []
+        monkeypatch.setattr(persistent_config, "render_runtime", lambda: calls.append("render"))
+        monkeypatch.setattr("sys.argv", ["persistent_config", "render"])
+        assert persistent_config.main() == 0
+        assert calls == ["render"]
+
+    def test_main_capture_root_password(self, monkeypatch):
+        calls = []
+        monkeypatch.setattr(
+            persistent_config, "capture_root_password", lambda: calls.append("capture")
+        )
+        monkeypatch.setattr("sys.argv", ["persistent_config", "capture-root-password"])
+        assert persistent_config.main() == 0
+        assert calls == ["capture"]
+
+    def test_main_set_device(self, monkeypatch):
+        calls = []
+        monkeypatch.setattr(
+            persistent_config, "set_device", lambda key, value: calls.append((key, value))
+        )
+        monkeypatch.setattr("sys.argv", ["persistent_config", "set-device", "name", "kitchen"])
+        assert persistent_config.main() == 0
+        assert calls == [("name", "kitchen")]
+
+    def test_main_set_device_requires_key_and_value(self, monkeypatch):
+        monkeypatch.setattr("sys.argv", ["persistent_config", "set-device", "name"])
+        with pytest.raises(SystemExit):
+            persistent_config.main()
