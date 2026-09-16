@@ -5,6 +5,7 @@ This directory collects the project documentation.
 | Document | Purpose |
 | --- | --- |
 | [../CHANGELOG.md](../CHANGELOG.md) | Release notes / version history (Keep a Changelog); includes the release checklist. |
+| [releasing.md](releasing.md) | **Release automation guide.** Cutting a release with `scripts/release.py`: prerequisites, options, per-step behavior, artifact naming, the CHANGELOG-checklist mapping, draft→publish flow, retries, and troubleshooting. |
 | [development.md](development.md) | **Developer / contributor guide.** Local setup (virtualenv), running the pytest suite & coverage, linting (`ruff`), type checks (`mypy`), and the CI pipeline. |
 | [build-from-scratch.md](build-from-scratch.md) | Beginner's step-by-step guide from a fresh download to a flashed A/B SD card and its matching update package (no embedded-Linux experience assumed). |
 | [buildroot.md](buildroot.md) | **Buildroot appliance image reference.** Build, flash, A/B partition and U-Boot policy, persistent paths, `.swu` generation, recovery, service layout, source pins, and design decisions. |

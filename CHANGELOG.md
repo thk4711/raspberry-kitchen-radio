@@ -320,6 +320,13 @@ Release checklist (when cutting X.Y.Z):
      result from host tests.
  11. Push the release commit and its annotated tag: git push origin main vX.Y.Z
 
+Steps 5-7 and 9 (and the GitHub release upload) are automated by
+scripts/release.py; see doc/releasing.md. Steps 1-4, 8, 10, and 11 stay manual.
+Typical use, after completing steps 1-4:
+    python3 scripts/release.py X.Y.Z --notes notes.md          # build + draft
+    python3 scripts/release.py X.Y.Z --notes notes.md \
+        --skip-build --publish --force                          # after step 10
+
 Tag policy: release tags must be annotated. v0.2.0 is the sole historical
 exception: it was published as a lightweight tag before this policy was enforced
 and is retained unchanged to avoid rewriting a public tag.
