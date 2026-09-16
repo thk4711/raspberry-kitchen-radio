@@ -133,7 +133,9 @@ preflight_tooling() {
 	if [ -n "${SWUPDATE_CHECKER:-}" ]; then
 		checker="$SWUPDATE_CHECKER"
 	else
-		buildroot_parent=$(CDPATH='' cd -- "${BUILDROOT_DIR}/.." && pwd 2>/dev/null || true)
+		if ! buildroot_parent=$(CDPATH='' cd -- "${BUILDROOT_DIR}/.." && pwd 2>/dev/null); then
+			buildroot_parent=""
+		fi
 		for candidate in \
 			"${buildroot_parent}/swupdate-checker-build/swupdate" \
 			"${buildroot_parent}/swupdate-native/usr/bin/swupdate" \
