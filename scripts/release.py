@@ -344,6 +344,18 @@ def tag_on_remote(repository: Path, tag: str) -> bool:
     return result.returncode == 0 and bool(result.stdout.strip())
 
 
+def current_branch(repository: Path) -> str:
+    """Return the current branch name, or empty string when detached."""
+    result = subprocess.run(
+        ["git", "-C", str(repository), "rev-parse", "--abbrev-ref", "HEAD"],
+        check=False,
+        text=True,
+        capture_output=True,
+    )
+    branch = result.stdout.strip()
+    return "" if branch in ("", "HEAD") else branch
+
+
 def publish_release(args: argparse.Namespace, tag: str, assets: list[Path]) -> None:
     """Create the release, or update it under --force, and attach assets."""
     title = f"Raspberry Kitchen Radio {tag}"
@@ -360,14 +372,21 @@ def publish_release(args: argparse.Namespace, tag: str, assets: list[Path]) -> N
             dry_run=args.dry_run,
         )
         return
-    # gh binds a new release to a Git ref that exists on the remote. If the tag
-    # has not been pushed, gh refuses. Push it first (checklist step 11) unless
-    # this is a dry run, so the release can be cut in one command.
-    if not args.dry_run and not tag_on_remote(args.repository, tag):
-        run(["git", "-C", str(args.repository), "push", "origin", tag])
     command = ["gh", "release", "create", tag, "--title", title, "--notes-file", str(args.notes)]
     if args.draft:
+        # A draft does not materialize the tag until it is published, so it does
+        # not require the tag on the remote. Bind it to the current branch (a
+        # ref gh can resolve) and leave the tag unpushed for review. Publishing
+        # the draft later creates the tag at that branch's tip.
         command.append("--draft")
+        branch = current_branch(args.repository)
+        if branch:
+            command += ["--target", branch]
+    else:
+        # A published release materializes the tag immediately, so it must exist
+        # on the remote first (checklist step 11).
+        if not args.dry_run and not tag_on_remote(args.repository, tag):
+            run(["git", "-C", str(args.repository), "push", "origin", tag])
     command += asset_paths
     run(command, dry_run=args.dry_run)
 
