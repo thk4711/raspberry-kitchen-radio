@@ -145,6 +145,22 @@ def git_revision(repository: Path) -> str:
     return revision
 
 
+def git_commit(repository: Path) -> str:
+    """Return the exact full repository commit, rejecting non-Git source trees."""
+    if shutil.which("git") is None:
+        raise BuildError("git is required to identify the repository commit")
+    result = subprocess.run(
+        ["git", "-C", str(repository), "rev-parse", "--verify", "HEAD"],
+        check=False,
+        text=True,
+        capture_output=True,
+    )
+    commit = result.stdout.strip()
+    if result.returncode != 0 or not re.fullmatch(r"[0-9a-f]{40}", commit):
+        raise BuildError(f"cannot identify the repository commit in {repository}")
+    return commit
+
+
 def verify_zip_member_sha256(archive: Path, member: str, expected: str) -> None:
     """Check ZIP integrity and the SHA-256 of its single image member."""
     try:
@@ -346,6 +362,7 @@ def scp_base(args: argparse.Namespace) -> list[str]:
 
 def remote_build(args: argparse.Namespace, repository: Path) -> tuple[str, str]:
     """Stage the checkout, build it remotely, and return artifact paths."""
+    repository_commit = git_commit(repository)
     remote_repository = f"{args.remote_root.rstrip('/')}/radio-repo-{args.version}-{args.stamp}"
     remote(args.host, f"mkdir -p {shlex.quote(remote_repository)}", port=args.ssh_port)
     sync = ["rsync", "-az"]
@@ -374,6 +391,7 @@ def remote_build(args: argparse.Namespace, repository: Path) -> tuple[str, str]:
         f"cd {shlex.quote(remote_repository)} && "
         f"BUILDROOT_DIR={shlex.quote(str(args.buildroot_dir))} "
         f"BR2_DL_DIR={shlex.quote(str(args.download_cache))} "
+        f"RADIO_REPO_COMMIT={shlex.quote(repository_commit)} "
         f"./buildroot/build.sh {flags}"
     )
     remote(args.host, build, port=args.ssh_port)

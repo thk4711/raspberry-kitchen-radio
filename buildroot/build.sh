@@ -21,6 +21,7 @@
 #   BUILDROOT_VERSION Buildroot git tag/branch       (default: 2026.05.2)
 #   BUILDROOT_COMMIT  expected full commit ID         (pinned with version)
 #   REPO_DIR          this repository                (default: auto-detected)
+#   RADIO_REPO_COMMIT full source commit for staged builds (default: Git HEAD)
 #
 # Usage:
 #   ./buildroot/build.sh                 # normal (incremental) build
@@ -181,7 +182,11 @@ prepare_buildroot() {
 }
 
 repository_commit() {
-	if command -v git >/dev/null 2>&1 && git -C "$REPO_DIR" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+	if [ -n "${RADIO_REPO_COMMIT:-}" ]; then
+		printf '%s\n' "$RADIO_REPO_COMMIT" | grep -Eq '^[0-9a-f]{40}$' \
+			|| die "RADIO_REPO_COMMIT is not a full lowercase Git object ID"
+		printf '%s\n' "$RADIO_REPO_COMMIT"
+	elif command -v git >/dev/null 2>&1 && git -C "$REPO_DIR" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
 		git -C "$REPO_DIR" rev-parse --verify HEAD
 	else
 		printf '%s\n' unknown

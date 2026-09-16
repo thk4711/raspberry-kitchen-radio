@@ -1,6 +1,6 @@
 [project]
 name = "raspberry-kitchen-radio"
-version = "0.2.0"
+version = "0.3.0"
 description = "Buildroot appliance that turns a Raspberry Pi into an internet radio / streaming device."
 readme = "README.md"
 license = { file = "LICENSE" }

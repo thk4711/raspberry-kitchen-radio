@@ -7,7 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-09-16
+
 ### Added
+- **Selectable round-display support** adds the 240×240 GC9A01 panel alongside
+  the existing 240×280 ST7789. A shared panel factory, base driver, shape-aware
+  layout, circular volume gauge, and web setting make panel selection testable
+  off-target and configurable without maintaining separate display stacks.
+- **Display rotation and wiring references** add a `rotate_180` setting, a full
+  radio hardware schematic, and a generated color-coded sound-device pinout
+  published through GitHub Pages.
 - **Bounded operational recovery summary** preserves only privacy-safe boot,
   shutdown, radio-restart, firmware-slot, and health outcomes across reboots
   while routine logs remain volatile. The 16 KiB/32-event summary is included in
@@ -28,6 +37,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Strict Buildroot checkout validation** rejects non-Git, wrong-revision, and
   dirty source trees by default. Build logs and firmware metadata record both
   source commits; an explicit development-only override permits local changes.
+
+### Changed
+- **Display architecture and themes** now use a panel-neutral `lib/display`
+  package, full-frame compositor, panel-specific geometry, and configurable OSD
+  arc span and ring thickness while retaining the existing ST7789 behavior.
+- **Release quality gates** expand firmware, partition, networking, route-handler,
+  and off-target hardware tests, raise the first-party coverage floor to 83%, and
+  enforce Ruff formatting and complete production-code mypy checks in CI.
+
+### Fixed
+- **Remote image builds** now honor non-default SSH ports, auto-detect parallel
+  jobs on the build host, validate SWUpdate hardware compatibility, avoid an
+  ambiguous shell fallback, and embed the exact source commit even though the
+  staged source intentionally excludes `.git`.
+- Corrected documentation indexing and development dependency declarations used
+  by CI type checking.
+
+### Reproducible build inputs
+- Buildroot `2026.05.2`, commit
+  `72d9d4fa636a371ef9eb99c92a735ce9f6d829d5`.
+- go-librespot `v0.9.0`, vendored source archive SHA-256
+  `9e4e1ab1871267ba5cace600a7b3025681b5177195ce9a246e5c91e63b021328`.
+- shairport-sync `4.3.7`, source archive SHA-256
+  `a1242d100b61fe1fffbbf706e919ed51d6a341c9fb8293fb42046e32ae2b3338`.
+- nqptp `1.2.4`, source archive SHA-256
+  `1df1d5edd5b713010d6495b3abca4c1cf4ad8fa6029df0abeb9e4de8e0eb707a`.
 
 ## [0.2.0] - 2026-09-10
 

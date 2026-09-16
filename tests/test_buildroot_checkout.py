@@ -86,6 +86,7 @@ def test_build_script_pins_and_records_source_revisions():
     assert "--allow-unverified-buildroot" in text
     assert "RADIO_REPO_COMMIT" in text
     assert "RADIO_BUILDROOT_COMMIT" in text
+    assert "RADIO_REPO_COMMIT is not a full lowercase Git object ID" in text
 
 
 def test_release_metadata_records_source_revisions(monkeypatch, tmp_path):

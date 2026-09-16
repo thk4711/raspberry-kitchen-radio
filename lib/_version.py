@@ -11,4 +11,4 @@ Keep this in lockstep with the top ``CHANGELOG.md`` entry and the git tag when
 cutting a release (see ``CHANGELOG.md`` for the release checklist).
 """
 
-__version__ = "0.2.0"
+__version__ = "0.3.0"
