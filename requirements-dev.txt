@@ -31,10 +31,13 @@ mypy>=1.11
 #                the display_control full-frame compositor tests
 #   - Pillow   : display/display_control.py (frame composition) used
 #                by the compositor/display unit tests
+#   - PyYAML   : spotify_service.py (go-librespot config generation),
+#                imported at module load by test_spotify_service.py
 # Left unpinned so a compatible wheel is picked for the local interpreter
 # (the exact runtime versions are pinned in requirements.txt for the target).
 pydantic>=2.10
 requests>=2.32
 numpy>=1.24
 Pillow>=10.0
+PyYAML>=6.0
 
