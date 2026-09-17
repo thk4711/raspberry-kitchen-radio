@@ -85,7 +85,8 @@ artifact paths, sizes, and SHA-256 checksums, for example:
 Keep the versioned `.swu` and its checksum for updating an already-flashed
 radio. The build validates the update archive for both A-to-B and B-to-A
 selection before publishing it. Firmware packages are unsigned, so the checksum
-detects accidental corruption but does not prove who created the file.
+detects corruption but does not prove authorship — see the security notes in
+[`firmware-updates.md`](firmware-updates.md).
 
 The installation image and update package are a matched pair from the same build.
 Keep them together and retain both displayed SHA-256 values.

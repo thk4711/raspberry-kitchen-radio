@@ -2,7 +2,8 @@
 
 The radio has an optional ten-band parametric equalizer in the authenticated web
 interface. It processes the common ALSA playback path, so one configuration
-applies to Internet Radio, AirPlay, Spotify Connect, Bluetooth and USB Audio.
+applies to all five sources (Internet Radio, AirPlay, Spotify Connect, Bluetooth
+and USB Audio).
 
 ## Using the equalizer
 
@@ -39,15 +40,14 @@ is disabled; when it is enabled, only dots belonging to enabled bands can move.
 
 ### Save, apply and reset
 
-- **Save and Apply** validates, stores the controls and updates the sound. Ordinary changes
-  (preamp, per-band type/frequency/gain/Q, and enabling or disabling individual
-  bands) are applied **live**: they are pushed to a small runtime file that the
-  LADSPA plugin re-reads without closing any stream, so playback is not
-  interrupted. Only toggling the **whole** equalizer on or off has to insert or
-  remove the DSP stage in the ALSA route, which still briefly restarts the radio
-  application and all audio receivers — ALSA can add or drop a LADSPA PCM only
-  when a playback PCM is (re)opened, so MPD, AirPlay, Spotify, Bluetooth and USB
-  Audio close and reopen their streams that one time.
+- **Save and Apply** validates and stores the controls, then updates the sound.
+  Ordinary changes (preamp, per-band type/frequency/gain/Q, and enabling or
+  disabling individual bands) apply **live**, without interrupting playback.
+  Only toggling the **whole** equalizer on or off has to insert or remove the
+  DSP stage in the ALSA route, which briefly restarts the radio and all audio
+  receivers (MPD, AirPlay, Spotify, Bluetooth, USB Audio). See
+  [Live updates without a stream restart](#live-updates-without-a-stream-restart)
+  for why.
 - **Reset flat** immediately resets the form and graph, then applies the reset:
   the EQ is disabled, the preamp returns to its `-3 dB` default and all band gains
   become `0 dB`, all bands become disabled Bell filters with `Q = 1`, and the dots

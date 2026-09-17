@@ -1,9 +1,9 @@
 # ALSA audio path and routing
 
-This is the single, end-to-end reference for **how audio flows through ALSA** on
-the radio: where every source converges, which optional stages (parametric EQ,
-software volume) are layered on top, and how the two receiver bridges
-(`bluealsa-aplay`, `alsaloop`) feed into the same route.
+This is the reference for **how audio flows through ALSA** on the radio: where
+every source converges, which optional stages (parametric EQ, software volume)
+are layered on top, and how the two receiver bridges (`bluealsa-aplay`,
+`alsaloop`) feed into the same route.
 
 Feature-specific depth lives in the focused guides and is only cross-linked from
 here:

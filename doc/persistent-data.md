@@ -9,7 +9,7 @@ trial boot and automatic rollback.
 
 This document is the canonical inventory of the persistent-data filesystem and
 explains how the image build, early boot and runtime writers ensure that data
-really reaches `p4`.
+reaches `p4`.
 
 ## What belongs in `/data` and why
 

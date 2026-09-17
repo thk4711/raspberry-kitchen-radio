@@ -34,6 +34,12 @@ never exposed to the internet.
 > unencrypted HTTP. Your admin password and session cookie travel in the clear
 > on the local network, so only use it on a WiFi network you trust. The admin
 > password is **separate** from the SSH/root password of the device.
+>
+> Plain HTTP is a deliberate choice: a browser-trusted HTTPS certificate would
+> need a stable hostname or IP that a certificate authority could vouch for, but
+> this appliance runs on unknown private networks with changing addresses and is
+> never exposed to the internet, so no such certificate can be issued. See the
+> rationale in [`../SECURITY.md`](../SECURITY.md#why-no-https-or-firmware-signing).
 
 ## First-use setup and login
 
@@ -132,15 +138,25 @@ Choices are written to `/etc/radio/sources.ini`. A missing file or key means
 
 ### Device settings (`/device`)
 
-In addition to the device name, timezone and NTP server, this page controls
-**SSH remote access**, which is disabled by default. SSH is a device service, not a music source. Changes are
-applied immediately; disabling it closes new SSH access after the current
-session ends. An SD-card `radio-config.txt` setting of `enable_ssh=0` still
-overrides the web setting.
+- **Device name** (hostname): saved immediately and applied on the **next
+  reboot**. If the SD card's `radio-config.txt` sets a hostname, that wins and
+  the field is shown locked (see
+  [priority](#active-radio-configtxt-settings-take-priority-once)).
+- **Timezone** and **NTP server**: applied like the boot-time provisioning. The
+  current values are prefilled, and timezone is selected from the zones installed
+  in the image rather than entered as an unfamiliar zoneinfo name.
+- **SSH remote access** (disabled by default): a device service, not a music
+  source. Changes apply immediately; disabling it closes new SSH access after
+  the current session ends. `enable_ssh=0` in `radio-config.txt` still overrides
+  the web setting. The generic image has root password login locked, so SSH can
+  be enabled only after a unique root password has been provisioned through
+  `radio-config.txt`; the web interface cannot create or reveal that credential.
+- The old root-filesystem expansion control has been removed for the A/B image.
+  Firmware slots have fixed equal sizes; the final persistent data partition is
+  expanded automatically by the guarded early-boot service.
 
-The generic image has root password login locked. SSH can be enabled only after
-a unique root password has been explicitly provisioned through
-`radio-config.txt`; the web interface cannot create or reveal that credential.
+On a fresh image the form reads the current hostname, timezone and Chrony NTP
+source from the system. Saved overrides are written to `/etc/radio/device.ini`.
 
 A separate **Physical controls** card links to live ADC debugging and
 calibration for the volume knob, preset buttons and power switch.
@@ -241,21 +257,6 @@ settings** to confirm (or **Revert now** to go back immediately). The SD card
 - **Automatic (DHCP)** or **Static IP** — with IP address, CIDR prefix,
   gateway, and optional DNS servers.
 
-### Device settings (`/device`)
-
-- **Device name** (hostname): saved immediately and applied on the **next
-  reboot**. If the SD card's `radio-config.txt` sets a hostname, that wins and
-  the field is shown locked (see [priority](#radio-configtxt-takes-priority)).
-- **Timezone** and **NTP server**: applied like the boot-time provisioning. The
-  current values are prefilled, and timezone is selected from the zones installed
-  in the image rather than entered as an unfamiliar zoneinfo name.
-- The old root-filesystem expansion control has been removed for the A/B image.
-  Firmware slots have fixed equal sizes; the final persistent data partition is
-  expanded automatically by the guarded early-boot service.
-
-On a fresh image the form reads the current hostname, timezone and Chrony NTP
-source from the system. Saved overrides are written to `/etc/radio/device.ini`.
-
 ### Maintenance (`/maintenance`)
 
 - **Restart player** — restarts the main radio application and its audio
@@ -307,13 +308,10 @@ blocked with an explicit compatibility message when rollback would be unsafe.
 Additive settings and unknown INI keys remain compatible; irreversible configuration
 migrations are rejected by the normal updater.
 
-Firmware packages are unsigned. Their SHA-256 checks detect accidental corruption
-but do not prove authenticity, so obtain packages from a trusted source and use
-the administration interface only on a trusted LAN.
-
-For the complete operator sequence—including what each progress phase means,
-successful trial acceptance, interrupted operations, automatic and manual
-rollback, and recovery when this interface is unreachable—see
+Firmware packages are unsigned, so obtain them from a trusted source and use this
+interface only on a trusted LAN. For the complete operator sequence — progress
+phases, trial acceptance, interrupted operations, automatic and manual rollback,
+recovery when this interface is unreachable, and the full security notes — see
 [`firmware-updates.md`](firmware-updates.md).
 
 ## Which changes need a restart or reboot?

@@ -10,10 +10,9 @@ backend (see [`adding-a-music-source.md`](adding-a-music-source.md)).
 1. On your phone, open Bluetooth settings and look for the radio. Its name is
    the appliance **hostname** (set through `radio-config.txt` or Device settings;
    default `kitchen-radio`).
-2. Tap to connect. **There is no PIN and no confirmation prompt** — the radio
-   runs an auto-accept agent that answers the pairing automatically. (Your phone
-   may briefly show a pairing/passkey dialog; you do not need to act on it — the
-   radio confirms it for you.)
+2. Tap to connect. **There is no PIN and no confirmation prompt** — an
+   auto-accept agent answers the pairing for you. (Your phone may briefly show a
+   pairing dialog; you do not need to act on it.)
 3. Start playing anything (music app, video, etc.). Within a couple of seconds
    the radio switches to the Bluetooth source: **whatever was playing before
    (internet radio, AirPlay, Spotify) is stopped**, the display shows the
@@ -74,8 +73,7 @@ on the phone side beyond pairing.
   that overlay off keeps Bluetooth on the full PL011 with hardware flow control.
   The kernel console stays on `tty1` (see `cmdline.txt`), so nothing else needs
   the PL011. The config also sets `enable_uart=1` so the PL011 comes up
-  deterministically for the BT attach. (Pinning the VPU core clock via
-  `core_freq` was tried and made no difference on the PL011, so it is not set.)
+  deterministically for the BT attach.
   > **Do not enable `pi3-miniuart-bt`.** It moves Bluetooth onto the weaker
   > *mini-UART* (`ttyS0`), which cannot reliably sustain the A2DP data rate —
   > streaming then produces continuous `ACL packet for unknown connection

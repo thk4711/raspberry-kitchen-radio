@@ -45,6 +45,35 @@ that show a way to exploit them beyond the documented scope are welcome:
   untrusted firmware package authentic. See
   [`doc/firmware-updates.md`](doc/firmware-updates.md).
 
+### Why no HTTPS or firmware signing?
+
+The plain-HTTP web UI and the unsigned firmware packages above are **deliberate
+choices, not oversights**. Both HTTPS and a meaningful firmware signature
+require a *cryptographic chain of trust* that this project cannot establish:
+
+- **HTTPS needs a certificate a browser already trusts**, bound to a stable
+  hostname or IP. This appliance is built by unknown people and deployed onto
+  private home LANs with unknown, frequently changing IP addresses and
+  hostnames, and it is never reachable from the public internet, so no
+  certificate authority can issue a valid certificate for it. A self-signed
+  certificate would only add browser warnings and key handling without adding
+  real assurance on a network the operator already controls.
+- **A useful firmware signature needs a signing key that verifiers already
+  trust**, kept offline, with defined rotation and revocation. There is no
+  shared trust anchor between the (unknown) publisher of a `.swu` and the
+  (unknown) operator installing it, so a signature the device generated or
+  accepted by default would prove nothing. The embedded SHA-256 therefore
+  guards against accidental corruption only.
+
+Because no shared trust anchor exists for this deployment model, serving the
+admin UI over plain HTTP and shipping SHA-256-verified but unsigned packages
+**on a trusted LAN** is the honest trade-off rather than security theatre.
+Anyone who controls their own fleet — a single stable network with a private CA
+and a protected signing key — can add real authenticity by enabling HTTPS in
+front of the UI, turning on SWUpdate's `CONFIG_SIGNED_IMAGES`, and adopting
+verified boot for the stable loader (see
+[`doc/firmware-update-architecture.md`](doc/firmware-update-architecture.md)).
+
 Issues we *do* want to hear about include: privilege-escalation past the
 root-owned helper's fixed action whitelist, injection through the web form
 validators, path traversal, secrets leaking into logs/diagnostics bundles, or

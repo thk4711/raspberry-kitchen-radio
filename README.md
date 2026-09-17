@@ -6,57 +6,48 @@ boots straight into the radio — no desktop, no login, no app to launch. Turn t
 knob to change the volume, press a button to switch stations, and stream to it
 from your phone over AirPlay, Spotify Connect, Bluetooth, or USB Audio.
 
-Under the hood it is a small Python application running on a **minimal,
-fast-booting [Buildroot](https://buildroot.org/) appliance image**. The image is
-purpose-built for the **Raspberry Pi 3A+** and starts the radio automatically.
+Under the hood it is a small Python application on a minimal, fast-booting
+[Buildroot](https://buildroot.org/) appliance image built for the
+**Raspberry Pi 3A+**.
 
 ## What you get
 
 ### A standalone radio appliance
 
-- Boots directly into the radio application.
-- Uses physical controls: a volume knob, preset buttons, and a power switch.
-- Shows now-playing information and station logos on an SPI display.
-- Runs from a minimal Buildroot image instead of a general-purpose desktop OS.
+- Boots straight into the radio — no general-purpose desktop OS.
+- Physical controls: a volume knob, preset buttons, and a power switch.
+- Now-playing information and station logos on an SPI display.
 
-### Multiple audio sources
+### Five audio sources
 
-- **Internet radio presets** for everyday listening.
-- **AirPlay receiver** for Apple devices.
-- **Spotify Connect** for playback from the Spotify app.
-- **Bluetooth A2DP** for phones, tablets, and computers.
-- **USB Audio Class receiver** so the radio can appear as a stereo USB sound
-  card over the Pi 3A+ USB data port. See the USB wiring warning in
-  [`doc/hardware.md`](doc/hardware.md#usb-audio-gadget-wiring): USB VBUS must
-  not be connected.
+Internet radio presets, an AirPlay receiver, Spotify Connect, Bluetooth A2DP,
+and a USB Audio Class receiver that makes the radio appear as a stereo USB sound
+card. All five share one output path, so the volume knob and equalizer apply
+uniformly.
+
+> **USB wiring:** VBUS must not be connected — see
+> [`doc/hardware.md`](doc/hardware.md#usb-audio-gadget-wiring).
 
 ### Web administration
 
-- Local password-protected web interface on port 8080.
-- Edit radio presets and choose which music sources are enabled.
-- Configure WiFi, static IP, hostname, device name, time settings, display
-  options, audio output, and maximum volume.
-- View status for the player, network, Bluetooth adapter, and system.
-- Back up and restore persistent device data.
-- Install firmware updates and switch back to retained compatible firmware.
+A password-protected web interface on port 8080 lets you edit presets and
+enabled sources; configure WiFi, static IP, hostname, device name, time,
+display, audio output, and maximum volume; view player, network, Bluetooth, and
+system status; back up and restore device data; and install or roll back
+firmware.
 
 ### Sound tuning
 
-- Built-in **ten-band parametric equalizer** in the web interface.
-- Per-band frequency, gain, Q, and filter type controls.
-- One EQ profile applies to Internet Radio, AirPlay, Spotify Connect,
-  Bluetooth, and USB Audio.
-- Ordinary EQ adjustments are applied live without restarting the current
-  stream; enabling or bypassing the whole EQ briefly restarts the audio path.
-- EQ settings survive normal firmware updates, trial boots, and automatic
-  rollback.
+A built-in **ten-band parametric equalizer** in the web interface, with per-band
+frequency, gain, Q, and filter type. Ordinary adjustments apply live; enabling
+or bypassing the whole EQ briefly restarts the audio path. Settings survive
+firmware updates, trial boots, and automatic rollback.
 
 ### Appliance reliability
 
-- Fast-booting appliance image focused on the radio use case.
 - Persistent configuration and user data on a shared data partition.
-- Safe A/B firmware update flow with health-checked trial boots.
-- Automatic rollback when a trial firmware is unhealthy.
+- Safe A/B firmware updates with health-checked trial boots and automatic
+  rollback when a trial firmware is unhealthy.
 - Service restart and watchdog support for unattended use.
 
 ## Typical use cases
@@ -68,10 +59,8 @@ purpose-built for the **Raspberry Pi 3A+** and starts the radio automatically.
 
 ## Hardware at a glance
 
-The appliance image targets the **Raspberry Pi 3A+** specifically. Other Pi
-models are not supported by the image.
-
-A typical build uses:
+The appliance image targets the **Raspberry Pi 3A+** only; other Pi models are
+not supported. A typical build uses:
 
 - Raspberry Pi 3A+.
 - SPI-connected display for now-playing information and station logos. Two
@@ -138,7 +127,8 @@ The usual first setup flow is:
    - `http://<device-ip>:8080`
 
    On first use, the web interface asks you to create an administrator password.
-   The interface uses plain HTTP and is intended for trusted LANs only.
+   The interface uses plain HTTP, so use it only on a trusted LAN (see
+   [`doc/web-interface.md`](doc/web-interface.md#reaching-the-interface)).
 
 5. **Select the sound card.**
 
@@ -157,13 +147,12 @@ disabled by default.
 Firmware updates are installed from the web interface using versioned
 `kitchen-radio-<version>.swu` packages. Updates are written to the inactive
 firmware slot, keep persistent configuration and user data, and use a
-health-checked trial boot. If a trial firmware is unhealthy, U-Boot automatically
-returns to the previous accepted slot.
+health-checked trial boot with automatic rollback to the previous accepted slot.
 
-Firmware packages are **unsigned**, so SHA-256 detects corruption but does not
-prove authenticity. Obtain packages through a trusted channel and use the web
-interface only on a trusted LAN. The complete upload, activation, rollback, and
-recovery procedure is in [`doc/firmware-updates.md`](doc/firmware-updates.md).
+Packages are **unsigned**: obtain them through a trusted channel and update only
+on a trusted LAN. The full upload, activation, rollback, and recovery procedure —
+and the complete security notes — are in
+[`doc/firmware-updates.md`](doc/firmware-updates.md).
 
 ## Technical overview
 

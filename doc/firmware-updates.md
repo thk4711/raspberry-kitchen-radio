@@ -42,6 +42,11 @@ partition—see [Persistent data](persistent-data.md). Flashing a complete
 - The SHA-256 detects accidental corruption but does not authenticate the
   publisher. An attacker able to replace both package and checksum can replace
   the firmware.
+- Leaving packages unsigned is a deliberate choice: a useful signature needs a
+  signing key the device already trusts, but there is no shared trust anchor
+  between the unknown publisher of a `.swu` and the unknown operator installing
+  it on a private network. See the rationale in
+  [`../SECURITY.md`](../SECURITY.md#why-no-https-or-firmware-signing).
 - The administration interface uses **plain HTTP**. Upload firmware and enter
   the administrator password only on a trusted LAN. Never expose port 8080 to
   the Internet.
