@@ -363,10 +363,17 @@ def publish_release(args: argparse.Namespace, tag: str, assets: list[Path]) -> N
     if release_exists(tag, args.dry_run):
         if not args.force:
             raise ReleaseError(f"a release for {tag} already exists; pass --force to update it")
-        run(
-            ["gh", "release", "edit", tag, "--title", title, "--notes-file", str(args.notes)],
-            dry_run=args.dry_run,
-        )
+        # A published release materializes the tag, so it must exist on the
+        # remote before we flip an existing draft to published (checklist
+        # step 11). Push it first, mirroring the create path below.
+        if not args.draft and not args.dry_run and not tag_on_remote(args.repository, tag):
+            run(["git", "-C", str(args.repository), "push", "origin", tag])
+        edit_command = ["gh", "release", "edit", tag, "--title", title, "--notes-file", str(args.notes)]
+        # Honor the release mode when updating: --publish clears an existing
+        # draft flag (draft=false), while the default keeps it a draft. Without
+        # this, an existing draft would stay a draft even under --publish.
+        edit_command.append("--draft=false" if not args.draft else "--draft=true")
+        run(edit_command, dry_run=args.dry_run)
         run(
             ["gh", "release", "upload", tag, *asset_paths, "--clobber"],
             dry_run=args.dry_run,
