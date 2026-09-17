@@ -40,24 +40,6 @@ do not use them to drive a GPIO signal.
 
 ### Block diagram
 
-```
-                          +--------------------------+
-                          |     Raspberry Pi          |
-                          |                           |
-  Volume pot ── AIN0 ─┐   |  I2C1 (SDA=2, SCL=3) ─────┼──┐
-  Button ladder AIN1 ─┼── ADS1115 ─────────────────── ┘  |
-  Power switch  AIN2 ─┘   |                           |  (0x48)
-                          |                           |
-                          |  SPI0 (MOSI=10, SCLK=11,  |
-  SPI display ───────────┼── CE0=8) + RST=24,        |
-  (ST7789 or GC9A01)     |  DC=25, BL=12              |
-                          |                           |
-  Amplifier enable  ──────┼── GPIO 26                 |
-                          |                           |
-  Sound device    ────────┼── profile-dependent       |
-                          +--------------------------+
-```
-
 ```mermaid
 graph LR
     POT[Volume pot] -->|AIN0| ADS[ADS1115 @ 0x48]
