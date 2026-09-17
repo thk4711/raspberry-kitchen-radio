@@ -23,11 +23,13 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import json
 import re
 import shlex
 import shutil
 import subprocess
 import sys
+import time
 from pathlib import Path
 from typing import Sequence
 
@@ -321,18 +323,6 @@ def ensure_tag(args: argparse.Namespace, tag: str) -> None:
     )
 
 
-def release_exists(tag: str, dry_run: bool) -> bool:
-    result = run(
-        ["gh", "release", "view", tag, "--json", "tagName"],
-        check=False,
-        capture_output=True,
-        dry_run=dry_run,
-    )
-    if result is None:
-        return False
-    return result.returncode == 0
-
-
 def tag_on_remote(repository: Path, tag: str) -> bool:
     """Return True if the annotated tag already exists on origin."""
     result = subprocess.run(
@@ -356,11 +346,172 @@ def current_branch(repository: Path) -> str:
     return "" if branch in ("", "HEAD") else branch
 
 
-def publish_release(args: argparse.Namespace, tag: str, assets: list[Path]) -> None:
+def tag_commit(repository: Path, tag: str) -> str:
+    """Return the commit SHA the tag points at, or empty string if unknown."""
+    result = subprocess.run(
+        ["git", "-C", str(repository), "rev-parse", "--verify", "--quiet", f"{tag}^{{commit}}"],
+        check=False,
+        text=True,
+        capture_output=True,
+    )
+    return result.stdout.strip() if result.returncode == 0 else ""
+
+
+def head_commit(repository: Path) -> str:
+    """Return the current HEAD commit SHA, or empty string if unknown."""
+    result = subprocess.run(
+        ["git", "-C", str(repository), "rev-parse", "--verify", "--quiet", "HEAD"],
+        check=False,
+        text=True,
+        capture_output=True,
+    )
+    return result.stdout.strip() if result.returncode == 0 else ""
+
+
+def warn_head_differs_from_tag(repository: Path, tag: str) -> None:
+    """Warn when the build tree (HEAD) is not the tagged release commit.
+
+    The build embeds the HEAD commit into the artifacts, so if HEAD has moved
+    past the tag the published binaries trace to a different commit than the
+    tag advertises. This is a judgement call (docs/tooling commits often land
+    after the release commit), so it is a loud warning, not a hard failure.
+    """
+    tagged = tag_commit(repository, tag)
+    head = head_commit(repository)
+    if tagged and head and tagged != head:
+        print(
+            f"! NOTICE: building from HEAD ({head[:7]}), which differs from "
+            f"tag {tag} ({tagged[:7]}). Published artifacts will embed the HEAD "
+            "commit, not the tagged release commit."
+        )
+
+
+def release_state(tag: str) -> dict | None:
+    """Return the live release's isDraft/url/assets, or None if it is absent.
+
+    Unlike release_exists(), this always performs the read (never suppressed by
+    dry-run) because it has no side effects and is used both to choose the
+    create-vs-update path in dry-run and to verify the final state afterwards.
+    """
+    result = subprocess.run(
+        ["gh", "release", "view", tag, "--json", "isDraft,url,assets"],
+        check=False,
+        text=True,
+        capture_output=True,
+    )
+    if result.returncode != 0:
+        return None
+    try:
+        return json.loads(result.stdout)
+    except json.JSONDecodeError:
+        return None
+
+
+def remote_asset_digests(state: dict | None) -> dict[str, str]:
+    """Map asset name -> bare sha256 hex for fully-uploaded release assets."""
+    digests: dict[str, str] = {}
+    if not state:
+        return digests
+    for asset in state.get("assets", []):
+        name = asset.get("name")
+        digest = asset.get("digest", "")
+        state_ok = asset.get("state") == "uploaded"
+        if name and state_ok and digest.startswith("sha256:"):
+            digests[name] = digest.split(":", 1)[1]
+    return digests
+
+
+def verify_release(
+    tag: str,
+    assets: list[Path],
+    local_hashes: dict[str, str],
+    *,
+    want_draft: bool,
+) -> None:
+    """Fail unless the published release matches the requested end state.
+
+    Confirms the draft flag, a materialized (non-``untagged-``) URL when
+    publishing, and that every expected asset is present, fully uploaded, and
+    (where we know the local hash) byte-identical to what we staged. This turns
+    a silently wrong ``gh`` outcome into a hard error.
+    """
+    state = release_state(tag)
+    if state is None:
+        raise ReleaseError(f"post-publish check: no release found for {tag}")
+    if bool(state.get("isDraft")) != want_draft:
+        raise ReleaseError(
+            f"post-publish check: release {tag} isDraft={state.get('isDraft')}, "
+            f"expected {want_draft}"
+        )
+    url = state.get("url", "")
+    if not want_draft and "/untagged-" in url:
+        raise ReleaseError(
+            f"post-publish check: published release {tag} is still bound to an "
+            f"untagged draft ({url}); the tag was not materialized"
+        )
+    present = {a.get("name"): a for a in state.get("assets", [])}
+    for asset in assets:
+        remote = present.get(asset.name)
+        if remote is None:
+            raise ReleaseError(f"post-publish check: asset {asset.name} is missing from {tag}")
+        if remote.get("state") != "uploaded":
+            raise ReleaseError(
+                f"post-publish check: asset {asset.name} state is "
+                f"{remote.get('state')!r}, not 'uploaded'"
+            )
+        want = local_hashes.get(asset.name)
+        got = remote.get("digest", "")
+        if want and got.startswith("sha256:") and got.split(":", 1)[1] != want:
+            raise ReleaseError(
+                f"post-publish check: asset {asset.name} remote digest "
+                f"{got} does not match local {want}"
+            )
+    print(f"= verified release {tag}: isDraft={want_draft}, {len(assets)} assets uploaded")
+
+
+def upload_assets(
+    tag: str,
+    assets: list[Path],
+    local_hashes: dict[str, str],
+    *,
+    dry_run: bool,
+) -> None:
+    """Upload assets, skipping any whose remote digest already matches.
+
+    Avoids re-transferring large artifacts on retries (the SD image alone is
+    ~177 MiB) and prints a heartbeat around each upload so a long-running
+    transfer is visibly progressing rather than appearing hung.
+    """
+    remote = remote_asset_digests(release_state(tag)) if not dry_run else {}
+    for asset in assets:
+        want = local_hashes.get(asset.name)
+        if want and remote.get(asset.name) == want:
+            print(f"= {asset.name} already uploaded with matching digest; skipping")
+            continue
+        size = human_size(asset.stat().st_size) if asset.is_file() else "?"
+        print(f"+ uploading {asset.name} ({size}) ...", flush=True)
+        started = time.monotonic()
+        run(
+            ["gh", "release", "upload", tag, str(asset), "--clobber"],
+            dry_run=dry_run,
+        )
+        if not dry_run:
+            print(f"= uploaded {asset.name} in {time.monotonic() - started:.0f}s", flush=True)
+
+
+def publish_release(
+    args: argparse.Namespace,
+    tag: str,
+    assets: list[Path],
+    local_hashes: dict[str, str],
+) -> None:
     """Create the release, or update it under --force, and attach assets."""
     title = f"Raspberry Kitchen Radio {tag}"
-    asset_paths = [str(asset) for asset in assets]
-    if release_exists(tag, args.dry_run):
+    # Determine the real create-vs-update path from the live release, even in
+    # dry-run (the read has no side effects), so a dry-run reflects what would
+    # actually happen instead of always showing the create path.
+    exists = release_state(tag) is not None
+    if exists:
         if not args.force:
             raise ReleaseError(f"a release for {tag} already exists; pass --force to update it")
         # A published release materializes the tag, so it must exist on the
@@ -368,16 +519,25 @@ def publish_release(args: argparse.Namespace, tag: str, assets: list[Path]) -> N
         # step 11). Push it first, mirroring the create path below.
         if not args.draft and not args.dry_run and not tag_on_remote(args.repository, tag):
             run(["git", "-C", str(args.repository), "push", "origin", tag])
-        edit_command = ["gh", "release", "edit", tag, "--title", title, "--notes-file", str(args.notes)]
+        edit_command = [
+            "gh",
+            "release",
+            "edit",
+            tag,
+            "--title",
+            title,
+            "--notes-file",
+            str(args.notes),
+        ]
         # Honor the release mode when updating: --publish clears an existing
         # draft flag (draft=false), while the default keeps it a draft. Without
         # this, an existing draft would stay a draft even under --publish.
         edit_command.append("--draft=false" if not args.draft else "--draft=true")
         run(edit_command, dry_run=args.dry_run)
-        run(
-            ["gh", "release", "upload", tag, *asset_paths, "--clobber"],
-            dry_run=args.dry_run,
-        )
+        # Upload after the draft flip: materializing the tag can rebind the
+        # release object, so attaching assets last guarantees they land on the
+        # final (published) release rather than a stale draft object.
+        upload_assets(tag, assets, local_hashes, dry_run=args.dry_run)
         return
     command = ["gh", "release", "create", tag, "--title", title, "--notes-file", str(args.notes)]
     if args.draft:
@@ -394,7 +554,7 @@ def publish_release(args: argparse.Namespace, tag: str, assets: list[Path]) -> N
         # on the remote first (checklist step 11).
         if not args.dry_run and not tag_on_remote(args.repository, tag):
             run(["git", "-C", str(args.repository), "push", "origin", tag])
-    command += asset_paths
+    command += [str(asset) for asset in assets]
     run(command, dry_run=args.dry_run)
 
 
@@ -428,6 +588,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     assert_versions_match(args.repository, args.version)
     check_gh_auth(args.dry_run)
     ensure_tag(args, tag)
+    warn_head_differs_from_tag(args.repository, tag)
     run([sys.executable, str(CONSISTENCY_CHECK)], cwd=args.repository, dry_run=args.dry_run)
 
     if not args.skip_build:
@@ -457,10 +618,21 @@ def main(argv: Sequence[str] | None = None) -> int:
     hashes: dict[str, str] = {}
     if not args.dry_run:
         hashes = write_checksums([clean_image, clean_swu], checksums_file, args.dry_run)
+        # Include the checksum file itself so the idempotent upload skip and the
+        # post-publish verification can reason about all three release assets.
+        hashes[checksums_file.name] = sha256(checksums_file)
     else:
         print(f"+ write {checksums_file.name}")
 
-    publish_release(args, tag, [clean_image, clean_swu, checksums_file])
+    publish_release(args, tag, [clean_image, clean_swu, checksums_file], hashes)
+
+    if not args.dry_run:
+        verify_release(
+            tag,
+            [clean_image, clean_swu, checksums_file],
+            hashes,
+            want_draft=args.draft,
+        )
 
     print()
     print("Release summary")

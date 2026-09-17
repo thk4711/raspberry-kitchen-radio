@@ -195,12 +195,26 @@ python3 scripts/release.py <version> --notes FILE.md [options]
    - **`--publish`**: the tag must exist on the remote, so the script pushes it
      (`git push origin vX.Y.Z`) first, then creates the published release.
 
-   If a release/draft already exists, it updates the title/notes and re-uploads
-   the assets with `--clobber` — but only under `--force`.
+   If a release/draft already exists, it updates the title/notes under
+   `--force`. When updating, the script honors the requested mode: `--publish`
+   pushes the tag first and clears the draft flag (`--draft=false`) so an
+   existing draft actually becomes public, while the default keeps it a draft.
+   Assets are then (re)uploaded one at a time with `--clobber`, *skipping any
+   whose remote SHA-256 already matches* the staged file — so a retried run does
+   not re-transfer the ~177 MiB image needlessly. Each upload prints a
+   heartbeat (name, size) and its duration.
 
-10. **Summary.** Prints the tag, each asset's name, size, and SHA-256, and the
+10. **Verify.** After publishing (not in `--dry-run`), the script re-reads the
+    release and fails loudly unless the draft flag matches the requested mode,
+    the URL is a materialized tag (not an `untagged-…` draft) when publishing,
+    and every expected asset is present, fully `uploaded`, and byte-identical to
+    the staged file. This turns a silently wrong `gh` outcome into a hard error.
+
+11. **Summary.** Prints the tag, each asset's name, size, and SHA-256, and the
     release URL. When publishing (not a draft) it prints a reminder that the
-    on-hardware A/B test must already have passed.
+    on-hardware A/B test must already have passed. If the build tree (`HEAD`)
+    differs from the tagged release commit, a notice is printed early, because
+    the artifacts embed the `HEAD` commit rather than the tagged one.
 
 
 ## Preparing the release-notes file
