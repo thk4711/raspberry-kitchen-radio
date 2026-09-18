@@ -114,15 +114,20 @@ URL** (http/https) and an optional **logo filename**:
 - **Move up / Move down** reorders the presets (slot order = button order 1–6;
   see [`stations.md`](stations.md)).
 - **Save** validates and stores your edits.
+- **Upload a logo** uploads your own logo image (see below).
 - **Apply and restart radio** restarts the player so the new presets take
   effect.
 - **Restore built-in** discards your edits and reverts to the shipped presets.
 
 Your edits are written to a managed copy at `/etc/radio/stations.ini`; the
 shipped [`lib/mpd_service/stations.conf`](../lib/mpd_service/stations.conf) is
-never modified. **Logo uploads are not supported** — enter the filename of a
-logo already shipped under `lib/mpd_service/logos/`, or leave it blank to use a
-generated initials tile (see [`logos.md`](logos.md)).
+never modified. For the **logo** you can either enter the filename of a logo
+already shipped under `lib/mpd_service/logos/`, upload your own with the
+**Upload a logo** control on this page (PNG or JPEG, up to 4 MiB; it is
+converted to PNG and scaled down — aspect preserved — to at most 512×512, then
+stored under `/etc/radio/logos/` with a cleaned filename that appears in every
+Logo dropdown), or leave it blank to use a generated initials tile (see
+[`logos.md`](logos.md)).
 
 ### Music sources (`/sources`)
 

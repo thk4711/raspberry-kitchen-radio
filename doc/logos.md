@@ -106,6 +106,16 @@ canvas.save("MY_STATION.png", "PNG")
 
 ## Adding or replacing a logo
 
+The easiest way is the **web interface**: on the **Radio stations** page use the
+**Upload a logo** control (PNG or JPEG, up to 4 MiB). The app converts the image
+to PNG, proportionally scales it down to at most 512×512, and saves it under
+`/etc/radio/logos/` with a cleaned version of the uploaded file name. The new
+logo then appears in every preset's Logo dropdown — choose it, click **Save** on
+the preset, then **Apply and restart radio**. No `scp` or rebuild is needed.
+
+To add a logo **as a vendored file in the repo** (e.g. for a shipped preset)
+instead:
+
 1. Put the image in `lib/mpd_service/logos/` (e.g. `MY_STATION.png`).
 2. Reference it from the station's section in `lib/mpd_service/stations.conf`
    with `logo = MY_STATION.png`.
