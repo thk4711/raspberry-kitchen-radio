@@ -16,7 +16,7 @@ PROVISION_SCRIPT = (
     / "sbin"
     / "provision-from-boot"
 )
-RADIO_CONFIG = ROOT / "buildroot" / "external" / "board" / "radio" / "radio-config.txt"
+RADIO_CONFIG = ROOT / "buildroot" / "external" / "board" / "radio" / "pisonic-config.txt"
 POST_IMAGE = ROOT / "buildroot" / "external" / "board" / "radio" / "post-image.sh"
 POST_BUILD = ROOT / "buildroot" / "external" / "board" / "radio" / "post-build.sh"
 BUILD_SCRIPT = ROOT / "buildroot" / "build.sh"
@@ -55,8 +55,8 @@ def test_boot_partition_ships_active_radio_config_under_final_name():
     )
     assert "enable_ssh=0" in config
     assert "timezone=UTC" in config
-    assert 'RADIO_CONFIG="${BOARD_DIR}/radio-config.txt"' in post_image
-    assert "radio-config.txt.example" not in post_image
+    assert 'RADIO_CONFIG="${BOARD_DIR}/pisonic-config.txt"' in post_image
+    assert "pisonic-config.txt.example" not in post_image
 
 
 def test_generic_build_does_not_require_per_device_configuration():

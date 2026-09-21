@@ -115,7 +115,7 @@ class TestTemplates:
         )
         assert "Setup incomplete" in html
         assert "WiFi network name" in html
-        assert "radio-config.txt" in html
+        assert "pisonic-config.txt" in html
 
     def test_dashboard_shows_bluetooth_adapter_info(self):
         html = templates.dashboard(self._status())

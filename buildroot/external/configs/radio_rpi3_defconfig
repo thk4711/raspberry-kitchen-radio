@@ -118,7 +118,7 @@ BR2_PACKAGE_HOST_MTOOLS=y
 BR2_INIT_BUSYBOX=y
 BR2_ROOTFS_DEVICE_CREATION_DYNAMIC_MDEV=y
 # provision-from-boot uses BusyBox chpasswd to apply root_password= from the
-# SD-card radio-config.txt. The fragment is merged into BusyBox's config.
+# SD-card pisonic-config.txt. The fragment is merged into BusyBox's config.
 BR2_PACKAGE_BUSYBOX_CONFIG_FRAGMENT_FILES="$(BR2_EXTERNAL_RADIO_PATH)/board/radio/busybox.fragment"
 BR2_TARGET_GENERIC_HOSTNAME="pisonic"
 BR2_TARGET_GENERIC_ISSUE="PiSonic"
@@ -146,7 +146,7 @@ BR2_ROOTFS_POST_BUILD_SCRIPT="$(BR2_EXTERNAL_RADIO_PATH)/board/radio/post-build.
 # baseline permissions; the radio table adds the web-writable managed dirs.
 BR2_ROOTFS_DEVICE_TABLE="system/device_table.txt $(BR2_EXTERNAL_RADIO_PATH)/board/radio/device_table.txt"
 # Self-contained post-image script: assembles the image with genimage and copies
-# radio-config.txt onto the FAT boot partition, so a user can edit WiFi /
+# pisonic-config.txt onto the FAT boot partition, so a user can edit WiFi /
 # hostname / etc. before first boot (read once by /usr/sbin/provision-from-boot).
 BR2_ROOTFS_POST_IMAGE_SCRIPT="$(BR2_EXTERNAL_RADIO_PATH)/board/radio/post-image.sh"
 BR2_PACKAGE_RPI_FIRMWARE_CONFIG_FILE="$(BR2_EXTERNAL_RADIO_PATH)/board/radio/config.txt"
@@ -178,7 +178,7 @@ BR2_PACKAGE_BRCMFMAC_SDIO_FIRMWARE_RPI_BT=y
 # the safe worldwide default.
 BR2_PACKAGE_WIRELESS_REGDB=y
 # iw provides `iw reg set <CC>`, used by the S41wlan init script to apply the
-# WiFi regulatory domain from the radio-config.txt "wifi_country=" key. This is
+# WiFi regulatory domain from the pisonic-config.txt "wifi_country=" key. This is
 # how the region is set, because the appliance's wpa_supplicant is built without
 # CONFIG_CTRL_IFACE and rejects a country= line in wpa_supplicant.conf. iw pulls
 # in libnl and needs a threads-capable toolchain (satisfied by the glibc base).
@@ -207,7 +207,7 @@ BR2_PACKAGE_RADIO_SWUPDATE_PROGRESS=y
 # BR2_PACKAGE_SWUPDATE_INSTALL_WEBSITE is not set
 
 # Time-zone database + /etc/localtime handling. Enables the SD-card
-# radio-config.txt "timezone=" key (applied by /usr/sbin/provision-from-boot),
+# pisonic-config.txt "timezone=" key (applied by /usr/sbin/provision-from-boot),
 # which symlinks /etc/localtime to the matching /usr/share/zoneinfo entry.
 # Costs ~1-2 MB in the rootfs; without it the appliance runs in UTC.
 BR2_TARGET_TZ_INFO=y
@@ -298,7 +298,7 @@ BR2_PACKAGE_RADIO_APP=y
 
 # --- Remote access -----------------------------------------------------------
 # Dropbear SSH server (ships /etc/init.d/S50dropbear), disabled by default until
-# explicitly enabled in radio-config.txt or the web UI. Both paths additionally
+# explicitly enabled in pisonic-config.txt or the web UI. Both paths additionally
 # require a non-default root password to have been provisioned and persisted.
 BR2_PACKAGE_DROPBEAR=y
 BR2_PACKAGE_DROPBEAR_CLIENT=y

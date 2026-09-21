@@ -28,7 +28,7 @@ null::sysinit:/bin/ln -sf /proc/self/fd/2 /dev/stderr
 # See /usr/sbin/radio-boot-splash and lib/display/boot_splash.py.
 ::sysinit:/usr/sbin/radio-boot-splash
 # Verify /data, establish persistent compatibility paths, migrate state, apply
-# radio-config.txt, and regenerate slot-owned files as one fail-closed sequence.
+# pisonic-config.txt, and regenerate slot-owned files as one fail-closed sequence.
 # This precedes hostname and rcS consumers (WiFi/chrony/dropbear).
 ::sysinit:/usr/sbin/radio-persistent-boot
 ::sysinit:/bin/hostname -F /etc/hostname

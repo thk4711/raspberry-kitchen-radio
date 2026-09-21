@@ -93,7 +93,7 @@ def test_archive_order_metadata_and_payload_integrity(tmp_path, checker):
     assert manifest.count(f'sha256 = "{hashlib.sha256(payload).hexdigest()}";') == 2
     assert gzip.decompress(payload) == rootfs.read_bytes()
     assert "/dev/mmcblk0p2" in manifest and "/dev/mmcblk0p3" in manifest
-    for forbidden in ("/dev/mmcblk0p1", "/dev/mmcblk0p4", "radio-config.txt", "data.ext4"):
+    for forbidden in ("/dev/mmcblk0p1", "/dev/mmcblk0p4", "pisonic-config.txt", "data.ext4"):
         assert forbidden not in manifest
 
 

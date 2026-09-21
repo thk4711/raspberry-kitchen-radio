@@ -4,7 +4,7 @@
 #
 # This is an overlay copy of Buildroot's stock dropbear init script with one
 # additions: it honours the /run/provision-disable-ssh flag written by
-# /usr/sbin/provision-from-boot when the SD-card radio-config.txt sets
+# /usr/sbin/provision-from-boot when the SD-card pisonic-config.txt sets
 # "enable_ssh=0". provision-from-boot runs in inittab sysinit, well before this
 # rcS script, so the flag is already in place — no race.
 #
@@ -22,7 +22,7 @@ ROOT_HASH_FILE=/data/identity/root-password.hash
 
 start() {
 	if [ -e "$SSH_DISABLE_FLAG" ]; then
-		echo "Not starting dropbear: disabled via radio-config.txt (enable_ssh=0)"
+		echo "Not starting dropbear: disabled via pisonic-config.txt (enable_ssh=0)"
 		return 0
 	fi
 

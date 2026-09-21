@@ -18,7 +18,7 @@ UDHCPC_PID=/run/udhcpc.${IFACE}.pid
 UDHCPC_SCRIPT=/etc/udhcpc-wlan.script
 CACHE=/var/lib/wlan-last-lease.env
 WIFI_COUNTRY_FILE=/etc/radio/wifi-country
-# Optional static-IP config written by provision-from-boot (from radio-config.txt
+# Optional static-IP config written by provision-from-boot (from pisonic-config.txt
 # ip_* keys) or by the web UI's privileged helper. When present, S41wlan applies
 # this fixed address and skips DHCP. Absent -> DHCP (the default). Same
 # IP/PREFIX/ROUTER/DNS shape as $CACHE so apply_cached_lease's logic is reused.
@@ -82,7 +82,7 @@ valid_ipv4() {
 }
 
 # Apply the WiFi regulatory domain (country code) written by provision-from-boot
-# to $WIFI_COUNTRY_FILE from the radio-config.txt "wifi_country=" key. Uses `iw`
+# to $WIFI_COUNTRY_FILE from the pisonic-config.txt "wifi_country=" key. Uses `iw`
 # because this wpa_supplicant is built without CONFIG_CTRL_IFACE and rejects a
 # country= line. No file (or no iw) means keep the wireless-regdb worldwide
 # default. Non-fatal: a failure here never blocks WiFi bring-up.

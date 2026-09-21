@@ -67,7 +67,7 @@ def network_page(
         '<p class="warn">Changing WiFi may briefly drop this connection. The '
         "new settings are tried first and revert automatically if the radio "
         "cannot reconnect, so you cannot lock yourself out. The SD card "
-        "<code>radio-config.txt</code> stays the recovery route.</p>"
+        "<code>pisonic-config.txt</code> stays the recovery route.</p>"
         '<form method="post" action="/network">'
         f"{csrf}"
         "<p><label>Network name (SSID)<br>"

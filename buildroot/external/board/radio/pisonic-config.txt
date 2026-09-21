@@ -5,10 +5,10 @@
 # HOW TO USE
 #   1. Flash the prebuilt image to the SD card.
 #   2. On any computer, open the SD card's small FAT ("boot") partition.
-#   3. Edit this radio-config.txt with a plain-text editor, then save.
+#   3. Edit this pisonic-config.txt with a plain-text editor, then save.
 #   4. Insert the card into the Pi 3A+ and power it on.
 #
-# The radio reads /radio-config.txt before WiFi / hostname / SSH / time are
+# The radio reads /pisonic-config.txt before WiFi / hostname / SSH / time are
 # brought up and applies each active setting once. Each key=value line is
 # commented only after that setting is successfully stored on the persistent
 # data partition. A failed or invalid setting stays active and is retried on the

@@ -8,7 +8,7 @@ that file (atomic ``0644`` + one ``.bak``), plus the
 hostname / timezone / NTP (``apply_hostname_files`` / ``apply_time_files``),
 mirroring ``usr/sbin/provision-from-boot`` so both paths behave identically.
 
-A hostname set on the SD card ``radio-config.txt`` wins over the web UI.
+A hostname set on the SD card ``pisonic-config.txt`` wins over the web UI.
 ``provision-from-boot`` drops a marker file when it
 applied a hostname from the card; :func:`sd_card_hostname_locked` checks it so
 the UI can show + lock the device-name field.
@@ -258,7 +258,7 @@ def sd_card_hostname_locked() -> bool:
     """Return True iff the SD card currently overrides the hostname.
 
     ``provision-from-boot`` drops :data:`HOSTNAME_LOCK_MARKER` at boot when it
-    applied a hostname from ``radio-config.txt``. When
+    applied a hostname from ``pisonic-config.txt``. When
     present, the web UI locks the device-name field so the user does not believe
     a change will stick while the card override wins.
     """

@@ -13,7 +13,7 @@ the flow is **never** a plain write-and-restart. It is save → validate → try
    success it promotes the config and clears the marker; on failure (or if the
    admin never clicks "Confirm") it restores ``*.prev`` and restarts WiFi.
 
-The one-shot SD-card ``radio-config.txt`` remains the recovery route if the box
+The one-shot SD-card ``pisonic-config.txt`` remains the recovery route if the box
 drops off the network entirely. Once its active settings have been consumed and
 commented, web writes persist in ``/etc/wpa_supplicant.conf`` and the static-IP
 handoff file that ``S41wlan`` reads.
@@ -32,7 +32,7 @@ from typing import Any, Dict, Optional
 from . import validators
 
 # Persistent handoff files the privileged helper and S41wlan use. The SD-card
-# radio-config.txt is one-shot, so later boots and web edits reuse these files.
+# pisonic-config.txt is one-shot, so later boots and web edits reuse these files.
 # Overridable so tests never touch the real system paths.
 STATIC_IP_FILE = os.environ.get("RADIO_WLAN_STATIC_FILE", "/etc/radio/wlan-static.env")
 ROLLBACK_MARKER = os.environ.get("RADIO_WLAN_ROLLBACK_MARKER", "/run/wlan-rollback-pending")

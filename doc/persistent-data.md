@@ -149,7 +149,7 @@ Still before services start, `radio-persistent-boot` runs these steps in order:
 
 1. establish persistent paths;
 2. lock, back up and migrate the shared schema;
-3. apply one-shot `radio-config.txt` settings into persistent canonical files;
+3. apply one-shot `pisonic-config.txt` settings into persistent canonical files;
 4. regenerate firmware-owned runtime files from those persistent inputs.
 
 The sequence stops on an error. Schema and compatibility metadata are published

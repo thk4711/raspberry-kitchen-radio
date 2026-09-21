@@ -8,7 +8,7 @@ deadline (never a plain write-and-restart). Every value is re-validated here
 even though the web layer already validated it, because the helper trusts
 nothing.
 
-Standard-library only. The one-shot SD-card ``radio-config.txt`` remains the
+Standard-library only. The one-shot SD-card ``pisonic-config.txt`` remains the
 ultimate recovery route.
 """
 

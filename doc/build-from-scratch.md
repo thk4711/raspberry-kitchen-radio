@@ -157,7 +157,7 @@ writing to the wrong disk destroys its data.**
 ## Step 4 — Configure the SD card
 
 After flashing, reinsert or remount the SD card and open its small FAT boot
-partition. Edit the existing `radio-config.txt` with a plain-text editor:
+partition. Edit the existing `pisonic-config.txt` with a plain-text editor:
 
 - uncomment the WiFi lines and replace their placeholders with your details;
 - optionally choose a hostname and set a unique root password if console or SSH
@@ -196,7 +196,7 @@ partition (`p4`) to use the SD card's remaining capacity. The loader and two
 - **Wrong sound or no audio** — choose the fitted sound-card profile from the
   web interface's Audio page and reboot.
 - **Change WiFi or hostname without rebuilding** — use the web interface, or
-  edit and reactivate the relevant `radio-config.txt` lines as a recovery route.
+  edit and reactivate the relevant `pisonic-config.txt` lines as a recovery route.
 
 ## Where to go deeper
 

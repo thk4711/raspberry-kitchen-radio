@@ -215,7 +215,7 @@ Use the least destructive option first:
 1. Allow automatic fallback to finish.
 2. Find the appliance in the router's client list and try its hostname and IP.
 3. Use previously enabled SSH or a prepared 115200 8N1 serial console.
-4. Power down, remove the card, and edit `radio-config.txt` on FAT `p1` to repair
+4. Power down, remove the card, and edit `pisonic-config.txt` on FAT `p1` to repair
    WiFi or hostname. To enable recovery SSH, set a unique `root_password` and
    `enable_ssh=1` together; safely eject and boot.
 5. Use low-level U-Boot recovery only after preserving evidence and identifying

@@ -8,7 +8,7 @@ backend (see [`adding-a-music-source.md`](adding-a-music-source.md)).
 ## How to use it
 
 1. On your phone, open Bluetooth settings and look for the radio. Its name is
-   the appliance **hostname** (set through `radio-config.txt` or Device settings;
+   the appliance **hostname** (set through `pisonic-config.txt` or Device settings;
    default `pisonic`).
 2. Tap to connect. **There is no PIN and no confirmation prompt** — an
    auto-accept agent answers the pairing for you. (Your phone may briefly show a

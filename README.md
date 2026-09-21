@@ -1,8 +1,8 @@
 # PiSonic
 
-PiSonic turns a Raspberry Pi 3A+ into a **standalone internet
-radio and streaming speaker** with real, tactile controls. Power it on and it
-boots straight into the radio — no desktop, no login, no app to launch. Turn the
+PiSonic turns a Raspberry Pi 3A+ into a **standalone internet audio
+appliance and streaming speaker** with real, tactile controls. Power it on and it
+boots straight into playback — no desktop, no login, no app to launch. Turn the
 knob to change the volume, press a button to switch stations, and stream to it
 from your phone over AirPlay, Spotify Connect, Bluetooth, or USB Audio.
 
@@ -12,16 +12,16 @@ Under the hood it is a small Python application on a minimal, fast-booting
 
 ## What you get
 
-### A standalone radio appliance
+### A standalone audio appliance
 
-- Boots straight into the radio — no general-purpose desktop OS.
+- Boots straight into playback — no general-purpose desktop OS.
 - Physical controls: a volume knob, preset buttons, and a power switch.
 - Now-playing information and station logos on an SPI display.
 
 ### Five audio sources
 
 Internet radio presets, an AirPlay receiver, Spotify Connect, Bluetooth A2DP,
-and a USB Audio Class receiver that makes the radio appear as a stereo USB sound
+and a USB Audio Class receiver that makes the appliance appear as a stereo USB sound
 card. All five share one output path, so the volume knob and equalizer apply
 uniformly.
 
@@ -74,7 +74,7 @@ not supported. A typical build uses:
   or MERUS, driving the speaker.
 - Speaker, enclosure, wiring, and power supply.
 
-Base-radio wiring and ADS1115 controls are documented in
+Base wiring and ADS1115 controls are documented in
 [`doc/hardware.md`](doc/hardware.md), which also includes a full
 [wiring schematic](doc/hardware.md#schematic). Every selectable output has a
 complete, color-coded 40-pin map in
@@ -99,26 +99,26 @@ The usual first setup flow is:
    [`doc/build-from-scratch.md`](doc/build-from-scratch.md) or the Buildroot
    quick start in [`buildroot/README.md`](buildroot/README.md).
 
-2. **Edit `radio-config.txt` on the boot partition.**
+2. **Edit `pisonic-config.txt` on the boot partition.**
 
    After flashing, remove and reinsert the SD card on your computer. Open the
-   small FAT boot partition and edit the existing `radio-config.txt` with a plain
+   small FAT boot partition and edit the existing `pisonic-config.txt` with a plain
    text editor. Uncomment and set your WiFi SSID and password. You can also set
    the hostname, a unique root password, timezone, country, display options, and
    source flags. The generic image has no reusable login: root password access
    is locked, and SSH cannot be enabled until a non-placeholder password is
    explicitly provisioned.
 
-   Provisioning is one-shot: after applying active settings, the radio comments
-   their lines out in `radio-config.txt`. To apply a boot setting again, edit its
+   Provisioning is one-shot: after applying active settings, the appliance comments
+   their lines out in `pisonic-config.txt`. To apply a boot setting again, edit its
    value on the boot partition, remove the leading `#`, and reboot. The full key
    reference is in
-   [`doc/buildroot.md`](doc/buildroot.md#provisioning-a-prebuilt-image-from-the-sd-card-radio-configtxt).
+   [`doc/buildroot.md`](doc/buildroot.md#provisioning-a-prebuilt-image-from-the-sd-card-pisonic-configtxt).
 
 3. **Boot the device.**
 
    Insert the SD card into the Raspberry Pi 3A+ and power it on. The appliance
-   boots directly into the radio application.
+   boots directly into the PiSonic application.
 
 4. **Open the web interface.**
 
@@ -174,9 +174,9 @@ Start here depending on what you want to do:
 
 | Goal | Read |
 | --- | --- |
-| Build your first radio from scratch | [`doc/build-from-scratch.md`](doc/build-from-scratch.md) |
+| Build your first PiSonic from scratch | [`doc/build-from-scratch.md`](doc/build-from-scratch.md) |
 | Build the Buildroot image | [`buildroot/README.md`](buildroot/README.md) |
-| Configure a flashed image | [`doc/buildroot.md`](doc/buildroot.md#provisioning-a-prebuilt-image-from-the-sd-card-radio-configtxt) |
+| Configure a flashed image | [`doc/buildroot.md`](doc/buildroot.md#provisioning-a-prebuilt-image-from-the-sd-card-pisonic-configtxt) |
 | Wire the base hardware | [`doc/hardware.md`](doc/hardware.md) |
 | Choose a DAC / amplifier | [`doc/sound-devices.md`](doc/sound-devices.md) · [color-coded pinout](https://thk4711.github.io/pisonic/sound-devices.html) |
 | Use the web interface | [`doc/web-interface.md`](doc/web-interface.md) |

@@ -239,7 +239,7 @@ def test_persistent_data_reference_covers_layout_links_and_update_state():
         "data.ext4",
         "radio-persistent-boot",
         "radio-persistent-paths",
-        "radio-config.txt",
+        "pisonic-config.txt",
     ):
         assert required in text
 

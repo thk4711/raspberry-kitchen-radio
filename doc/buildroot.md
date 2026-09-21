@@ -93,7 +93,7 @@ BUILDROOT_DIR=~/br/buildroot BR2_DL_DIR=~/br/dl BUILDROOT_VERSION=2026.05.2 \
 ```
 
 The build contains generic defaults and no WiFi credentials. Device-specific
-settings are supplied after flashing through `radio-config.txt`, so one image
+settings are supplied after flashing through `pisonic-config.txt`, so one image
 can be reused for multiple radios without rebuilding.
 
 ## Build it (manual)
@@ -141,14 +141,14 @@ diskutil list
 sudo dd if=sdcard.img of=/dev/rdiskN bs=4m
 ```
 
-Before booting, edit `radio-config.txt` on the flashed card's FAT boot partition
+Before booting, edit `pisonic-config.txt` on the flashed card's FAT boot partition
 as described below. Log in over SSH once WiFi is up and SSH has been explicitly
 enabled. The HDMI `tty1` login remains visible, but the
 USB port is dedicated to USB Audio and cannot accept a keyboard:
 
 ```text
 user:     root
-password: <the root_password value from radio-config.txt>
+password: <the root_password value from pisonic-config.txt>
 ```
 
 ### Validate on the target
@@ -511,7 +511,7 @@ BusyBox init -> /etc/inittab
                                              #   launched DETACHED so it renders
                                              #   in parallel and never blocks boot
   sysinit:  /usr/sbin/radio-persistent-boot # validate writable ext4 p4; then link,
-                                             #   migrate, provision radio-config.txt,
+                                             #   migrate, provision pisonic-config.txt,
                                              #   and render firmware-owned files
   sysinit:  hostname -F /etc/hostname        # reads provisioned hostname
   sysinit:  /etc/init.d/rcS
@@ -656,13 +656,13 @@ kill -STOP "$(pgrep -f radio.py)"
 ```
 
 
-### Provisioning a prebuilt image from the SD card (`radio-config.txt`)
+### Provisioning a prebuilt image from the SD card (`pisonic-config.txt`)
 
 Every build produces the same generic image. Device-specific settings belong in
-the FAT ("boot") partition's plain-text `radio-config.txt` — the same idea as
+the FAT ("boot") partition's plain-text `pisonic-config.txt` — the same idea as
 Raspberry Pi OS's `/boot` provisioning.
 
-The image ships a `radio-config.txt` template on the FAT partition (added by
+The image ships a `pisonic-config.txt` template on the FAT partition (added by
 `board/radio/post-image.sh`). Credential placeholders are commented and the
 generic root account is locked. Edit it directly before the first boot:
 
@@ -742,7 +742,7 @@ from `board/radio/genimage.cfg.in`, and:
   skipped unless that mount is writable ext4 p4, preventing accidental writes
   into an unmounted `/data` directory in a firmware slot.
 - Places Raspberry Pi firmware/DTBs, `u-boot.bin`, the fixed A/B `boot.scr`, and
-  `radio-config.txt` on the FAT loader. U-Boot loads `/boot/zImage` from the
+  `pisonic-config.txt` on the FAT loader. U-Boot loads `/boot/zImage` from the
   selected ext4 slot and passes a matching `root=` and `radio.slot=` pair.
 - Runs `scripts/verify-audio-catalog.py` before image assembly. The build fails
   if a selectable I2S overlay is absent from the completed image or one of its
@@ -799,7 +799,7 @@ set transactionally.
 `/data` is the ext4 filesystem on fixed partition `p4`; it is mounted before
 provisioning and services. The early `radio-persistent-boot` coordinator validates
 that exact read-write mount, establishes compatibility links, migrates shared
-state, applies `radio-config.txt`, and regenerates slot-owned outputs. The
+state, applies `pisonic-config.txt`, and regenerates slot-owned outputs. The
 canonical inventory, ownership, image-seeding process and write guarantees are in
 [Persistent data](persistent-data.md).
 
@@ -850,7 +850,7 @@ authenticity guarantee.
 #### Firmware recovery paths
 
 The supported recovery order is automatic U-Boot fallback, a password-confirmed
-manual switch from Maintenance, and boot-partition `radio-config.txt` recovery
+manual switch from Maintenance, and boot-partition `pisonic-config.txt` recovery
 for WiFi/hostname/root-password/SSH access. HDMI exposes `tty1`, but USB Audio
 peripheral mode prevents use of a USB keyboard; prepare serial access or enable
 SSH before low-level work. Reflashing `sdcard.img` is the final recovery path and

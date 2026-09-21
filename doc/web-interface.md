@@ -12,7 +12,7 @@ from the Python standard library — no extra web server, database or framework.
 > maintenance, **display &amp; audio settings**, **Bluetooth pairing
 > management**, **WiFi / static-IP configuration**, and **firmware update and
 > rollback**. WiFi can also still be
-> set on the SD card's `radio-config.txt` (see [`buildroot.md`](buildroot.md)),
+> set on the SD card's `pisonic-config.txt` (see [`buildroot.md`](buildroot.md)),
 > which remains the recovery route.
 
 ## Reaching the interface
@@ -144,18 +144,18 @@ Choices are written to `/etc/radio/sources.ini`. A missing file or key means
 ### Device settings (`/device`)
 
 - **Device name** (hostname): saved immediately and applied on the **next
-  reboot**. If the SD card's `radio-config.txt` sets a hostname, that wins and
+  reboot**. If the SD card's `pisonic-config.txt` sets a hostname, that wins and
   the field is shown locked (see
-  [priority](#active-radio-configtxt-settings-take-priority-once)).
+  [priority](#active-pisonic-configtxt-settings-take-priority-once)).
 - **Timezone** and **NTP server**: applied like the boot-time provisioning. The
   current values are prefilled, and timezone is selected from the zones installed
   in the image rather than entered as an unfamiliar zoneinfo name.
 - **SSH remote access** (disabled by default): a device service, not a music
   source. Changes apply immediately; disabling it closes new SSH access after
-  the current session ends. `enable_ssh=0` in `radio-config.txt` still overrides
+  the current session ends. `enable_ssh=0` in `pisonic-config.txt` still overrides
   the web setting. The generic image has root password login locked, so SSH can
   be enabled only after a unique root password has been provisioned through
-  `radio-config.txt`; the web interface cannot create or reveal that credential.
+  `pisonic-config.txt`; the web interface cannot create or reveal that credential.
 - The old root-filesystem expansion control has been removed for the A/B image.
   Firmware slots have fixed equal sizes; the final persistent data partition is
   expanded automatically by the guarded early-boot service.
@@ -246,7 +246,7 @@ changes, the page shows a **Reboot required** choice after saving everything;
 reboot (the password is asked, as for any reboot) or defer it. **Restore defaults**
 returns the sound card, USB mode and maximum volume to their shipped defaults;
 use the EQ form's **Reset flat** button to reset the equalizer.
-The SD-card `radio-config.txt` remains the recovery route.
+The SD-card `pisonic-config.txt` remains the recovery route.
 
 ### WiFi &amp; network (`/network`)
 
@@ -255,7 +255,7 @@ the very connection you are using, the new settings are **tried first and revert
 automatically** if the radio cannot reconnect within about a minute — so you
 cannot lock yourself out. If the page reloads after a change, click **Keep these
 settings** to confirm (or **Revert now** to go back immediately). The SD card
-`radio-config.txt` remains the recovery route.
+`pisonic-config.txt` remains the recovery route.
 
 - **SSID** and **password** (WPA2-personal, 8–63 characters) and an optional
   two-letter **country code**.
@@ -368,14 +368,14 @@ The "Restore built-in" buttons remove the relevant override so the shipped
 defaults apply again. A `.bak` copy of the previous override is kept for
 stations/sources/device/display/audio edits.
 
-## Active `radio-config.txt` settings take priority once
+## Active `pisonic-config.txt` settings take priority once
 
-Active assignments in `radio-config.txt` win during that boot and are then
+Active assignments in `pisonic-config.txt` win during that boot and are then
 commented automatically. When the card sets the hostname, the web UI locks the
 **Device name** field for that boot to avoid the impression that a change will
 stick. The SD card is also the **recovery route** if the web UI ever becomes
 unreachable — see
-[`buildroot.md`](buildroot.md#provisioning-a-prebuilt-image-from-the-sd-card-radio-configtxt).
+[`buildroot.md`](buildroot.md#provisioning-a-prebuilt-image-from-the-sd-card-pisonic-configtxt).
 
 ## How it runs (services)
 
@@ -404,7 +404,7 @@ These are intentionally out of scope for the current version:
 - [`stations.md`](stations.md) — the preset station file format and how buttons
   map to presets.
 - [`logos.md`](logos.md) — how logos render and how to add your own.
-- [`buildroot.md`](buildroot.md) — the appliance image, `radio-config.txt`
+- [`buildroot.md`](buildroot.md) — the appliance image, `pisonic-config.txt`
   provisioning, and the init-service layout.
 - [`firmware-updates.md`](firmware-updates.md) — firmware installation,
   activation, rollback, and unreachable-interface recovery.

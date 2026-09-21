@@ -21,7 +21,7 @@ change is **reboot-level** (a device-tree overlay is resolved by the firmware at
 boot); there is no live overlay reload. The riskiest piece is writing the FAT
 boot partition: it mounts RW only briefly, backs up first, edits only known
 lines, always unmounts, and is non-fatal on error — the SD-card
-``radio-config.txt`` remains the recovery route.
+``pisonic-config.txt`` remains the recovery route.
 
 Standard-library only. Every path and the boot block device are env-overridable
 so host tests never touch the real ``/etc`` or a real device.
@@ -400,7 +400,7 @@ def write_boot_config(profile: audio_hardware_store.AudioProfile) -> bool:
     known ``dtparam=audio=`` / ``dtoverlay=`` lines via :func:`edit_config_txt`,
     and **always** unmounts in a ``finally``. Non-fatal: returns ``False`` (and
     logs) on any failure rather than raising, so the caller can still report a
-    clear message and the SD-card ``radio-config.txt`` recovery route stays.
+    clear message and the SD-card ``pisonic-config.txt`` recovery route stays.
     """
     device = find_boot_dev()
     if not device:
@@ -476,7 +476,7 @@ def apply(profile_id: str) -> Tuple[bool, str]:
     if not write_boot_config(profile):
         return False, (
             "Could not update the boot configuration. The sound card was not "
-            "changed. Use the SD-card radio-config.txt as a fallback."
+            "changed. Use the SD-card pisonic-config.txt as a fallback."
         )
     try:
         _write_alsa_mpd_modules(profile)

@@ -5,7 +5,7 @@
 # Self-contained replacement for the stock board/raspberrypi/post-image.sh. It
 # builds the four-partition installation image with genimage: a stable 128 MiB
 # FAT loader partition, two equal 768 MiB root slots, and a seed persistent-data
-# partition. radio-config.txt remains editable on the FAT partition.
+# partition. pisonic-config.txt remains editable on the FAT partition.
 #
 # Buildroot exports BINARIES_DIR / BUILD_DIR to post-image scripts. genimage and
 # the FAT tooling are available because the defconfig enables
@@ -20,7 +20,7 @@ set -e
 BOARD_DIR="$(cd "$(dirname "$0")" && pwd)"
 GENIMAGE_IN="${BOARD_DIR}/genimage.cfg.in"
 LAYOUT_CONF="${BOARD_DIR}/image-layout.conf"
-RADIO_CONFIG="${BOARD_DIR}/radio-config.txt"
+RADIO_CONFIG="${BOARD_DIR}/pisonic-config.txt"
 REPO_DIR="$(cd "${BOARD_DIR}/../../../.." && pwd)"
 
 # shellcheck source=/dev/null
@@ -38,7 +38,7 @@ python3 "${REPO_DIR}/scripts/verify-audio-catalog.py" "${OUTPUT_DIR}"
 # Copy it into BINARIES_DIR so genimage picks it up as a boot file (relative to
 # --inputpath BINARIES_DIR), landing it on boot.vfat next to config.txt.
 if [ -f "$RADIO_CONFIG" ]; then
-	cp -f "$RADIO_CONFIG" "${BINARIES_DIR}/radio-config.txt"
+	cp -f "$RADIO_CONFIG" "${BINARIES_DIR}/pisonic-config.txt"
 fi
 # --- Build the boot-file list (mirrors stock RPi post-image) -----------------
 FILES=()
@@ -105,7 +105,7 @@ done
 FILES+=( "u-boot.bin" "boot.scr" )
 
 # Ship the provisioning file on the FAT partition (if present).
-[ -f "${BINARIES_DIR}/radio-config.txt" ] && FILES+=( "radio-config.txt" )
+[ -f "${BINARIES_DIR}/pisonic-config.txt" ] && FILES+=( "pisonic-config.txt" )
 
 # --- Build deterministic A/B and persistent-data filesystems -----------------
 make_ext4_image() {

@@ -87,7 +87,7 @@ def _validate_device_form(submitted: Dict[str, str], locked: bool) -> Dict[str, 
     if submitted["ssh_enabled"] not in ("true", "false"):
         raise ValueError("Invalid SSH setting.")
     if submitted["ssh_enabled"] == "true" and not device_store.root_password_is_provisioned():
-        raise ValueError("Set a unique root_password in radio-config.txt before enabling SSH.")
+        raise ValueError("Set a unique root_password in pisonic-config.txt before enabling SSH.")
     cleaned["ssh_enabled"] = submitted["ssh_enabled"]
     return cleaned
 

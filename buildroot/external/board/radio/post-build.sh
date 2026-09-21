@@ -127,7 +127,7 @@ fi
 
 # --- Generic first-boot WiFi state -------------------------------------------
 # A clean image intentionally contains no network credentials. The early
-# provision-from-boot step creates this file from radio-config.txt before
+# provision-from-boot step creates this file from pisonic-config.txt before
 # S41wlan starts. Keep an empty, root-only file so all runtime paths have a
 # stable target even when provisioning is skipped or invalid.
 WPA_CONF="${TARGET_DIR}/etc/wpa_supplicant.conf"

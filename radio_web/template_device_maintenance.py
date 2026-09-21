@@ -26,7 +26,7 @@ def device_page(
     ``settings`` carries the current ``name``/``timezone``/``ntp_server`` and
     ``ssh_enabled`` values.
     When ``hostname_locked`` the name field is shown read-only with a notice
-    that the SD card ``radio-config.txt`` currently overrides it.
+    that the SD card ``pisonic-config.txt`` currently overrides it.
     """
     csrf = csrf_field(csrf_token)
     name = _esc(settings.get("name", ""))
@@ -45,7 +45,7 @@ def device_page(
         name_field = (
             f'<input type="text" value="{name}" maxlength="63" disabled>'
             '<span class="note">The device name is currently set by the SD '
-            "card (radio-config.txt) and cannot be changed here.</span>"
+            "card (pisonic-config.txt) and cannot be changed here.</span>"
         )
     else:
         name_field = (
@@ -77,7 +77,7 @@ def device_page(
         " Enable SSH</label></p>"
         '<p class="note">Allows root SSH access on the local network. Changes '
         "take effect immediately. A unique root password must first be provisioned "
-        "through radio-config.txt; its enable_ssh setting can still disable access.</p>"
+        "through pisonic-config.txt; its enable_ssh setting can still disable access.</p>"
         "</div>"
         "</form>"
         '<div class="card physical-controls-card"><h2>Physical controls</h2>'

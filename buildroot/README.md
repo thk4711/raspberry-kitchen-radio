@@ -85,7 +85,7 @@ BUILDROOT_DIR=~/br/buildroot BR2_DL_DIR=~/br/dl BUILDROOT_VERSION=2026.05.2 \
 ```
 
 No device identity or credentials are embedded during the build. Root password
-login is locked in the generic image. After flashing, edit `radio-config.txt` on
+login is locked in the generic image. After flashing, edit `pisonic-config.txt` on
 the FAT boot partition to set WiFi, hostname, a unique root password and other
 first-boot values. SSH remains disabled unless that credential was successfully
 persisted. The same image can provision many devices.
@@ -128,7 +128,7 @@ make -j"$(nproc)"
 scp user@build-host:~/embedded/buildroot/output/images/pisonic-<version>.swu .
 scp user@build-host:~/embedded/buildroot/output/images/sdcard.img .
 
-# 4) Flash it (find the device first), then edit radio-config.txt on its boot
+# 4) Flash it (find the device first), then edit pisonic-config.txt on its boot
 #    partition before starting the Pi:
 #    macOS:    diskutil list        -> sudo dd if=sdcard.img of=/dev/rdiskN bs=4m
 #    Linux:    lsblk                 -> sudo dd if=sdcard.img of=/dev/sdX  bs=4M oflag=direct conv=fsync
@@ -265,7 +265,7 @@ on `PATH`.
 ## Notes / things to verify on first hardware boot
 
 - After flashing, set WiFi and first-boot values in the boot partition's
-  `radio-config.txt` before inserting the card into the Pi.
+  `pisonic-config.txt` before inserting the card into the Pi.
 - The built-in headphone output is the safe generic default. After the first
   network boot, select an external sound card from the web interface and reboot.
 - Validate: `i2cdetect -y 1` (ADS1115 @0x48), `aplay -l` (DAC), SPI display,

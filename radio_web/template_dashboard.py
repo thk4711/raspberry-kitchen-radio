@@ -173,7 +173,7 @@ def dashboard(status: Dict[str, Any]) -> str:
         labels = ", ".join(_esc(value) for value in incomplete)
         setup_warning = (
             '<div class="setup-warning" role="alert"><strong>Setup incomplete.</strong> '
-            f"Configure {labels} in <code>radio-config.txt</code> on the SD card. "
+            f"Configure {labels} in <code>pisonic-config.txt</code> on the SD card. "
             "Known example credentials are rejected."
             "</div>"
         )

@@ -8,6 +8,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Changed
+- **Project renamed to PiSonic** (formerly "Raspberry Kitchen Radio"). The
+  rename spans documentation, the install path (`/opt/pisonic`), the Python
+  package name, the default hostname (`pisonic`), firmware artifact naming
+  (`pisonic-<version>.swu`), and the SWUpdate hardware-compatibility string
+  (`pisonic-rpi3a-plus`). The compatibility change is intentional and prevents
+  installing PiSonic firmware over an image still identifying as
+  `raspberry-kitchen-radio`.
+- **First-boot config file renamed** from `radio-config.txt` to
+  `pisonic-config.txt`. The provisioning helper, image build, and documentation
+  all use the new filename; edit `pisonic-config.txt` on the FAT boot partition.
 - **HiFiBerry Amp / Amp+ is now hardware-tested.** Raspberry Pi 3A+ verification
   confirmed TAS5713 discovery, stable ALSA routing through `sndrpihifiberry`, the
   hardware `Master` volume control and `S16_LE` / 44100 Hz playback.
