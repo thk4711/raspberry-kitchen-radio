@@ -145,9 +145,11 @@ def test_switch_status_labels_only_older_firmware_as_rollback(monkeypatch):
     monkeypatch.setattr(
         slots,
         "inspect_other_slot",
-        lambda: {"running_slot": "A", "other_slot": "B", "version": "0.3.0"},
+        lambda: {"running_slot": "A", "other_slot": "B", "version": slots.__version__},
     )
-    assert slots.switch_status()["switch_label"] == "Switch to other firmware (0.3.0)"
+    assert slots.switch_status()["switch_label"] == (
+        f"Switch to other firmware ({slots.__version__})"
+    )
 
 
 def test_switch_status_blocks_an_existing_trial(monkeypatch):
