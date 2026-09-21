@@ -103,8 +103,7 @@ def check_documentation_examples(root: Path) -> None:
                 stale.append(f"{path.relative_to(root)}:{line_number}")
     if stale:
         raise ConsistencyError(
-            "fixed-version firmware examples must use pisonic-<version>.swu: "
-            + ", ".join(stale)
+            "fixed-version firmware examples must use pisonic-<version>.swu: " + ", ".join(stale)
         )
 
 

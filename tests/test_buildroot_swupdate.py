@@ -84,9 +84,7 @@ def test_swupdate_uses_runtime_ipc_and_stable_hardware_revision():
     assert 'CONFIG_SOCKET_CTRL_PATH="/run/swupdate/sockinstctrl"' in config
     assert 'CONFIG_SOCKET_PROGRESS_PATH="/run/swupdate/swupdateprog"' in config
     assert 'CONFIG_HW_COMPATIBILITY_FILE="/etc/hwrevision"' in config
-    assert HWREVISION.read_text(encoding="utf-8").strip() == (
-        "pisonic-rpi3a-plus 1"
-    )
+    assert HWREVISION.read_text(encoding="utf-8").strip() == ("pisonic-rpi3a-plus 1")
 
 
 def test_redundant_environment_matches_reserved_image_layout():

@@ -257,11 +257,7 @@ def newest_match(artifacts_dir: Path, version: str, suffix_re: str, label: str) 
     """Return the newest timestamped build artifact for version, or fail."""
     pattern = re.compile(rf"^pisonic-{re.escape(version)}{suffix_re}")
     candidates = sorted(
-        (
-            path
-            for path in artifacts_dir.glob(f"pisonic-{version}-*")
-            if pattern.match(path.name)
-        ),
+        (path for path in artifacts_dir.glob(f"pisonic-{version}-*") if pattern.match(path.name)),
         key=lambda path: path.stat().st_mtime,
     )
     if not candidates:
