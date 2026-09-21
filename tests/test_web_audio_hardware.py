@@ -86,6 +86,12 @@ class TestCatalog:
         assert katana.alsa_card == "AlloKatana"
         assert katana.knob_mixer == "Master"
 
+    def test_hifiberry_amp_uses_kernel_card_id(self):
+        profile = store.PROFILES["hifiberry_amp"]
+        assert profile.support_level == "tested"
+        assert profile.alsa_card == "sndrpihifiberry"
+        assert profile.knob_mixer == "Master"
+
     def test_onboard_profile_uses_stable_card_id(self):
         # analog-audio.md warns to use a stable card id so USB/HDMI renumbering
         # cannot misroute audio.

@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- **HiFiBerry Amp / Amp+ is now hardware-tested.** Raspberry Pi 3A+ verification
+  confirmed TAS5713 discovery, stable ALSA routing through `sndrpihifiberry`, the
+  hardware `Master` volume control and `S16_LE` / 44100 Hz playback.
+
 ## [0.3.0] - 2026-09-16
 
 ### Added
@@ -25,7 +30,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Python and verifies it in CI and pre-commit while excluding vendored code.
 - **TI TAS5713 amplifier support** via the `hifiberry-amp` overlay (HiFiBerry
   Amp / Amp+). New experimental audio profile `hifiberry_amp` using the codec's
-  hardware `Master` control on ALSA card `sndrpihifiberryamp`; the TAS5713 codec
+  hardware `Master` control on ALSA card `sndrpihifiberry`; the TAS5713 codec
   driver (`CONFIG_SND_SOC_TAS5713`) is now built into the image.
 - **Automated release-consistency validation** checks the application and package
   versions, changelog release/date, canonical update artifact name, generated

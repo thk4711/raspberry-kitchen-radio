@@ -38,7 +38,7 @@ board revision in hand.
 | HiFiBerry DAC+ Standard | `hifiberry-dacplus-std` | `sndrpihifiberry` / `Digital` | Kernel-supported | [Pinout](#hifiberry-dac-standard) |
 | HiFiBerry DAC+ Pro / DAC2 Pro | `hifiberry-dacplus-pro` | `sndrpihifiberry` / `Digital` | Kernel-supported | [Pinout](#hifiberry-dac-pro--dac2-pro) |
 | HiFiBerry Amp2 / Amp4 | `hifiberry-dacplus-std` | `sndrpihifiberry` / `Digital` | Kernel-supported | [Pinout](#hifiberry-amp2--amp4) |
-| HiFiBerry Amp / Amp+ (TI TAS5713) | `hifiberry-amp` | `sndrpihifiberryamp` / `Master` | Experimental | [Pinout](#hifiberry-amp--amp-ti-tas5713) |
+| HiFiBerry Amp / Amp+ (TI TAS5713) | `hifiberry-amp` | `sndrpihifiberry` / `Master` | Tested | [Pinout](#hifiberry-amp--amp-ti-tas5713) |
 | Allo BOSS | `allo-boss-dac-pcm512x-audio` | `BossDAC` / `Digital` | Kernel-supported | [Pinout](#allo-boss) |
 | Audiophonics I-SABRE Q2M | `i-sabre-q2m` | `ISabreQ2MDAC` / `Digital` | Experimental | [Pinout](#audiophonics-i-sabre-q2m) |
 | Allo Katana | `allo-katana-dac-audio` | `AlloKatana` / `Master` | Kernel-supported | [Pinout](#allo-katana) |
@@ -407,7 +407,11 @@ hardware `Master` volume control used for the knob and MPD.
 **Radio compatibility:** display wiring remains unchanged and the ADS1115 at
 `0x48` can share I2C1 with the TAS5713 at `0x1b`. This profile sets `amp = none`;
 BCM 26 is not the HAT's enable control. Expected card/mixer:
-`sndrpihifiberryamp` / `Master`.
+`sndrpihifiberry` / `Master`.
+
+**Target verification:** tested on a Raspberry Pi 3A+ with the `hifiberry-amp`
+overlay and TAS5713 hardware. Codec discovery, the stable ALSA card ID, the
+hardware `Master` volume control and `S16_LE` / 44100 Hz playback were verified.
 
 **Format note:** the profile ships the safe `S16_LE` / 44100 Hz output. The
 TAS5713 DAI also advertises `S24_LE`/`S32_LE` and rates up to 48 kHz, but these
