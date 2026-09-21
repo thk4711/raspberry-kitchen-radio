@@ -253,7 +253,7 @@ controls, and the local web administration interface).
   auto-switches to Bluetooth when the phone
   reports playback over AVRCP, stopping whatever was playing. Security note:
   no-PIN + discoverable-while-idle means any device in range can connect — a
-  deliberate, documented choice for a kitchen appliance. See
+  deliberate, documented choice for a home audio appliance. See
   [`doc/bluetooth.md`](doc/bluetooth.md) for usage, behaviour and troubleshooting.
 - Project version single source (`lib/_version.py`, re-exported from `lib`),
   surfaced on the boot splash subtitle and via a `radio.py --version` flag.
@@ -314,7 +314,7 @@ Release checklist (when cutting X.Y.Z):
   5. Run python3 scripts/check-release-consistency.py.
   6. Run a clean supported-host Buildroot build and retain its build log.
   7. Confirm exactly one fresh, non-empty sdcard.img and one matching versioned
-     kitchen-radio-X.Y.Z.swu; reject stale or ambiguous outputs.
+     pisonic-X.Y.Z.swu; reject stale or ambiguous outputs.
   8. Confirm SWUpdate check mode accepts the .swu for both slot-a and slot-b,
      and verify release metadata, hardware compatibility, payload size/hash,
      and exclusion of credentials or device-specific state.

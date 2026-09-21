@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Cut a Raspberry Kitchen Radio release: build, stage, checksum, and publish.
+"""Cut a PiSonic release: build, stage, checksum, and publish.
 
 This orchestrates the mechanical, automatable tail of the ``CHANGELOG.md`` release
 checklist. It:
@@ -46,7 +46,7 @@ CHANGELOG_RELEASE_RE = re.compile(
     r"^## \[([0-9]+\.[0-9]+\.[0-9]+)\] - \d{4}-\d{2}-\d{2}$", re.MULTILINE
 )
 # The timestamped artifacts build_image.py leaves in artifacts/, e.g.
-# kitchen-radio-0.3.0-f359584-20260916-220329-sdcard.img.zip
+# pisonic-0.3.0-f359584-20260916-220329-sdcard.img.zip
 IMAGE_STAMP_RE = r"-[0-9a-f]+(?:-dirty)?-[0-9]{8}-[0-9]{6}-sdcard\.img\.zip$"
 SWU_STAMP_RE = r"-[0-9a-f]+(?:-dirty)?-[0-9]{8}-[0-9]{6}\.swu$"
 
@@ -255,11 +255,11 @@ def build_artifacts(args: argparse.Namespace) -> None:
 
 def newest_match(artifacts_dir: Path, version: str, suffix_re: str, label: str) -> Path:
     """Return the newest timestamped build artifact for version, or fail."""
-    pattern = re.compile(rf"^kitchen-radio-{re.escape(version)}{suffix_re}")
+    pattern = re.compile(rf"^pisonic-{re.escape(version)}{suffix_re}")
     candidates = sorted(
         (
             path
-            for path in artifacts_dir.glob(f"kitchen-radio-{version}-*")
+            for path in artifacts_dir.glob(f"pisonic-{version}-*")
             if pattern.match(path.name)
         ),
         key=lambda path: path.stat().st_mtime,
@@ -506,7 +506,7 @@ def publish_release(
     local_hashes: dict[str, str],
 ) -> None:
     """Create the release, or update it under --force, and attach assets."""
-    title = f"Raspberry Kitchen Radio {tag}"
+    title = f"PiSonic {tag}"
     # Determine the real create-vs-update path from the live release, even in
     # dry-run (the read has no side effects), so a dry-run reflects what would
     # actually happen instead of always showing the create path.
@@ -572,7 +572,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     if not SEMVER_RE.match(args.version):
         raise ReleaseError(f"version must be X.Y.Z, got: {args.version}")
     if not (args.repository / "buildroot" / "build.sh").is_file():
-        raise ReleaseError(f"not a Raspberry Kitchen Radio repository: {args.repository}")
+        raise ReleaseError(f"not a PiSonic repository: {args.repository}")
     if not args.notes.is_file() or not args.notes.read_text(encoding="utf-8").strip():
         raise ReleaseError(f"release notes file is missing or empty: {args.notes}")
 
@@ -597,8 +597,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         print("= skipping build (--skip-build); reusing existing artifacts")
 
     args.artifacts_dir.mkdir(parents=True, exist_ok=True)
-    clean_image = args.artifacts_dir / f"kitchen-radio-{args.version}-sdcard.img.zip"
-    clean_swu = args.artifacts_dir / f"kitchen-radio-{args.version}.swu"
+    clean_image = args.artifacts_dir / f"pisonic-{args.version}-sdcard.img.zip"
+    clean_swu = args.artifacts_dir / f"pisonic-{args.version}.swu"
 
     if args.skip_build:
         if not clean_image.is_file() or not clean_swu.is_file():

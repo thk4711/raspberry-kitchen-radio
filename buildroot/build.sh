@@ -1,6 +1,6 @@
 #!/bin/sh
 # =============================================================================
-# build.sh — build (or rebuild) the Raspberry Kitchen Radio Buildroot image.
+# build.sh — build (or rebuild) the PiSonic Buildroot image.
 #
 # Intended to run on an x64 (amd64) Debian/Ubuntu build host. It performs every
 # step needed to turn a fresh clone of this repository into a flashable SD-card
@@ -269,7 +269,7 @@ report_images() {
 		|| die "Buildroot images directory is missing"
 	img="${images_dir}/sdcard.img"
 	version=$(firmware_version)
-	swu="${images_dir}/kitchen-radio-${version}.swu"
+	swu="${images_dir}/pisonic-${version}.swu"
 	"${SCRIPT_DIR}/validate-artifacts.sh" "$images_dir" "$version" "$BUILD_MARKER" \
 		|| die "build artifacts failed validation"
 

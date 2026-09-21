@@ -1,11 +1,11 @@
 From 5cb6631cc45751d86a1ed88d64b53c945141e97f Mon Sep 17 00:00:00 2001
-From: Raspberry Kitchen Radio <radio@localhost>
+From: PiSonic <radio@localhost>
 Date: Tue, 8 Sep 2026 12:00:00 +0200
 Subject: [PATCH] usb: gadget: uac2: use function name for stream interface
 
 Use the ConfigFS function name for UAC2 playback alternate settings and set an appliance default function name.
 
-Signed-off-by: Raspberry Kitchen Radio <radio@localhost>
+Signed-off-by: PiSonic <radio@localhost>
 ---
  drivers/usb/gadget/function/f_uac2.c | 8 ++++----
  1 file changed, 4 insertions(+), 4 deletions(-)

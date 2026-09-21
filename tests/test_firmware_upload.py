@@ -39,7 +39,7 @@ def test_success_streams_in_bounded_chunks_and_publishes_ready(monkeypatch, tmp_
     stream = RecordingStream(payload)
 
     result = firmware_upload.stage_upload(
-        stream, len(payload), filename="../Kitchen Radio 1.2.3.swu", upload_dir=str(tmp_path)
+        stream, len(payload), filename="../PiSonic 1.2.3.swu", upload_dir=str(tmp_path)
     )
 
     assert result.bytes_received == len(payload)
@@ -47,7 +47,7 @@ def test_success_streams_in_bounded_chunks_and_publishes_ready(monkeypatch, tmp_
     assert (tmp_path / firmware_upload.READY_FILENAME).read_bytes() == payload
     assert not (tmp_path / firmware_upload.PART_FILENAME).exists()
     metadata = json.loads((tmp_path / firmware_upload.METADATA_FILENAME).read_text())
-    assert metadata["filename"] == "Kitchen Radio 1.2.3.swu"
+    assert metadata["filename"] == "PiSonic 1.2.3.swu"
     assert metadata["sha256"] == result.sha256
     assert stream.read_sizes
     assert max(stream.read_sizes) <= 4

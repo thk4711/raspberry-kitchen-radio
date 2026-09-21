@@ -1,4 +1,4 @@
-# Raspberry Kitchen Radio — extra arguments for bluetoothd.
+# PiSonic — extra arguments for bluetoothd.
 #
 # Sourced by the Buildroot-provided /etc/init.d/S40bluetoothd (bluez5_utils),
 # which owns the bluetoothd process. We keep the upstream "-n" (no-detach, the

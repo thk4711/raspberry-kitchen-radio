@@ -19,7 +19,7 @@ class TestRoutes:
         status, ctype, body, _hdrs = routes.resolve(_req("GET", "/"))
         assert status == 200
         assert "text/html" in ctype
-        assert "Kitchen Radio" in body
+        assert "PiSonic" in body
 
     def test_healthz_route(self):
         status, ctype, body, _hdrs = routes.resolve(_req("GET", "/healthz"))

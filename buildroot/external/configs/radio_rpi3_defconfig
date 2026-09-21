@@ -1,4 +1,4 @@
-# Raspberry Kitchen Radio — Buildroot defconfig for Raspberry Pi 3A+ (32-bit).
+# PiSonic — Buildroot defconfig for Raspberry Pi 3A+ (32-bit).
 #
 # Base derived from Buildroot's boot-PROVEN upstream raspberrypi3_defconfig
 # (32-bit ARMv7 + Bootlin external glibc toolchain, bcm2709 kernel, zImage) with
@@ -120,8 +120,8 @@ BR2_ROOTFS_DEVICE_CREATION_DYNAMIC_MDEV=y
 # provision-from-boot uses BusyBox chpasswd to apply root_password= from the
 # SD-card radio-config.txt. The fragment is merged into BusyBox's config.
 BR2_PACKAGE_BUSYBOX_CONFIG_FRAGMENT_FILES="$(BR2_EXTERNAL_RADIO_PATH)/board/radio/busybox.fragment"
-BR2_TARGET_GENERIC_HOSTNAME="kitchen-radio"
-BR2_TARGET_GENERIC_ISSUE="Raspberry Kitchen Radio"
+BR2_TARGET_GENERIC_HOSTNAME="pisonic"
+BR2_TARGET_GENERIC_ISSUE="PiSonic"
 # A generic image must never contain a reusable login. Buildroot writes a locked
 # root shadow entry when password login is disabled. Explicit root_password=
 # provisioning uses chpasswd to unlock it and persists only the resulting hash.

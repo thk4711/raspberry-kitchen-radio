@@ -381,7 +381,7 @@ def install_firmware() -> Tuple[bool, str]:
             write_status("queued", started_at=int(time.time()))
             worker = subprocess.Popen(  # noqa: S603 - fixed interpreter/module/operation
                 [PYTHON, "-m", "radio_web.firmware_installer", "worker"],
-                cwd="/opt/raspberry-kitchen-radio",
+                cwd="/opt/pisonic",
                 stdin=subprocess.DEVNULL,
                 stdout=subprocess.DEVNULL,
                 stderr=subprocess.DEVNULL,

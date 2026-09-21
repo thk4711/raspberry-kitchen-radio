@@ -240,7 +240,7 @@ static void initialize_descriptor(void) {
     port_descriptors[OUTPUT_PORT] = LADSPA_PORT_OUTPUT | LADSPA_PORT_AUDIO;
     port_names[INPUT_PORT] = "Input"; port_names[OUTPUT_PORT] = "Output";
     descriptor = (LADSPA_Descriptor){5891, "radio_equalizer", LADSPA_PROPERTY_HARD_RT_CAPABLE,
-        "Raspberry Kitchen Radio Parametric Equalizer", "Raspberry Kitchen Radio contributors",
+        "PiSonic Parametric Equalizer", "PiSonic contributors",
         "MIT", PORTS, port_descriptors, port_names, port_hints, NULL, instantiate, connect_port,
         activate, run, NULL, NULL, NULL, cleanup};
 }

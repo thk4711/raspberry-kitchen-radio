@@ -34,7 +34,7 @@ that show a way to exploit them beyond the documented scope are welcome:
   intended to be exposed to the public internet. See
   [`doc/web-interface.md`](doc/web-interface.md).
 - **Bluetooth A2DP** is discoverable and **auto-accepts pairing with no PIN**
-  whenever nothing is connected — a deliberate kitchen-appliance convenience.
+  whenever nothing is connected — a deliberate home-appliance convenience.
   See [`doc/bluetooth.md`](doc/bluetooth.md).
 - **SSH (dropbear)** may be enabled with root login for development images.
 - **Firmware update packages are unsigned.** Their embedded and displayed

@@ -13,7 +13,7 @@ def login_page(error: Optional[str] = None) -> str:
     """Render the login form."""
     body = (
         "<h1>Sign in</h1>"
-        '<p class="sub">Kitchen Radio administration</p>'
+        '<p class="sub">PiSonic administration</p>'
         f"{_error_block(error)}"
         '<form method="post" action="/login">'
         '<div class="card">'

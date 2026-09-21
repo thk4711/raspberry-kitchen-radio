@@ -1,4 +1,4 @@
-# Raspberry Kitchen Radio A/B boot policy. Paths and devices are fixed.
+# PiSonic A/B boot policy. Paths and devices are fixed.
 if test "${active_slot}" != "A" && test "${active_slot}" != "B"; then
 	setenv active_slot A
 fi

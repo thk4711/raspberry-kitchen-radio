@@ -1,6 +1,6 @@
 #!/bin/sh
 #
-# S50dropbear — Dropbear SSH server for the Raspberry Kitchen Radio appliance.
+# S50dropbear — Dropbear SSH server for the PiSonic appliance.
 #
 # This is an overlay copy of Buildroot's stock dropbear init script with one
 # additions: it honours the /run/provision-disable-ssh flag written by

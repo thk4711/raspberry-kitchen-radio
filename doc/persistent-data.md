@@ -1,6 +1,6 @@
 # Persistent data partition
 
-The Raspberry Kitchen Radio keeps firmware and mutable device state separate.
+The PiSonic keeps firmware and mutable device state separate.
 Firmware lives in interchangeable root slots A and B (`p2` and `p3`), while the
 final ext4 partition (`p4`) is mounted at `/data` and shared by both slots. A
 normal `.swu` update replaces only the inactive firmware slot, so the settings,

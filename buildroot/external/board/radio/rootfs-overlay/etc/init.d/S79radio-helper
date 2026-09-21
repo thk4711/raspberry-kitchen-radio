@@ -19,7 +19,7 @@
 #   * The socket is chowned root:radio-web and chmod 0660 after start, so only
 #     the radio-web user's group can connect.
 #
-APP_DIR=/opt/raspberry-kitchen-radio
+APP_DIR=/opt/pisonic
 PYTHON=/usr/bin/python3
 PIDFILE=/run/radio-helper.pid
 SOCKET=/run/radio-helper.sock

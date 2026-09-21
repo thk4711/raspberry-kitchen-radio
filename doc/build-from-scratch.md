@@ -11,7 +11,7 @@ that boots directly into the radio app. It is produced by
 [Buildroot](https://buildroot.org/), a tool that downloads and compiles a whole
 minimal operating system for you. It produces an installation image,
 `sdcard.img`, to write to an SD card and a matching versioned
-`kitchen-radio-<version>.swu` for later firmware updates.
+`pisonic-<version>.swu` for later firmware updates.
 
 The installation image has four partitions: a stable FAT loader, equal firmware
 slots A and B, and a shared data partition. Both slots initially contain the
@@ -42,7 +42,7 @@ Then open a terminal **in the project folder** (the one containing `README.md`
 and the `buildroot/` folder):
 
 ```bash
-cd raspberry-kitchen-radio
+cd pisonic
 ```
 
 Every command below is run from this folder.
@@ -77,7 +77,7 @@ artifact paths, sizes, and SHA-256 checksums, for example:
  Install : /home/you/embedded/buildroot/output/images/sdcard.img
  Size    : 1.8G
  SHA256  : <installation-image digest>
- Update  : /home/you/embedded/buildroot/output/images/kitchen-radio-<version>.swu
+ Update  : /home/you/embedded/buildroot/output/images/pisonic-<version>.swu
  Size    : <compressed update size>
  SHA256  : <firmware-package digest>
 ```
@@ -173,7 +173,7 @@ locked until a password is explicitly provisioned.
 
 Put the card in the Pi 3A+ and power it on. It joins your WiFi and starts the
 radio automatically. If SSH is enabled you can reach it at the hostname you set
-(e.g. `kitchen-radio.local`) with user `root` and the root password from Step 4.
+(e.g. `pisonic.local`) with user `root` and the root password from Step 4.
 Open `http://<hostname>.local:8080` to finish setup. The generic image starts on
 the built-in headphone output; select an external sound card on the web Audio
 page and reboot if needed.

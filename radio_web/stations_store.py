@@ -30,7 +30,7 @@ STATIONS_FILENAME = "stations.ini"
 STATIONS_BACKUP_FILENAME = "stations.ini.bak"
 
 # The shipped built-in presets, resolved relative to the application tree.
-# radio_web lives beside lib/ under /opt/raspberry-kitchen-radio.
+# radio_web lives beside lib/ under /opt/pisonic.
 _REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 BUILTIN_STATIONS_PATH = os.path.join(_REPO_ROOT, "lib", "mpd_service", "stations.conf")
 

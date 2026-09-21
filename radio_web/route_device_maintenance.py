@@ -369,7 +369,7 @@ def _backup_download_post(req: Request) -> Response:
             ),
             [],
         )
-    filename = time.strftime("kitchen-radio-backup-%Y%m%d-%H%M%S.tar.gz")
+    filename = time.strftime("pisonic-backup-%Y%m%d-%H%M%S.tar.gz")
     return (
         200,
         "application/gzip",

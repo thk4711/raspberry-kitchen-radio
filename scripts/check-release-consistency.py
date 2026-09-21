@@ -17,7 +17,7 @@ from generate_release_metadata import release_metadata
 SEMVER = r"[0-9]+\.[0-9]+\.[0-9]+"
 PYPROJECT_VERSION_RE = re.compile(rf'^version\s*=\s*"({SEMVER})"\s*$', re.MULTILINE)
 CHANGELOG_RELEASE_RE = re.compile(rf"^## \[({SEMVER})\] - (\d{{4}}-\d{{2}}-\d{{2}})$", re.MULTILINE)
-FIXED_ARTIFACT_RE = re.compile(rf"kitchen-radio-({SEMVER})\.swu")
+FIXED_ARTIFACT_RE = re.compile(rf"pisonic-({SEMVER})\.swu")
 
 # v0.2.0 was already published as a lightweight tag before annotated tags became
 # mandatory. Rewriting a public tag would damage traceability, so this one tag is
@@ -103,7 +103,7 @@ def check_documentation_examples(root: Path) -> None:
                 stale.append(f"{path.relative_to(root)}:{line_number}")
     if stale:
         raise ConsistencyError(
-            "fixed-version firmware examples must use kitchen-radio-<version>.swu: "
+            "fixed-version firmware examples must use pisonic-<version>.swu: "
             + ", ".join(stale)
         )
 
@@ -123,7 +123,7 @@ def check_release_consistency(root: Path) -> str:
             f"latest changelog release {changelog_version} does not match application version {version}"
         )
 
-    expected_artifact = f"kitchen-radio-{version}.swu"
+    expected_artifact = f"pisonic-{version}.swu"
     if artifact_name(version) != expected_artifact:
         raise ConsistencyError("SWUpdate artifact naming does not match the release version")
 

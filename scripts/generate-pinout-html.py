@@ -231,7 +231,7 @@ _HTML_TEMPLATE = """\
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Supported sound devices — Raspberry Pi Radio</title>
+<title>Supported sound devices — PiSonic</title>
 <style>
   body {{ font-family: system-ui, sans-serif; line-height: 1.5;
           max-width: 1100px; margin: 0 auto; padding: 1em 1.5em; color: #222; }}

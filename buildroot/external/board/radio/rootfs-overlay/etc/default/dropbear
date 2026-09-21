@@ -3,7 +3,7 @@
 # This file is sourced by Buildroot's /etc/init.d/S50dropbear at boot; the
 # contents of DROPBEAR_ARGS are appended to the dropbear command line.
 #
-# Root login policy for the Raspberry Kitchen Radio appliance:
+# Root login policy for the PiSonic appliance:
 #   * The generic image has a locked root account and SSH is disabled.
 #   * Explicit root_password= provisioning unlocks root and persists only its
 #     hash. S50dropbear independently requires that persisted, unlocked hash.

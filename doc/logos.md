@@ -22,7 +22,7 @@ name = MDR Aktuell
 
 The whole `lib/` tree (fonts and logos included) is copied onto the Buildroot
 appliance image as-is, so on a running radio the logos live at
-`/opt/raspberry-kitchen-radio/lib/mpd_service/logos/`. **Nothing is fetched from
+`/opt/pisonic/lib/mpd_service/logos/`. **Nothing is fetched from
 the internet at runtime** — the display always reads the logo from local disk.
 
 The web station editor can also upload PNG or JPEG logos. It converts them to
@@ -123,7 +123,7 @@ instead:
    - **On a running target:** copy the file over (the appliance's SSH server has
      no SFTP subsystem, so use legacy-protocol scp):
      ```bash
-     scp -O MY_STATION.png root@<radio-ip>:/opt/raspberry-kitchen-radio/lib/mpd_service/logos/
+     scp -O MY_STATION.png root@<radio-ip>:/opt/pisonic/lib/mpd_service/logos/
      ssh root@<radio-ip> /etc/init.d/S90radio restart
      ```
      The restart makes the app re-read `stations.conf` and reload the art.
@@ -186,7 +186,7 @@ backdrop_bottom_scale = 0.30
 ```
 
 ```bash
-# edit /opt/raspberry-kitchen-radio/lib/display/display.conf, then:
+# edit /opt/pisonic/lib/display/display.conf, then:
 ssh root@<radio-ip> /etc/init.d/S90radio restart
 ```
 

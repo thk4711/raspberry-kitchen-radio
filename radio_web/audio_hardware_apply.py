@@ -210,7 +210,7 @@ def render_asound(
         raise ValueError("Audio profile has no stable ALSA card id")
     if profile.volume_control == "softvol":
         base = (
-            "# Raspberry Kitchen Radio — shared software volume on a stable card.\n"
+            "# PiSonic — shared software volume on a stable card.\n"
             "# All sources use pcm.!default, so the physical knob controls MPD,\n"
             "# AirPlay, Spotify, Bluetooth and USB Audio consistently.\n"
             "pcm.radio_dmix {\n"
@@ -250,7 +250,7 @@ def render_asound(
         return _with_equalizer(base, equalizer or equalizer_store.defaults())
     if profile.kind == "i2s":
         base = (
-            "# Raspberry Kitchen Radio — shared hardware-volume I2S output.\n"
+            "# PiSonic — shared hardware-volume I2S output.\n"
             "# The PCM route and control route both use a stable ALSA card id.\n"
             "pcm.radio_dmix {\n"
             "    type dmix\n"
@@ -288,7 +288,7 @@ def render_asound(
         else f"sysdefault:CARD={card}"
     )
     base = (
-        "# Raspberry Kitchen Radio — audio via a stable card id.\n"
+        "# PiSonic — audio via a stable card id.\n"
         "# Written by radio-web (privileged helper). A stable CARD= id keeps\n"
         "# USB-gadget/HDMI card renumbering from misrouting audio.\n"
         "pcm.!default {\n"

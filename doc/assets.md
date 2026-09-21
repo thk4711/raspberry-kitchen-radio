@@ -22,7 +22,7 @@ the display and MPD services.
 
 > **No runtime network dependency.** Every logo (and font) is vendored — committed
 > to this repo and baked into the image — and read from local disk at runtime
-> (`/opt/raspberry-kitchen-radio/lib/...`). The running radio never fetches artwork
+> (`/opt/pisonic/lib/...`). The running radio never fetches artwork
 > from the internet. The source URLs below are for **provenance and one-time
 > regeneration only**.
 

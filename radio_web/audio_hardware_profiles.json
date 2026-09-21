@@ -163,7 +163,7 @@
     "family": "ESS Sabre",
     "kind": "i2s",
     "support_level": "experimental",
-    "compatibility_note": "Hardware volume is supported. Its I2C address 0x48 conflicts with the radio's default ADS1115; strap the ADS1115 to another address and update /opt/raspberry-kitchen-radio/radio.conf before selecting this profile.",
+    "compatibility_note": "Hardware volume is supported. Its I2C address 0x48 conflicts with the radio's default ADS1115; strap the ADS1115 to another address and update /opt/pisonic/radio.conf before selecting this profile.",
     "audio_param": "off",
     "overlay": "i-sabre-q2m",
     "volume_control": "hardware",

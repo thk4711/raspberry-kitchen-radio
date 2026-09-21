@@ -73,10 +73,10 @@ def test_version_and_changelog_parsers_reject_ambiguity(tmp_path):
 
 def test_documentation_rejects_fixed_firmware_versions(tmp_path):
     (tmp_path / "doc").mkdir()
-    (tmp_path / "README.md").write_text("Use kitchen-radio-1.2.3.swu\n", encoding="utf-8")
+    (tmp_path / "README.md").write_text("Use pisonic-1.2.3.swu\n", encoding="utf-8")
     with pytest.raises(checker.ConsistencyError, match="fixed-version firmware examples"):
         checker.check_documentation_examples(tmp_path)
-    (tmp_path / "README.md").write_text("Use kitchen-radio-<version>.swu\n", encoding="utf-8")
+    (tmp_path / "README.md").write_text("Use pisonic-<version>.swu\n", encoding="utf-8")
     checker.check_documentation_examples(tmp_path)
 
 

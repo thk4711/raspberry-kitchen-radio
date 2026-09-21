@@ -1,6 +1,6 @@
 #!/bin/bash
 # =============================================================================
-# post-image.sh — Raspberry Kitchen Radio image assembly.
+# post-image.sh — PiSonic image assembly.
 #
 # Self-contained replacement for the stock board/raspberrypi/post-image.sh. It
 # builds the four-partition installation image with genimage: a stable 128 MiB

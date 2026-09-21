@@ -1,5 +1,5 @@
 #!/usr/bin/python3
-"""Entry point and top-level orchestration for Raspberry Kitchen Radio.
+"""Entry point and top-level orchestration for PiSonic.
 
 This module wires the individual building blocks together into the
 :class:`RadioController`: the playback backends (MPD internet radio, AirPlay,
@@ -25,7 +25,7 @@ if __name__ == "__main__" and any(a in ("--version", "-V") for a in sys.argv[1:]
         sys.path.insert(0, _lib)
     from _version import __version__ as _v
 
-    print(f"raspberry-kitchen-radio {_v}")
+    print(f"pisonic {_v}")
     raise SystemExit(0)
 
 import RPi.GPIO as GPIO
@@ -64,8 +64,8 @@ GPIO.setmode(GPIO.BCM)
 
 # Add the bundled 'lib' directory to sys.path. Resolve it relative to this
 # file instead of the current working directory so both of these work:
-#   cd /opt/raspberry-kitchen-radio && python3 radio.py
-#   python3 /opt/raspberry-kitchen-radio/radio.py
+#   cd /opt/pisonic && python3 radio.py
+#   python3 /opt/pisonic/radio.py
 file_location = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.join(file_location, "lib"))
 

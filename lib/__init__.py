@@ -1,4 +1,4 @@
-"""Raspberry Kitchen Radio package marker.
+"""PiSonic package marker.
 
 Re-exports the project version so tooling and tests can do
 ``from lib import __version__``.

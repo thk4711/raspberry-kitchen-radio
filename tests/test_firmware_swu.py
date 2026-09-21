@@ -81,7 +81,7 @@ def test_release_metadata_generator_uses_version_and_hardware_contract(tmp_path)
 
 def test_archive_order_metadata_and_payload_integrity(tmp_path, checker):
     rootfs, artifact = _build(tmp_path, checker)
-    assert artifact.name == "kitchen-radio-0.3.0.swu"
+    assert artifact.name == "pisonic-0.3.0.swu"
     members = swu.read_cpio(artifact)
     assert [name for name, _ in members] == ["sw-description", "rootfs.ext4.gz"]
     manifest = members[0][1].decode()
@@ -100,7 +100,7 @@ def test_archive_order_metadata_and_payload_integrity(tmp_path, checker):
 def test_build_is_reproducible_and_removes_stale_artifacts(tmp_path, checker):
     rootfs, first = _build(tmp_path, checker)
     first_bytes = first.read_bytes()
-    stale = first.parent / "kitchen-radio-9.9.9.swu"
+    stale = first.parent / "pisonic-9.9.9.swu"
     stale.write_bytes(b"stale")
     second = swu.build_archive(
         rootfs,
@@ -129,7 +129,7 @@ def test_checker_failure_prevents_publication(tmp_path):
     rootfs.write_bytes(b"rootfs")
     with pytest.raises(Exception):
         swu.build_archive(rootfs, TEMPLATE, VERSION_FILE, tmp_path, 1024, checker)
-    assert not (tmp_path / "kitchen-radio-0.3.0.swu").exists()
+    assert not (tmp_path / "pisonic-0.3.0.swu").exists()
 
 
 def test_checker_receives_hardware_revision_override(tmp_path, monkeypatch):
@@ -200,7 +200,7 @@ def test_manifest_has_no_old_or_unresolved_placeholders():
 def test_top_level_build_requires_and_reports_both_artifacts():
     text = BUILD_SCRIPT.read_text(encoding="utf-8")
     assert "images_dir=$(CDPATH='' cd -- \"${BUILDROOT_DIR}/output/images\" && pwd)" in text
-    assert 'swu="${images_dir}/kitchen-radio-${version}.swu"' in text
+    assert 'swu="${images_dir}/pisonic-${version}.swu"' in text
     assert 'validate-artifacts.sh" "$images_dir" "$version" "$BUILD_MARKER"' in text
     assert 'report_artifact "Install" "$img"' in text
     assert 'report_artifact "Update " "$swu"' in text
@@ -286,9 +286,9 @@ def _validate_artifacts(tmp_path, *, image=b"image", update=b"update", stale=Fal
     if image is not None:
         (images / "sdcard.img").write_bytes(image)
     if update is not None:
-        (images / "kitchen-radio-0.2.0.swu").write_bytes(update)
+        (images / "pisonic-0.2.0.swu").write_bytes(update)
     if stale:
-        (images / "kitchen-radio-9.9.9.swu").write_bytes(b"old")
+        (images / "pisonic-9.9.9.swu").write_bytes(b"old")
     return subprocess.run(
         [str(ARTIFACT_VALIDATOR), str(images), "0.2.0", str(marker)],
         capture_output=True,
@@ -313,7 +313,7 @@ def test_artifact_validator_rejects_old_or_ambiguous_outputs(tmp_path):
     assert "stale firmware artifact remains" in result.stderr
 
     images = tmp_path / "images"
-    (images / "kitchen-radio-9.9.9.swu").unlink()
+    (images / "pisonic-9.9.9.swu").unlink()
     marker = tmp_path / "build.started"
     future = time.time() + 2
     os.utime(marker, (future, future))

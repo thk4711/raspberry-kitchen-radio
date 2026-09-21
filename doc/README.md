@@ -14,7 +14,7 @@ Project documentation index.
 | [firmware-update-architecture.md](firmware-update-architecture.md) | **Firmware developer reference.** Image layout, the redundant U-Boot state machine, SWU construction, fallback, and porting checklist. |
 | [hardware.md](hardware.md) | Base-radio wiring, full schematic, display, USB gadget, and ADS1115 controls. |
 | [analog-audio.md](analog-audio.md) | Switching a development appliance from an I2S DAC to the Pi's built-in headphone output. |
-| [sound-devices.md](sound-devices.md) · [color-coded HTML](https://thk4711.github.io/raspberry-kitchen-radio/sound-devices.html) | Every selectable sound device, with a color-coded 40-pin map, routing, and qualification. The HTML version is published to GitHub Pages by [`../.github/workflows/pages.yml`](../.github/workflows/pages.yml). |
+| [sound-devices.md](sound-devices.md) · [color-coded HTML](https://thk4711.github.io/pisonic/sound-devices.html) | Every selectable sound device, with a color-coded 40-pin map, routing, and qualification. The HTML version is published to GitHub Pages by [`../.github/workflows/pages.yml`](../.github/workflows/pages.yml). |
 | [alsa-audio-path.md](alsa-audio-path.md) | **ALSA topology & routing reference.** How every source converges on ALSA `default`, the EQ and softvol/dmix stages, the receiver bridges, and verification. |
 | [equalizer.md](equalizer.md) | **Parametric-EQ user and developer guide.** Web controls, headroom, persistence, troubleshooting, and the ALSA/LADSPA topology. |
 | [display-test.md](display-test.md) | SPI display smoke test and wiring troubleshooting (ST7789 and GC9A01). |

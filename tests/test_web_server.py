@@ -64,7 +64,7 @@ class TestServer:
         resp = _get(host, port, "/")
         assert resp.status == 200
         body = resp.read().decode("utf-8")
-        assert "Kitchen Radio" in body
+        assert "PiSonic" in body
         assert resp.headers.get("Content-Type", "").startswith("text/html")
         assert resp.headers.get("X-Frame-Options") == "DENY"
         assert "default-src 'self'" in resp.headers.get("Content-Security-Policy", "")

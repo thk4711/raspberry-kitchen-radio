@@ -1,4 +1,4 @@
-"""panel_factory.py — Panel-class selector for the Kitchen Radio display.
+"""panel_factory.py — Panel-class selector for the PiSonic display.
 
 Maps the ``[display] panel`` config key to the correct driver class so the
 three call sites (``display_control``, ``boot_splash``, ``display_test``) do

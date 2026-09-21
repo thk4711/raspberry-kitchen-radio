@@ -1,6 +1,6 @@
 # Releasing (automated with `scripts/release.py`)
 
-This is the end-to-end guide to cutting a Raspberry Kitchen Radio release with
+This is the end-to-end guide to cutting a PiSonic release with
 the [`scripts/release.py`](../scripts/release.py) orchestrator. The script
 automates the mechanical, repeatable tail of the release checklist in
 [`CHANGELOG.md`](../CHANGELOG.md): it builds both firmware artifacts, stages them
@@ -83,7 +83,7 @@ What stays manual (human gates):
   ```
 
   The account needs push/release rights on the repository
-  (`thk4711/raspberry-kitchen-radio`).
+  (`thk4711/pisonic`).
 
 - **`git` on `PATH`.**
 
@@ -149,7 +149,7 @@ python3 scripts/release.py <version> --notes FILE.md [options]
 ## What each run does, step by step
 
 1. **Argument and path resolution.** Validates that `version` is `X.Y.Z`, that
-   the repository looks like a Raspberry Kitchen Radio checkout (has
+   the repository looks like a PiSonic checkout (has
    `buildroot/build.sh`), and that the `--notes` file exists and is non-empty.
 
 2. **Version coherence.** Reads `lib/_version.py`, `pyproject.toml`, and the top
@@ -227,7 +227,7 @@ A simple, effective convention is a one-line summary followed by the relevant
 `CHANGELOG.md` section for this release. For example:
 
 ```markdown
-Raspberry Kitchen Radio vX.Y.Z for Raspberry Pi 3A+.
+PiSonic vX.Y.Z for Raspberry Pi 3A+.
 
 ### Added
 - ...
@@ -242,7 +242,7 @@ Raspberry Kitchen Radio vX.Y.Z for Raspberry Pi 3A+.
 Tips:
 
 - Keep it self-contained; the release page is read outside the repository.
-- Reference firmware packages generically as `kitchen-radio-<version>.swu` in
+- Reference firmware packages generically as `pisonic-<version>.swu` in
   prose, matching the rest of the documentation.
 - The file must be non-empty or the script aborts before building.
 
@@ -252,8 +252,8 @@ Tips:
 clobber each other, e.g.:
 
 ```text
-kitchen-radio-X.Y.Z-<shorthash>-<YYYYMMDD>-<HHMMSS>-sdcard.img.zip
-kitchen-radio-X.Y.Z-<shorthash>-<YYYYMMDD>-<HHMMSS>.swu
+pisonic-X.Y.Z-<shorthash>-<YYYYMMDD>-<HHMMSS>-sdcard.img.zip
+pisonic-X.Y.Z-<shorthash>-<YYYYMMDD>-<HHMMSS>.swu
 ```
 
 `release.py` then stages the newest matching pair to the **published** names and
@@ -261,8 +261,8 @@ generates the checksum file that ships with the release:
 
 | Published asset | What it is |
 | --- | --- |
-| `kitchen-radio-<version>-sdcard.img.zip` | Zipped raw SD card image for fresh flashing. |
-| `kitchen-radio-<version>.swu` | SWUpdate firmware package for A/B updates. |
+| `pisonic-<version>-sdcard.img.zip` | Zipped raw SD card image for fresh flashing. |
+| `pisonic-<version>.swu` | SWUpdate firmware package for A/B updates. |
 | `SHA256SUMS` | SHA-256 of both assets, one `<hex>␠␠<name>` line each. |
 
 These three files are attached to the GitHub release.
@@ -315,8 +315,8 @@ the release public:
 
 Re-runs are safe:
 
-- `--skip-build` reuses the staged `kitchen-radio-<version>-sdcard.img.zip` and
-  `kitchen-radio-<version>.swu` instead of rebuilding — handy when only the
+- `--skip-build` reuses the staged `pisonic-<version>-sdcard.img.zip` and
+  `pisonic-<version>.swu` instead of rebuilding — handy when only the
   upload failed.
 - `--force` overwrites staged assets and updates an existing release/draft
   (re-uploading with `--clobber`).
@@ -364,9 +364,9 @@ The successful run ends with a summary like:
 ```text
 Release summary
   Tag:   vX.Y.Z (draft)
-  Asset: kitchen-radio-X.Y.Z-sdcard.img.zip  176.9 MiB  <sha256>
-  Asset: kitchen-radio-X.Y.Z.swu  86.6 MiB  <sha256>
-https://github.com/thk4711/raspberry-kitchen-radio/releases/tag/vX.Y.Z
+  Asset: pisonic-X.Y.Z-sdcard.img.zip  176.9 MiB  <sha256>
+  Asset: pisonic-X.Y.Z.swu  86.6 MiB  <sha256>
+https://github.com/thk4711/pisonic/releases/tag/vX.Y.Z
 ```
 
 ## Troubleshooting

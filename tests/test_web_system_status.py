@@ -48,9 +48,9 @@ class TestSystemMetrics:
         }
 
     def test_hostname_from_file(self, tmp_path, monkeypatch):
-        f = _write(tmp_path / "hostname", "kitchen-radio\n")
+        f = _write(tmp_path / "hostname", "pisonic\n")
         monkeypatch.setattr(system_status, "HOSTNAME_FILE", f)
-        assert system_status.hostname() == "kitchen-radio"
+        assert system_status.hostname() == "pisonic"
 
     def test_app_version_matches_lib_version(self):
         from lib import __version__ as expected

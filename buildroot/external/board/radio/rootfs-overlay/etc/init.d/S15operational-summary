@@ -1,7 +1,7 @@
 #!/bin/sh
 # Persist only a bounded, privacy-safe recovery summary; routine logs stay tmpfs-only.
 
-APP_DIR=/opt/raspberry-kitchen-radio
+APP_DIR=/opt/pisonic
 
 record() {
 	(

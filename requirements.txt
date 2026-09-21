@@ -1,5 +1,5 @@
 # ---------------------------------------------------------------------------
-# Raspberry Kitchen Radio — Python runtime dependencies
+# PiSonic — Python runtime dependencies
 #
 # These are the pure-Python packages the radio imports directly. Install with:
 #

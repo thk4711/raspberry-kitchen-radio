@@ -463,7 +463,7 @@ particular, do not use it for an ES9023 I-SABRE V3/V4. The Q2M control interface
 occupies I2C address `0x48`, which conflicts with the radio's default ADS1115.
 Before fitting or selecting this profile, strap the ADS1115 `ADDR` pin for an
 unused address—for example `ADDR` to VDD selects `0x49`—and change
-`[adc] i2c_address` in `/opt/raspberry-kitchen-radio/radio.conf` to match.
+`[adc] i2c_address` in `/opt/pisonic/radio.conf` to match.
 
 | BCM | Signal / radio connection | Physical pin (odd) | Physical pin (even) | Signal / radio connection | BCM |
 | ---: | --- | ---: | :--- | --- | :--- |

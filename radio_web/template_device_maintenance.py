@@ -50,7 +50,7 @@ def device_page(
     else:
         name_field = (
             f'<input type="text" name="name" value="{name}" maxlength="63" '
-            'placeholder="e.g. kitchen-radio" required>'
+            'placeholder="e.g. pisonic" required>'
         )
     body = (
         "<h1>Device settings</h1>"
@@ -194,7 +194,7 @@ def maintenance_page(
         '<p class="btnrow"><button class="btn-primary" type="submit">'
         "Continue</button></p></form></section>"
         '<section class="wizard-panel" data-step="2" hidden><h3>Select the update file</h3>'
-        "<p>Choose a trusted <code>kitchen-radio-&lt;version&gt;.swu</code> package.</p>"
+        "<p>Choose a trusted <code>pisonic-&lt;version&gt;.swu</code> package.</p>"
         '<label>Firmware file<br><input id="firmware-file" type="file" '
         'accept=".swu,application/octet-stream"></label>'
         '<p class="note">Maximum package size: 768 MiB.</p>'

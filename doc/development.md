@@ -19,7 +19,7 @@ The tests and tooling depend only on pure-Python packages, listed in
 [`../requirements-dev.txt`](../requirements-dev.txt). Work inside a virtualenv:
 
 ```bash
-cd raspberry-kitchen-radio
+cd pisonic
 python3 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements-dev.txt
@@ -157,7 +157,7 @@ rather than growing a facade or combining unrelated responsibilities.
 [`sound-devices.md`](sound-devices.md) is the Markdown source of truth for the
 per-profile 40-pin maps. A color-coded HTML rendering is generated from it and
 published to GitHub Pages at
-<https://thk4711.github.io/raspberry-kitchen-radio/sound-devices.html>, where
+<https://thk4711.github.io/pisonic/sound-devices.html>, where
 each pin description is tinted by owning subsystem (SPI display, ADC, sound
 card, amp GPIO, UART, free).
 

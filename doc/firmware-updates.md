@@ -1,6 +1,6 @@
 # Firmware updates and recovery
 
-This is the operator guide for updating a Raspberry Kitchen Radio, activating a
+This is the operator guide for updating a PiSonic, activating a
 new A/B firmware slot, switching back to retained firmware, and recovering when
 the web interface cannot be reached. It applies to the four-partition Raspberry
 Pi 3A+ appliance image; it does not convert an older two-partition card.
@@ -37,7 +37,7 @@ partition—see [Persistent data](persistent-data.md). Flashing a complete
 
 ## Security and safety before updating
 
-- Use a versioned `kitchen-radio-<version>.swu` obtained through a trusted
+- Use a versioned `pisonic-<version>.swu` obtained through a trusted
   channel. Packages are **not cryptographically signed**.
 - The SHA-256 detects accidental corruption but does not authenticate the
   publisher. An attacker able to replace both package and checksum can replace
@@ -76,7 +76,7 @@ or if another trial is pending.
 
 ## Install an update
 
-The build emits `kitchen-radio-<version>.swu`. A local build helper may copy it to the configured output directory with a timestamp. Use the `.swu` from the same
+The build emits `pisonic-<version>.swu`. A local build helper may copy it to the configured output directory with a timestamp. Use the `.swu` from the same
 build as its matching `sdcard.img`, and compare its SHA-256 with the build output
 when transfer integrity matters.
 

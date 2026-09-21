@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Build, collect, and verify Raspberry Kitchen Radio firmware artifacts.
+"""Build, collect, and verify PiSonic firmware artifacts.
 
 Local execution is the default and needs no SSH tooling. Remote execution stages
 the current checkout with rsync, builds over SSH, and retrieves both artifacts.
@@ -371,7 +371,7 @@ def local_build(args: argparse.Namespace, repository: Path) -> tuple[Path, Path]
         fast_env["SWUPDATE_CHECKER"] = native_swupdate_checker(args.buildroot_dir)
         run(["make", f"-j{args.jobs}"], cwd=args.buildroot_dir, env=fast_env)
     images = args.buildroot_dir / "output" / "images"
-    return images / "sdcard.img", images / f"kitchen-radio-{args.version}.swu"
+    return images / "sdcard.img", images / f"pisonic-{args.version}.swu"
 
 
 def scp_base(args: argparse.Namespace) -> list[str]:
@@ -427,7 +427,7 @@ def remote_build(args: argparse.Namespace, repository: Path) -> tuple[str, str]:
         remote(args.host, fast, port=args.ssh_port)
     images = f"{str(args.buildroot_dir).rstrip('/')}/output/images"
     image = f"{images}/sdcard.img"
-    swu = f"{images}/kitchen-radio-{args.version}.swu"
+    swu = f"{images}/pisonic-{args.version}.swu"
     remote(
         args.host,
         f"test -s {shlex.quote(image)} && test -s {shlex.quote(swu)}",
@@ -454,7 +454,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     elif not args.host or not args.remote_root:
         raise BuildError("remote execution requires both host and remote_root")
     if not repository.is_dir() or not (repository / "buildroot" / "build.sh").is_file():
-        raise BuildError(f"not a Raspberry Kitchen Radio repository: {repository}")
+        raise BuildError(f"not a PiSonic repository: {repository}")
     if args.jobs is not None and args.jobs < 1:
         raise BuildError("jobs must be at least 1")
     if not 1 <= args.ssh_port <= 65535:
@@ -463,7 +463,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     args.version = firmware_version(repository)
     revision = git_revision(repository)
     args.stamp = datetime.now().strftime("%Y%m%d-%H%M%S")
-    base = f"kitchen-radio-{args.version}-{revision}-{args.stamp}"
+    base = f"pisonic-{args.version}-{revision}-{args.stamp}"
     raw_name = f"{base}-sdcard.img"
     image_output = args.artifacts_dir / (f"{raw_name}.zip" if args.zip_image else raw_name)
     swu_output = args.artifacts_dir / f"{base}.swu"

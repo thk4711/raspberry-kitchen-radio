@@ -1,4 +1,4 @@
-# Contributing to Raspberry Kitchen Radio
+# Contributing to PiSonic
 
 Thanks for your interest in improving the project! This guide covers the
 **Python application** workflow. Building the Buildroot appliance image is a

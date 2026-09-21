@@ -1,6 +1,6 @@
 #!/bin/sh
 #
-# S90radio — start, supervise and self-heal the Raspberry Kitchen Radio app.
+# S90radio — start, supervise and self-heal the PiSonic app.
 #
 # The app itself launches the media backends it needs (nqptp, shairport-sync,
 # go-librespot) via lib/utilities.start_external_program_in_background, so this
@@ -18,7 +18,7 @@
 #               hardware watchdog (S14watchdog) stops being fed and the SoC
 #               hard-resets. Last resort.
 #
-APP_DIR=/opt/raspberry-kitchen-radio
+APP_DIR=/opt/pisonic
 APP=radio.py
 PIDFILE=/run/radio.pid
 WRAP=/run/radio-supervise.sh

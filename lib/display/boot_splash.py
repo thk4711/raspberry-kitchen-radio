@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""One-shot branded boot splash for the Kitchen Radio SPI display.
+"""One-shot branded boot splash for the PiSonic SPI display.
 
 This paints a single branded frame on the SPI display **very early in boot**,
 long before the radio app itself starts. It is launched (detached) from the
@@ -27,7 +27,7 @@ Design goals (see doc/buildroot.md, "early boot splash"):
 
 On the Buildroot target this file is installed with the rest of the app under::
 
-    /opt/raspberry-kitchen-radio/lib/display/boot_splash.py
+    /opt/pisonic/lib/display/boot_splash.py
 
 The heavy/hardware imports (the panel driver) are deferred into :func:`main`
 so :func:`render_splash_frame` stays importable — and unit-testable — on a
@@ -44,7 +44,7 @@ import numpy as np
 from PIL import Image, ImageDraw, ImageFont
 
 # Make ``display`` importable both from the source tree and from the
-# Buildroot install location (/opt/raspberry-kitchen-radio/lib), mirroring
+# Buildroot install location (/opt/pisonic/lib), mirroring
 # display_test.py so the module runs the same way in both places.
 _SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 _LIB_DIR = os.path.dirname(_SCRIPT_DIR)

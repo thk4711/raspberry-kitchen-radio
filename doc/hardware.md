@@ -54,7 +54,7 @@ graph LR
 
 ### Schematic
 
-![Raspberry Pi Radio schematic: SPI display (ST7789 1.69" or GC9A01 1.28"), ADS1115 controls (volume pot, six-button ladder, power switch)](images/Schematic_Raspberry-PI-Radio.png)
+![PiSonic schematic: SPI display (ST7789 1.69" or GC9A01 1.28"), ADS1115 controls (volume pot, six-button ladder, power switch)](images/Schematic_Raspberry-PI-Radio.png)
 
 This schematic shows the **base-radio wiring** and matches the shipped defaults
 in `display.conf` and `radio.conf` (cross-checked against the code):

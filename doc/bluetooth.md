@@ -9,7 +9,7 @@ backend (see [`adding-a-music-source.md`](adding-a-music-source.md)).
 
 1. On your phone, open Bluetooth settings and look for the radio. Its name is
    the appliance **hostname** (set through `radio-config.txt` or Device settings;
-   default `kitchen-radio`).
+   default `pisonic`).
 2. Tap to connect. **There is no PIN and no confirmation prompt** — an
    auto-accept agent answers the pairing for you. (Your phone may briefly show a
    pairing dialog; you do not need to act on it.)
@@ -36,7 +36,7 @@ backend (see [`adding-a-music-source.md`](adding-a-music-source.md)).
 
 > **Security note.** No-PIN, auto-accept + always-open-when-idle means *anyone
 > in Bluetooth range can connect and pair* while nothing else is connected. This
-> is a deliberate choice for a hands-off kitchen appliance. If you need to
+> is a deliberate choice for a hands-off home audio appliance. If you need to
 > restrict this, replace the `agent auto` / discoverable toggling in
 > `S42bluetooth` with a `NoInputNoOutput` agent (and answer confirmations
 > manually) or pair manually with `bluetoothctl`.
@@ -134,7 +134,7 @@ Common checks:
 - **Radio not visible on the phone:** confirm a device is not already connected
   (pairing mode is off while connected — that is by design). `bluetoothctl show`
   should report `Discoverable: yes` **and** `Pairable: yes` when idle, with
-  `Alias:` set to the hostname (e.g. `kitchen-radio`). If `Pairable: no` while
+  `Alias:` set to the hostname (e.g. `pisonic`). If `Pairable: no` while
   idle, the persistent auto-pairing session is not up: check that a single
   `bluetoothctl` process is running (`ps | grep bluetoothctl`) and that the
   control FIFO exists (`ls -l /run/bluetooth-radio-btctl.fifo`); restart with

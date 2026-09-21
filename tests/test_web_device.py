@@ -15,7 +15,7 @@ def managed(monkeypatch, tmp_path):
 
 
 class TestDeviceValidators:
-    @pytest.mark.parametrize("name", ["kitchen-radio", "radio1", "a", "A-B-9"])
+    @pytest.mark.parametrize("name", ["pisonic", "radio1", "a", "A-B-9"])
     def test_valid_names(self, name):
         assert validators.validate_device_name(name) == name
 
@@ -50,14 +50,14 @@ class TestDeviceStore:
         hostname = tmp_path / "hostname"
         timezone = tmp_path / "timezone"
         chrony = tmp_path / "chrony.conf"
-        hostname.write_text("kitchen-radio\n")
+        hostname.write_text("pisonic\n")
         timezone.write_text("Europe/Berlin\n")
         chrony.write_text("pool pool.ntp.org iburst\n")
         monkeypatch.setattr(device_store, "HOSTNAME_FILE", str(hostname))
         monkeypatch.setattr(device_store, "TIMEZONE_FILE", str(timezone))
         monkeypatch.setattr(device_store, "CHRONY_CONF", str(chrony))
         assert device_store.load_device() == {
-            "name": "kitchen-radio",
+            "name": "pisonic",
             "timezone": "Europe/Berlin",
             "ntp_server": "pool.ntp.org",
             "ssh_enabled": "false",

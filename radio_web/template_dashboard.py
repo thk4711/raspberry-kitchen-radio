@@ -166,7 +166,7 @@ def dashboard(status: Dict[str, Any]) -> str:
     Every dynamic value is HTML-escaped. No auth and no mutating controls are
     present in Phase 3.
     """
-    host = _esc(status.get("hostname") or "Kitchen Radio")
+    host = _esc(status.get("hostname") or "PiSonic")
     incomplete = status.get("provisioning", [])
     setup_warning = ""
     if incomplete:
@@ -192,7 +192,7 @@ def dashboard(status: Dict[str, Any]) -> str:
         '<p class="note">Logs and this status are stored in volatile memory '
         "(tmpfs) and are cleared on reboot.</p>"
     )
-    return _page("Kitchen Radio", body, script="/static/app.js?v=1")
+    return _page("PiSonic", body, script="/static/app.js?v=1")
 
 
 def now_playing_fragment(player: Dict[str, Any]) -> str:

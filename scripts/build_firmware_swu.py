@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Build and validate the deterministic unsigned kitchen-radio SWUpdate archive."""
+"""Build and validate the deterministic unsigned PiSonic SWUpdate archive."""
 
 import argparse
 import gzip
@@ -22,7 +22,7 @@ MINIMUM_ROLLBACK_READER_SCHEMA = 1
 
 def artifact_name(version: str) -> str:
     """Return the canonical versioned SWUpdate artifact name."""
-    return f"kitchen-radio-{version}.swu"
+    return f"pisonic-{version}.swu"
 
 
 def project_version(version_file: Path) -> str:
@@ -238,7 +238,7 @@ def build_archive(
     version = project_version(version_file)
     output_dir.mkdir(parents=True, exist_ok=True)
     artifact = output_dir / artifact_name(version)
-    for stale in output_dir.glob("kitchen-radio-*.swu"):
+    for stale in output_dir.glob("pisonic-*.swu"):
         stale.unlink()
 
     with tempfile.TemporaryDirectory(prefix="radio-swu-") as directory:

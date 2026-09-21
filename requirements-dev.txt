@@ -1,5 +1,5 @@
 # ---------------------------------------------------------------------------
-# Raspberry Kitchen Radio — development / test dependencies
+# PiSonic — development / test dependencies
 #
 # Installs only what the unit tests import, so the suite runs on any machine
 # (macOS, Linux, CI) without a Raspberry Pi attached. Use a virtualenv:

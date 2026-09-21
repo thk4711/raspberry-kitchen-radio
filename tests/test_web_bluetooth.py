@@ -6,7 +6,7 @@ from radio_web import bluetooth_store, validators
 
 _SHOW = """Controller AA:BB:CC:11:22:33 (public)
 	Name: radio
-	Alias: Kitchen Radio
+	Alias: PiSonic
 	Powered: yes
 	Discoverable: no
 	Pairable: yes
@@ -26,7 +26,7 @@ class TestBluetoothValidators:
 class TestBluetoothStore:
     def test_parse_show(self):
         info = bluetooth_store._parse_show(_SHOW)
-        assert info["alias"] == "Kitchen Radio"
+        assert info["alias"] == "PiSonic"
         assert info["powered"] is True
         assert info["discoverable"] is False
 
@@ -40,6 +40,6 @@ class TestBluetoothStore:
         monkeypatch.setattr(bluetooth_store, "_run", lambda cmd: _SHOW)
         info = bluetooth_store.adapter_info()
         assert info["available"] is True
-        assert info["alias"] == "Kitchen Radio"
+        assert info["alias"] == "PiSonic"
         assert info["powered"] is True
         assert info["discoverable"] is False

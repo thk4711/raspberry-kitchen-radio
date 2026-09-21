@@ -1,7 +1,7 @@
 # Buildroot appliance image (Raspberry Pi 3A+)
 
 This document is the reference for the **minimal, fast-booting Buildroot
-appliance image** for the Raspberry Kitchen Radio — the supported way to run the
+appliance image** for the PiSonic — the supported way to run the
 radio. The image boots straight into the radio with no general-purpose OS
 underneath.
 
@@ -70,7 +70,7 @@ and the two actual commits are embedded in `/etc/radio-release.json`.
 
 `build.sh` requires and prints both the installation image
 (`output/images/sdcard.img`) and versioned update package
-(`output/images/kitchen-radio-<version>.swu`), with each size and SHA-256. It
+(`output/images/pisonic-<version>.swu`), with each size and SHA-256. It
 also prints the exact `dd` command for Linux and macOS.
 
 The repository-contained `scripts/build_image.py` orchestrator can additionally
@@ -114,7 +114,7 @@ make -j"$(nproc)"
 ```
 
 The resulting release artifacts are `output/images/sdcard.img` and
-`output/images/kitchen-radio-<version>.swu`. To change kernel or Buildroot
+`output/images/pisonic-<version>.swu`. To change kernel or Buildroot
 options interactively:
 
 ```bash
@@ -156,7 +156,7 @@ password: <the root_password value from radio-config.txt>
 ```sh
 # Radio processes
 ps | grep -E 'mpd|radio.py|shairport-sync|nqptp|go-librespot|bluetoothd|bluealsa'
-#   expect: mpd, python3 /opt/raspberry-kitchen-radio/radio.py,
+#   expect: mpd, python3 /opt/pisonic/radio.py,
 #           nqptp, shairport-sync, go-librespot,
 #           bluetoothd, bluealsa, bluealsa-aplay
 
@@ -198,7 +198,7 @@ verbose logging (Python app + all media backends) turned on:
 
 ```sh
 /etc/init.d/S90radio stop
-cd /opt/raspberry-kitchen-radio
+cd /opt/pisonic
 RADIO_LOG_LEVEL=DEBUG \
 RADIO_PROCESS_LOG_DIR=/tmp/radio-proc-logs \
 RADIO_NQPTP_BINARY=/usr/bin/nqptp \
@@ -300,7 +300,7 @@ service and run the app yourself with verbose logging and backend logs enabled:
 
 ```sh
 /etc/init.d/S90radio stop
-cd /opt/raspberry-kitchen-radio
+cd /opt/pisonic
 RADIO_LOG_LEVEL=DEBUG \
 RADIO_PROCESS_LOG_DIR=/tmp/radio-proc-logs \
 RADIO_PROCESS_LOG_MAX_BYTES=1048576 \
@@ -669,7 +669,7 @@ generic root account is locked. Edit it directly before the first boot:
 ```ini
 # wifi_ssid=<your-wifi-name>
 # wifi_psk=<your-private-passphrase>
-# hostname=kitchen-radio     # also the AirPlay / Spotify device name
+# hostname=pisonic     # also the AirPlay / Spotify device name
 # root_password=<your-unique-device-password>
 enable_ssh=0                 # 1 enables the SSH server
 timezone=UTC                 # zoneinfo name
@@ -834,7 +834,7 @@ tooling are detailed in the
 
 The image build runs `board/radio/build-swu.sh` after the root filesystem is
 complete. `scripts/build_firmware_swu.py` creates a deterministic unsigned CRC
-CPIO named `kitchen-radio-<version>.swu`. Its first member is `sw-description`;
+CPIO named `pisonic-<version>.swu`. Its first member is `sw-description`;
 its second is one deterministic gzip-compressed root filesystem shared by fixed
 `slot-a` and `slot-b` selections. The manifest records semantic version,
 Pi 3A+ hardware compatibility, persistent-schema contracts, compressed size,
@@ -880,7 +880,7 @@ RADIO_SPOTIFY_CONF=/tmp/go-librespot/config.yaml
 RADIO_SPOTIFY_CONFIG_ARG=--config_dir
 ```
 
-`radio.py` runs from `/opt/raspberry-kitchen-radio` (installed by the `radio-app`
+`radio.py` runs from `/opt/pisonic` (installed by the `radio-app`
 package). `S90radio` sets these `RADIO_*` overrides to the Buildroot-built
 binaries; if unset, the app looks each backend up by name on `PATH`.
 

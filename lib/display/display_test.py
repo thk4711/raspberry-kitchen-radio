@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""SPI display smoke test for Raspberry Kitchen Radio.
+"""SPI display smoke test for PiSonic.
 
 This script initializes the SPI display, turns the backlight on, and draws a
 simple diagnostic image. It works with both supported panels — the ST7789
@@ -10,12 +10,12 @@ polling, AirPlay, or Spotify services.
 
 On the Buildroot target this file is installed with the rest of the app under:
 
-    /opt/raspberry-kitchen-radio/lib/display/display_test.py
+    /opt/pisonic/lib/display/display_test.py
 
 Recommended target usage:
 
     /etc/init.d/S90radio stop
-    cd /opt/raspberry-kitchen-radio
+    cd /opt/pisonic
     python3 lib/display/display_test.py
 
 If the wiring and SPI stack are correct, the display should light up and show
@@ -38,7 +38,7 @@ APP_ROOT = SCRIPT_DIR.parents[1]
 LIB_DIR = APP_ROOT / "lib"
 
 # Make the import work both from the source tree and from the Buildroot install
-# location (/opt/raspberry-kitchen-radio).
+# location (/opt/pisonic).
 if str(LIB_DIR) not in sys.path:
     sys.path.insert(0, str(LIB_DIR))
 if str(APP_ROOT) not in sys.path:
@@ -147,7 +147,7 @@ def run_mock_now_playing(args) -> int:
     panel with the radio app stopped:
 
         /etc/init.d/S90radio stop
-        cd /opt/raspberry-kitchen-radio
+        cd /opt/pisonic
         python3 lib/display/display_test.py --mock-now-playing
 
     Cycles through: radio now-playing (with an "Artist - Title" stream), a cover

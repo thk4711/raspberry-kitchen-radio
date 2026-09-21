@@ -1,5 +1,5 @@
 # ---------------------------------------------------------------------------
-# Raspberry Kitchen Radio — .gitignore
+# PiSonic — .gitignore
 #
 # Note: tracked *.conf files (radio.conf, display.conf, stations.conf,
 # airplay.conf) and static assets (the UI font *.ttf and the station logo

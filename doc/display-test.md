@@ -6,7 +6,7 @@ The display smoke test script works with both supported SPI panels — the
 and uses the same driver factory as the radio application itself:
 
 ```text
-/opt/raspberry-kitchen-radio/lib/display/display_test.py
+/opt/pisonic/lib/display/display_test.py
 ```
 
 The test initializes only the display, turns the backlight on, and draws a simple
@@ -137,7 +137,7 @@ GPIO26 (37) (38)  GPIO20
 The script reads these values from:
 
 ```text
-/opt/raspberry-kitchen-radio/lib/display/display.conf
+/opt/pisonic/lib/display/display.conf
 ```
 
 In the source tree this is:
@@ -179,7 +179,7 @@ application is not using the display at the same time:
 
 ```sh
 /etc/init.d/S90radio stop
-cd /opt/raspberry-kitchen-radio
+cd /opt/pisonic
 python3 lib/display/display_test.py
 ```
 
@@ -227,7 +227,7 @@ automatically:
 
 ```sh
 /etc/init.d/S90radio stop
-cd /opt/raspberry-kitchen-radio
+cd /opt/pisonic
 python3 lib/display/display_test.py --mock-now-playing
 ```
 
@@ -303,7 +303,7 @@ Useful commands:
 ```sh
 logread | grep -Ei 'radio|display|spi|gpio|error'
 /etc/init.d/S90radio stop
-cd /opt/raspberry-kitchen-radio
+cd /opt/pisonic
 RADIO_LOG_LEVEL=DEBUG python3 radio.py
 ```
 

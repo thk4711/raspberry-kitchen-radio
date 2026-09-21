@@ -1,4 +1,4 @@
-# Pre-commit hooks for Raspberry Kitchen Radio.
+# Pre-commit hooks for PiSonic.
 #   pip install pre-commit
 #   pre-commit install                       # commit-stage gates (fast)
 #   pre-commit install --hook-type pre-push  # + full pytest/coverage on push

@@ -1,6 +1,6 @@
-# Raspberry Pi Radio
+# PiSonic
 
-Raspberry Pi Radio turns a Raspberry Pi 3A+ into a **kitchen-style internet
+PiSonic turns a Raspberry Pi 3A+ into a **standalone internet
 radio and streaming speaker** with real, tactile controls. Power it on and it
 boots straight into the radio — no desktop, no login, no app to launch. Turn the
 knob to change the volume, press a button to switch stations, and stream to it
@@ -53,6 +53,7 @@ firmware updates, trial boots, and automatic rollback.
 ## Typical use cases
 
 - A kitchen, workshop, or bedside internet radio with physical controls.
+  (PiSonic works anywhere a compact networked speaker fits.)
 - A compact AirPlay, Spotify Connect, Bluetooth, or USB Audio speaker.
 - A local audio appliance that can be administered from a phone or laptop.
 - A hackable embedded audio project with extensible music-source backends.
@@ -136,7 +137,7 @@ The usual first setup flow is:
    board used by your build. Save the setting and reboot if prompted. The
    built-in headphone output is the safe default. Supported sound cards and
    wiring maps are documented in [`doc/sound-devices.md`](doc/sound-devices.md)
-   ([color-coded pinout](https://thk4711.github.io/raspberry-kitchen-radio/sound-devices.html)).
+   ([color-coded pinout](https://thk4711.github.io/pisonic/sound-devices.html)).
 
 After that, use the web interface for stations, music sources, display settings,
 network settings, equalizer tuning, backups, and firmware maintenance. SSH is
@@ -145,7 +146,7 @@ disabled by default.
 ## Firmware updates
 
 Firmware updates are installed from the web interface using versioned
-`kitchen-radio-<version>.swu` packages. Updates are written to the inactive
+`pisonic-<version>.swu` packages. Updates are written to the inactive
 firmware slot, keep persistent configuration and user data, and use a
 health-checked trial boot with automatic rollback to the previous accepted slot.
 
@@ -177,7 +178,7 @@ Start here depending on what you want to do:
 | Build the Buildroot image | [`buildroot/README.md`](buildroot/README.md) |
 | Configure a flashed image | [`doc/buildroot.md`](doc/buildroot.md#provisioning-a-prebuilt-image-from-the-sd-card-radio-configtxt) |
 | Wire the base hardware | [`doc/hardware.md`](doc/hardware.md) |
-| Choose a DAC / amplifier | [`doc/sound-devices.md`](doc/sound-devices.md) · [color-coded pinout](https://thk4711.github.io/raspberry-kitchen-radio/sound-devices.html) |
+| Choose a DAC / amplifier | [`doc/sound-devices.md`](doc/sound-devices.md) · [color-coded pinout](https://thk4711.github.io/pisonic/sound-devices.html) |
 | Use the web interface | [`doc/web-interface.md`](doc/web-interface.md) |
 | Tune the parametric EQ | [`doc/equalizer.md`](doc/equalizer.md) |
 | Edit station presets | [`doc/stations.md`](doc/stations.md) |

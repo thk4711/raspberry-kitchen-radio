@@ -11,7 +11,7 @@ images_dir="$1"
 version="$2"
 build_marker="$3"
 img="${images_dir}/sdcard.img"
-swu="${images_dir}/kitchen-radio-${version}.swu"
+swu="${images_dir}/pisonic-${version}.swu"
 
 [ -f "$build_marker" ] || {
 	echo "validate-artifacts.sh: build marker is missing: $build_marker" >&2
@@ -35,7 +35,7 @@ if [ -z "$(find "$swu" -newer "$build_marker" 2>/dev/null)" ]; then
 fi
 
 stale=$(find "$images_dir" -maxdepth 1 -type f \
-	-name 'kitchen-radio-*.swu' ! -name "$(basename "$swu")" -print -quit)
+	-name 'pisonic-*.swu' ! -name "$(basename "$swu")" -print -quit)
 [ -z "$stale" ] || {
 	echo "validate-artifacts.sh: stale firmware artifact remains: $stale" >&2
 	exit 1

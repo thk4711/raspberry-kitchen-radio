@@ -210,7 +210,7 @@ def test_remote_build_stages_and_invokes_supported_build_script(monkeypatch):
     expected_commit = build_image.git_commit(build_image.DEFAULT_REPOSITORY)
     assert any(f"RADIO_REPO_COMMIT={expected_commit}" in command for _, command in remote_calls)
     assert image == "/srv/buildroot/output/images/sdcard.img"
-    assert swu == "/srv/buildroot/output/images/kitchen-radio-0.2.0.swu"
+    assert swu == "/srv/buildroot/output/images/pisonic-0.2.0.swu"
 
 
 def test_ssh_port_defaults_and_cli_and_config(tmp_path):

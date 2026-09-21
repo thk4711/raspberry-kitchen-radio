@@ -1,5 +1,5 @@
 # display_control.py
-"""SPI display controller for the Kitchen Radio now-playing UI.
+"""SPI display controller for the PiSonic now-playing UI.
 
 Rendering architecture (Workstream 1 of the display redesign): a single
 background thread composes **one full frame** from shared state and pushes it

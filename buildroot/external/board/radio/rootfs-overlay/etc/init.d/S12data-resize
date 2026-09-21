@@ -4,7 +4,7 @@
 case "$1" in
 	start)
 		printf 'Checking persistent data partition: '
-		if (cd /opt/raspberry-kitchen-radio && \
+		if (cd /opt/pisonic && \
 			/usr/bin/python3 -m radio_web.data_partition); then
 			echo "OK"
 		else

@@ -4,7 +4,7 @@
 #
 # Single source of truth for the source feature flags.
 # The web UI writes /etc/radio/sources.ini ([sources] key = true/false); the
-# shipped default is /opt/raspberry-kitchen-radio/sources.conf (all enabled).
+# shipped default is /opt/pisonic/sources.conf (all enabled).
 # radio.py reads the same file via read_config_layered; this script lets the
 # POSIX-sh init scripts (S42bluetooth, S39usb-audio, S50mpd, S50dropbear) ask
 # the identical question without duplicating parser logic.
@@ -21,7 +21,7 @@
 # Reads the managed override first, then the shipped default. Never writes.
 
 MANAGED=/etc/radio/sources.ini
-DEFAULT=/opt/raspberry-kitchen-radio/sources.conf
+DEFAULT=/opt/pisonic/sources.conf
 
 key=$1
 if [ -z "$key" ]; then

@@ -1,5 +1,5 @@
 From 5cb6631cc45751d86a1ed88d64b53c945141e97f Mon Sep 17 00:00:00 2001
-From: Raspberry Kitchen Radio <radio@localhost>
+From: PiSonic <radio@localhost>
 Date: Fri, 4 Sep 2026 13:15:00 +0200
 Subject: [PATCH] usb: gadget: uac1: use function name for playback interfaces
 
@@ -14,7 +14,7 @@ preserving altsetting zero/one as the actual inactive/active indication.  A
 kernel default is used because updating this ConfigFS string during a gadget
 service restart can block while an old function instance is still being freed.
 
-Signed-off-by: Raspberry Kitchen Radio <radio@localhost>
+Signed-off-by: PiSonic <radio@localhost>
 ---
  drivers/usb/gadget/function/f_uac1.c | 6 +++---
  1 file changed, 3 insertions(+), 3 deletions(-)

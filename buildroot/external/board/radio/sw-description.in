@@ -1,6 +1,6 @@
 software = {
     version = "@FIRMWARE_VERSION@";
-    description = "Raspberry Kitchen Radio firmware";
+    description = "PiSonic firmware";
     hardware-compatibility: [ "1" ];
     persistent_schema = @PERSISTENT_SCHEMA@;
     persistent_reader_schema = @PERSISTENT_READER_SCHEMA@;

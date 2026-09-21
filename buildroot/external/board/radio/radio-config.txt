@@ -1,5 +1,5 @@
 # =============================================================================
-# Raspberry Kitchen Radio — first-boot configuration
+# PiSonic — first-boot configuration
 # =============================================================================
 #
 # HOW TO USE
@@ -54,7 +54,7 @@
 # --- Identity ----------------------------------------------------------------
 # The hostname is also the AirPlay / Spotify Connect device name.
 # Letters, digits and hyphens only.
-# hostname=kitchen-radio
+# hostname=pisonic
 
 # --- Access / debugging ------------------------------------------------------
 # Root password login is locked in the generic image. To use console or SSH

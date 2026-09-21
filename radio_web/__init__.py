@@ -1,4 +1,4 @@
-"""Raspberry Kitchen Radio web administration interface (``radio_web``).
+"""PiSonic web administration interface (``radio_web``).
 
 A small, dependency-free administration UI served by a separate, unprivileged
 process from the player (``radio.py``). It ships a **read-only dashboard** and,

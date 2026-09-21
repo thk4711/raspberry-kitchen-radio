@@ -1,6 +1,6 @@
 #!/bin/sh
 #
-# S80radio-web — Raspberry Kitchen Radio web administration interface.
+# S80radio-web — PiSonic web administration interface.
 #
 # Serves the admin UI (`python3 -m radio_web`) from the application directory.
 # The privilege split: this service
@@ -19,7 +19,7 @@
 # The server binds to the wlan0 LAN address and to 127.0.0.1 on port 8080
 # (127.0.0.1 on port 8080).
 #
-APP_DIR=/opt/raspberry-kitchen-radio
+APP_DIR=/opt/pisonic
 PYTHON=/usr/bin/python3
 PIDFILE=/run/radio-web.pid
 WEB_USER=radio-web

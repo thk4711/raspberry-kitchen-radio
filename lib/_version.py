@@ -1,4 +1,4 @@
-"""Single source of truth for the Raspberry Kitchen Radio version.
+"""Single source of truth for the PiSonic version.
 
 The version string is defined here and re-exported from ``lib/__init__.py`` so
 it can be imported as ``from lib import __version__`` (tests / tooling) or, at

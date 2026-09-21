@@ -1,5 +1,5 @@
 #!/bin/sh
 # Run the shared persistent-configuration manager from the installed app tree.
 set -eu
-cd /opt/raspberry-kitchen-radio
+cd /opt/pisonic
 exec /usr/bin/python3 -m radio_web.persistent_config "$@"

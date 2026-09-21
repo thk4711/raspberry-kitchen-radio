@@ -1,9 +1,9 @@
 ################################################################################
 #
-# radio-app  (Raspberry Kitchen Radio application)
+# radio-app  (PiSonic application)
 #
 # The app source lives in this repository (the BR2_EXTERNAL tree parent). We
-# install radio.py + lib/ + the *.conf files into /opt/raspberry-kitchen-radio
+# install radio.py + lib/ + the *.conf files into /opt/pisonic
 # on the target, and drop the BusyBox init scripts.
 #
 ################################################################################
@@ -16,7 +16,7 @@ RADIO_APP_SITE = $(BR2_EXTERNAL_RADIO_PATH)/../..
 RADIO_APP_LICENSE = MIT
 RADIO_APP_LICENSE_FILES = LICENSE
 
-RADIO_APP_TARGET_DIR = /opt/raspberry-kitchen-radio
+RADIO_APP_TARGET_DIR = /opt/pisonic
 
 define RADIO_APP_INSTALL_TARGET_CMDS
 	# Application code + libraries + committed config/assets.

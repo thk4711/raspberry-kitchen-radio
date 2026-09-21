@@ -1,4 +1,4 @@
-# Buildroot appliance image — Raspberry Kitchen Radio (Pi 3A+)
+# Buildroot appliance image — PiSonic (Pi 3A+)
 
 This directory holds the `BR2_EXTERNAL` tree that builds a **minimal,
 fast-booting Buildroot image** running the radio app, replacing the full
@@ -73,7 +73,7 @@ commit in the build log and firmware release metadata. When building through
 
 `build.sh` requires and prints both the installation image
 (`output/images/sdcard.img`) and versioned firmware update
-(`output/images/kitchen-radio-<version>.swu`), including each size and SHA-256.
+(`output/images/pisonic-<version>.swu`), including each size and SHA-256.
 It also prints the exact `dd` command for flashing the installation image.
 
 Override the build locations with environment variables if the defaults do not
@@ -125,7 +125,7 @@ make BR2_EXTERNAL=$HOME/embedded/radio-repo/buildroot/external radio_rpi3_defcon
 make -j"$(nproc)"
 # 3) The artifacts are in output/images — copy both back to your workstation:
 #    (run this from your workstation)
-scp user@build-host:~/embedded/buildroot/output/images/kitchen-radio-<version>.swu .
+scp user@build-host:~/embedded/buildroot/output/images/pisonic-<version>.swu .
 scp user@build-host:~/embedded/buildroot/output/images/sdcard.img .
 
 # 4) Flash it (find the device first), then edit radio-config.txt on its boot
@@ -255,7 +255,7 @@ buildroot/
 - `lib/airplay_service/airplay_service.py` binary paths are overridable
   (`RADIO_NQPTP_BINARY`, `RADIO_AIRPLAY_BINARY`).
 - External media backend stdout/stderr is kept under
-  `/tmp/raspberry-kitchen-radio/processes/` so crashes from `nqptp`,
+  `/tmp/pisonic/processes/` so crashes from `nqptp`,
   `shairport-sync`, or `go-librespot` can be diagnosed on the target.
 
 All backend paths are set by `S90radio` to the Buildroot-built binaries on

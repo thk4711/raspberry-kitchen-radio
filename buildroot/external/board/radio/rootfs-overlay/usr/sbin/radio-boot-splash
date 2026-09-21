@@ -29,7 +29,7 @@
 # =============================================================================
 
 PYTHON=/usr/bin/python3
-APP_DIR=/opt/raspberry-kitchen-radio
+APP_DIR=/opt/pisonic
 SPLASH="$APP_DIR/lib/display/boot_splash.py"
 LOG=/tmp/radio-boot-splash.log
 

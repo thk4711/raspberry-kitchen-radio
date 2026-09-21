@@ -1,4 +1,4 @@
-# Raspberry Kitchen Radio — Raspberry Pi 3A+ firmware config.
+# PiSonic — Raspberry Pi 3A+ firmware config.
 # Installed to the FAT boot partition as config.txt by the Buildroot
 # post-image / genimage step.
 

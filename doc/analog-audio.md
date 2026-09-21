@@ -81,7 +81,7 @@ is normally HDMI when on-board audio is enabled.
 ## 4. Select the headphone mixer
 
 The headphone output uses the `PCM` mixer rather than the I2S DAC's `Digital`
-mixer. Change `/opt/raspberry-kitchen-radio/radio.conf` to:
+mixer. Change `/opt/pisonic/radio.conf` to:
 
 ```ini
 [audio]
@@ -151,5 +151,5 @@ The configuration session retained these originals:
 /mnt/boot/config.txt.i2s-backup
 /etc/asound.conf.i2s-backup
 /etc/mpd.conf.i2s-backup
-/opt/raspberry-kitchen-radio/radio.conf.i2s-backup
+/opt/pisonic/radio.conf.i2s-backup
 ```

@@ -1,7 +1,7 @@
 # Firmware-update architecture
 
 This document describes the complete A/B firmware-update design used by the
-Raspberry Kitchen Radio. It is intended as a reference for developers building a
+PiSonic. It is intended as a reference for developers building a
 similar Raspberry Pi appliance with Buildroot, U-Boot, SWUpdate, and a shared
 persistent-data partition.
 
@@ -256,7 +256,7 @@ The manifest records:
 The builder rejects a rootfs larger than a slot, unresolved placeholders,
 unexpected members, bad order, size/hash mismatches, invalid targets, and schema
 contract errors. It runs a native host SWUpdate checker in check mode for both
-selections before atomically publishing `kitchen-radio-<version>.swu`.
+selections before atomically publishing `pisonic-<version>.swu`.
 
 `validate-artifacts.sh` then requires a fresh nonempty `sdcard.img`, exactly one
 matching fresh `.swu`, and no stale versioned package. `build.sh` reports size
@@ -265,10 +265,10 @@ and SHA-256 for both artifacts.
 Example host inspection, without installing:
 
 ```sh
-cpio -itv < kitchen-radio-<version>.swu
-swupdate -c -i kitchen-radio-<version>.swu -e stable,slot-a
-swupdate -c -i kitchen-radio-<version>.swu -e stable,slot-b
-sha256sum kitchen-radio-<version>.swu
+cpio -itv < pisonic-<version>.swu
+swupdate -c -i pisonic-<version>.swu -e stable,slot-a
+swupdate -c -i pisonic-<version>.swu -e stable,slot-b
+sha256sum pisonic-<version>.swu
 ```
 
 Use a native checker matching the target SWUpdate grammar; the ARM target binary
