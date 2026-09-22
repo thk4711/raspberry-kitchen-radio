@@ -7,7 +7,7 @@
 # Keep these values in sync with image-layout.conf and the layout tests.
 image boot.vfat {
 	vfat {
-		label = "RADIOBOOT"
+		label = "PISONICBOOT"
 		files = {
 #BOOT_FILES#
 		}

@@ -1,25 +1,25 @@
 # Bluetooth (A2DP) music source
 
-The radio can act as a **Bluetooth audio receiver**: pair a phone or tablet and
+PiSonic can act as a **Bluetooth audio receiver**: pair a phone or tablet and
 its audio plays through the same I2S DAC as internet radio, AirPlay and Spotify.
 Track title/artist appear on the display. This is the fourth `MusicSource`
 backend (see [`adding-a-music-source.md`](adding-a-music-source.md)).
 
 ## How to use it
 
-1. On your phone, open Bluetooth settings and look for the radio. Its name is
+1. On your phone, open Bluetooth settings and look for PiSonic. Its name is
    the appliance **hostname** (set through `pisonic-config.txt` or Device settings;
    default `pisonic`).
 2. Tap to connect. **There is no PIN and no confirmation prompt** — an
    auto-accept agent answers the pairing for you. (Your phone may briefly show a
    pairing dialog; you do not need to act on it.)
 3. Start playing anything (music app, video, etc.). Within a couple of seconds
-   the radio switches to the Bluetooth source: **whatever was playing before
+   PiSonic switches to the Bluetooth source: **whatever was playing before
    (internet radio, AirPlay, Spotify) is stopped**, the display shows the
    Bluetooth track, and audio comes out of the speaker.
-4. When you stop/disconnect, the radio returns to pairing mode (see below) and
+4. When you stop/disconnect, PiSonic returns to pairing mode (see below) and
    another device can connect. Select a preset button or another source to go
-   back to radio.
+   back to Internet Radio.
 
 ## Pairing mode (no PIN, connection-gated)
 
@@ -27,8 +27,8 @@ backend (see [`adding-a-music-source.md`](adding-a-music-source.md)).
   pairable with no PIN**, so any phone can connect without intervention. An
   auto-accept agent (`bluetoothctl agent auto`) confirms the pairing
   automatically, so even phones that use SSP *numeric comparison* pair without
-  you tapping anything on the radio.
-- **Once a device is fully paired and connected**, the radio stops advertising
+  you tapping anything on PiSonic.
+- **Once a device is fully paired and connected**, PiSonic stops advertising
   (it is not discoverable/pairable). The gating waits for the bond to *complete*
   (`Paired: yes` **and** `Connected: yes`) before turning pairability off, so it
   never aborts an in-flight pairing handshake. It automatically re-opens pairing
@@ -45,19 +45,19 @@ backend (see [`adding-a-music-source.md`](adding-a-music-source.md)).
 
 - **Audio:** the A2DP stream is received by `bluealsa` and played to the ALSA
   `default` device (→ the `dmix` → I2S DAC path in `/etc/asound.conf`), exactly
-  like every other source. Adjust volume with the radio's volume knob as usual.
+  like every other source. Adjust volume with PiSonic's volume knob as usual.
 - **Metadata:** the display shows the **title and artist** reported by the phone
   over AVRCP (`org.bluez.MediaPlayer1`). Bluetooth A2DP/AVRCP carries **no cover
-  art**, so instead of album art the radio shows a generated placeholder tile: a
+  art**, so instead of album art PiSonic shows a generated placeholder tile: a
   **Bluetooth glyph on a muted-blue rounded square** (rendered by
   `logo_fallback.render_bluetooth_tile`), centred like a station logo with the
   title/artist text below it. The glyph is the official Bluetooth mark, drawn
   from the public-domain `Bluetooth.svg` path with Pillow (no SVG rasteriser or
   extra dependency on the image).
-- **Auto-switching:** the radio stops the previously playing source when the
+- **Auto-switching:** PiSonic stops the previously playing source when the
   phone reports **playback** over AVRCP (`Status == "playing"`). Virtually all
   mainstream music/video apps do this. If you ever meet an app that streams
-  audio but never reports AVRCP status, the radio will not auto-stop the other
+  audio but never reports AVRCP status, PiSonic will not auto-stop the other
   source — connect, then briefly pause/resume in the app, or select the source
   manually.
 
@@ -106,7 +106,7 @@ The Python side has a `[bluetooth]` section in `radio.conf`
 
 ## On-target validation & troubleshooting
 
-SSH into the radio (`ssh root@<radio-ip>`), then:
+SSH into PiSonic (`ssh root@<radio-ip>`), then:
 
 ```sh
 # Daemons up?
@@ -143,9 +143,9 @@ Common checks:
   `hci0` exists (`ls /sys/class/bluetooth`).
 - **Pairing pops up a code and/or fails (`auth failed 0x05`):** if the phone was
   previously (half-)paired, it holds a stale link key. Do **"Forget This Device"**
-  on the phone **and** `bluetoothctl remove <MAC>` on the radio, then pair fresh.
-  The radio's auto-accept agent (`agent auto`) confirms SSP numeric comparison
-  automatically, so no code needs tapping on the radio side.
+  on the phone **and** `bluetoothctl remove <MAC>` on PiSonic, then pair fresh.
+  PiSonic's auto-accept agent (`agent auto`) confirms SSP numeric comparison
+  automatically, so no code needs tapping on PiSonic side.
 - **Connects but no sound:** check `bluealsa-aplay` is running and the volume
   knob is up; confirm audio works from another source (same ALSA path).
 - **Audio is choppy or drops to silence after ~1 s:** almost certainly the HCI
@@ -156,7 +156,7 @@ Common checks:
   the firmware note above). Watch `dmesg | grep -icE 'continuation frame|unknown
   connection handle'` while streaming: it should stay ~flat.
 - **No title/artist on the display:** the phone/app may not send AVRCP metadata;
-  audio still plays. This also means the radio may not auto-stop the previous
+  audio still plays. This also means PiSonic may not auto-stop the previous
   source (see the AVRCP note above).
 
 See [`buildroot.md`](buildroot.md) for the full image reference and

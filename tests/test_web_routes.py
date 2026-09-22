@@ -35,10 +35,15 @@ class TestRoutes:
         assert b".site-header" in body
         assert ("Cache-Control", "public, max-age=3600") in headers
 
-        status, ctype, body, _headers = routes.resolve(_req("GET", "/static/radio.svg"))
+        status, ctype, body, _headers = routes.resolve(_req("GET", "/static/PiSonic-Logo.svg"))
         assert status == 200
         assert ctype == "image/svg+xml"
-        assert body.startswith(b"<svg")
+        assert b"PiSonic Logo" in body
+
+        status, ctype, body, _headers = routes.resolve(_req("GET", "/static/PiSonic-Logo.png"))
+        assert status == 200
+        assert ctype == "image/png"
+        assert body.startswith(b"\x89PNG")
 
         status, ctype, body, _headers = routes.resolve(_req("GET", "/static/app.js"))
         assert status == 200
@@ -197,8 +202,9 @@ class TestTemplates:
 
     def test_page_uses_shared_application_shell(self):
         html = templates.dashboard(self._status())
-        assert 'href="/static/app.css?v=17"' in html
-        assert 'href="/static/radio.svg?v=1"' in html
+        assert 'href="/static/app.css?v=19"' in html
+        assert 'href="/static/PiSonic-Logo.svg?v=2"' in html
+        assert 'src="/static/PiSonic-Logo.svg?v=2"' in html
         assert 'class="site-header"' in html
         assert 'aria-label="Main navigation"' in html
         assert 'aria-current="page"' in html
@@ -824,6 +830,134 @@ class TestDeviceRoutes:
         status, _c, _b, headers = routes.resolve(req)
         assert status == 303
         assert ("Location", "/device?msg=restored") in headers
+
+    def test_device_get_renders_root_password_form(self, monkeypatch, tmp_path):
+        sessions = auth.SessionStore()
+        session = sessions.create()
+        req = self._ctx(
+            monkeypatch,
+            tmp_path,
+            "GET",
+            "/device",
+            sessions=sessions,
+            session=session,
+        )
+        status, _c, body, _h = routes.resolve(req)
+        assert status == 200
+        assert "Change root password" in body
+        assert 'action="/device/root-password"' in body
+
+    def test_root_password_post_requires_csrf(self, monkeypatch, tmp_path):
+        sessions = auth.SessionStore()
+        session = sessions.create()
+        req = self._ctx(
+            monkeypatch,
+            tmp_path,
+            "POST",
+            "/device/root-password",
+            sessions=sessions,
+            session=session,
+            form={
+                "root_password": "s3cret-pass",
+                "root_password_confirm": "s3cret-pass",
+                "csrf_token": "wrong",
+            },
+        )
+        status, _c, _b, _h = routes.resolve(req)
+        assert status == 403
+
+    def test_root_password_post_rejects_mismatch(self, monkeypatch, tmp_path):
+        sessions = auth.SessionStore()
+        session = sessions.create()
+        req = self._ctx(
+            monkeypatch,
+            tmp_path,
+            "POST",
+            "/device/root-password",
+            sessions=sessions,
+            session=session,
+            form={
+                "root_password": "s3cret-pass",
+                "root_password_confirm": "different-pass",
+                "csrf_token": session.csrf_token,
+            },
+        )
+        status, _c, body, _h = routes.resolve(req)
+        assert status == 200
+        assert "do not match" in body
+
+    def test_root_password_post_rejects_invalid(self, monkeypatch, tmp_path):
+        sessions = auth.SessionStore()
+        session = sessions.create()
+        req = self._ctx(
+            monkeypatch,
+            tmp_path,
+            "POST",
+            "/device/root-password",
+            sessions=sessions,
+            session=session,
+            form={
+                "root_password": "short",
+                "root_password_confirm": "short",
+                "csrf_token": session.csrf_token,
+            },
+        )
+        status, _c, body, _h = routes.resolve(req)
+        assert status == 200
+        assert "Root password must be" in body
+
+    def test_root_password_post_changes_and_redirects(self, monkeypatch, tmp_path):
+        sessions = auth.SessionStore()
+        session = sessions.create()
+        recorded = {}
+        req = self._ctx(
+            monkeypatch,
+            tmp_path,
+            "POST",
+            "/device/root-password",
+            sessions=sessions,
+            session=session,
+            form={
+                "root_password": "s3cret-pass",
+                "root_password_confirm": "s3cret-pass",
+                "csrf_token": session.csrf_token,
+            },
+        )
+        # Override the generic _ctx stub with a spy that records the call.
+        monkeypatch.setattr(
+            "radio_web.actions.run_action",
+            lambda action, **k: recorded.update({"action": action, "args": k}) or (True, "ok"),
+        )
+        status, _c, _b, headers = routes.resolve(req)
+        assert status == 303
+        assert ("Location", "/device?msg=password_changed") in headers
+        assert recorded["action"] == "set_root_password"
+        assert recorded["args"] == {"password": "s3cret-pass"}
+
+    def test_root_password_post_reports_helper_failure(self, monkeypatch, tmp_path):
+        sessions = auth.SessionStore()
+        session = sessions.create()
+        req = self._ctx(
+            monkeypatch,
+            tmp_path,
+            "POST",
+            "/device/root-password",
+            sessions=sessions,
+            session=session,
+            form={
+                "root_password": "s3cret-pass",
+                "root_password_confirm": "s3cret-pass",
+                "csrf_token": session.csrf_token,
+            },
+        )
+        # Override the generic _ctx stub so the helper reports a failure.
+        monkeypatch.setattr(
+            "radio_web.actions.run_action",
+            lambda *a, **k: (False, "Could not change the root password."),
+        )
+        status, _c, body, _h = routes.resolve(req)
+        assert status == 200
+        assert "Could not change the root password." in body
 
 
 class TestMaintenanceRoutes:

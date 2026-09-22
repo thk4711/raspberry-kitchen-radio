@@ -2,7 +2,7 @@
 
 Pages are built from Python strings without a template-engine dependency, with
 :func:`html.escape` applied to **every** dynamic value. The shared stylesheet
-and radio mark are local, explicitly allowlisted assets; no page needs a CDN,
+and PiSonic logo assets are local, explicitly allowlisted assets; no page needs a CDN,
 web font, or JavaScript to function.
 """
 
@@ -81,14 +81,14 @@ def _page(title: str, body: str, *, script: Optional[str] = None) -> str:
         '<meta name="viewport" content="width=device-width, initial-scale=1">'
         '<meta name="theme-color" content="#132238">'
         f"<title>{_esc(title)}</title>"
-        '<link rel="icon" href="/static/radio.svg?v=1" type="image/svg+xml">'
-        '<link rel="stylesheet" href="/static/app.css?v=17">'
+        '<link rel="icon" href="/static/PiSonic-Logo.svg?v=2" type="image/svg+xml">'
+        '<link rel="stylesheet" href="/static/app.css?v=19">'
         f"{script_tag}"
         '</head><body><a class="skip-link" href="#content">Skip to content</a>'
         '<header class="site-header"><div class="header-inner">'
         '<a class="brand" href="/">'
-        '<img src="/static/radio.svg?v=1" alt="" width="38" height="38">'
-        '<span class="brand-copy">PiSonic<small>Control panel</small></span>'
+        '<img class="brand-logo" src="/static/PiSonic-Logo.svg?v=2" alt="PiSonic" width="220" height="60">'
+        '<span class="brand-copy"><small>Control panel</small></span>'
         '</a><nav class="primary-nav" aria-label="Main navigation">'
         f"{''.join(nav)}"
         "</nav></div></header>"

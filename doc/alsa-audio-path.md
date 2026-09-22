@@ -1,6 +1,6 @@
 # ALSA audio path and routing
 
-This is the reference for **how audio flows through ALSA** on the radio: where
+This is the reference for **how audio flows through ALSA** on PiSonic: where
 every source converges, which optional stages (parametric EQ, software volume)
 are layered on top, and how the two receiver bridges (`bluealsa-aplay`,
 `alsaloop`) feed into the same route.

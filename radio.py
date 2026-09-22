@@ -183,6 +183,9 @@ class RadioController:
         self.airplay = AirplayService(
             start_binary=self.source_flags.get("airplay", True),
             pipe_path=self.config["airplay"]["pipe_path"],
+            inhibit_file=self.config.get("airplay", {}).get(
+                "inhibit_file", "/run/airplay-inhibited"
+            ),
         )
         _startup_logger.info("Loading SPOTIFY")
         self.spotify = SpotifyService(
@@ -460,6 +463,11 @@ class RadioController:
         if 1 <= button_number <= 6:
             self.active_service = self.mpd
             self.mpd.play_index(button_number)
+            # Immediately stop the other sources instead of waiting for the next
+            # arbitration tick. This matters for sources whose stop is best-effort
+            # remote control (AirPlay, USB): pressing a preset reliably switches
+            # away even if that source's sender keeps its stream open.
+            self._stop_other_services("mpd")
             # Surface a brief preset toast naming the station on the display.
             try:
                 station = self.mpd.stations[button_number - 1]["name"]
@@ -510,6 +518,23 @@ class RadioController:
         except Exception as e:
             logger.error(f"Unable to get metadata: {e}")
 
+    def _stop_other_services(self, keep_name: str) -> None:
+        """Stop every managed source except ``keep_name``.
+
+        Shared by :meth:`check_play_states` (source arbitration) and
+        :meth:`handle_button_press` (preset selection) so the single-active-source
+        invariant is enforced identically from both paths. A backend that fails to
+        stop is logged and skipped; it never breaks the caller.
+        """
+        for service in getattr(self, "services", []):
+            if service["name"] == keep_name:
+                continue
+            try:
+                if service["service"].get_play_state():
+                    service["service"].set_play_state(False)
+            except Exception as exc:
+                logger.error("Unable to stop %s: %s", service["name"], exc)
+
     def check_play_states(self) -> None:
         """
         Check the play states of all services, update the active service, and ensure only one service is playing at a time.
@@ -537,13 +562,7 @@ class RadioController:
             service["state"] = new_state
 
         if changed_service_name:
-            for service in self.services:
-                if service["name"] != changed_service_name:
-                    try:
-                        if service["service"].get_play_state():
-                            service["service"].set_play_state(False)
-                    except Exception as exc:
-                        logger.error("Unable to stop %s: %s", service["name"], exc)
+            self._stop_other_services(changed_service_name)
 
     def metadata_loop(self) -> None:
         """

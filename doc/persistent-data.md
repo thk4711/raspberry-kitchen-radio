@@ -1,6 +1,6 @@
 # Persistent data partition
 
-The PiSonic keeps firmware and mutable device state separate.
+PiSonic keeps firmware and mutable device state separate.
 Firmware lives in interchangeable root slots A and B (`p2` and `p3`), while the
 final ext4 partition (`p4`) is mounted at `/data` and shared by both slots. A
 normal `.swu` update replaces only the inactive firmware slot, so the settings,
@@ -13,7 +13,7 @@ reaches `p4`.
 
 ## What belongs in `/data` and why
 
-### Radio configuration
+### PiSonic configuration
 
 `/data/radio` is exposed to applications as the compatibility directory
 `/etc/radio`. Files are created only when the corresponding feature is configured,
@@ -51,7 +51,7 @@ can update settings without gaining access to root-only state elsewhere in
 | `/data/network/wpa_supplicant.conf` | `/etc/wpa_supplicant.conf` | WiFi SSID and passphrase. The new slot must reconnect without reprovisioning. Mode `0600`. |
 | `/data/identity/root-password.hash` | Applied to root's entry in `/etc/shadow` during early boot | Preserves the root password without sharing the complete slot-owned shadow database. Mode `0600`. |
 | `/data/radio/root-credential-provisioned` | Read by the unprivileged web service | Non-secret capability marker allowing the UI to offer SSH only after root has persisted an unlocked password hash. Mode `0644`; contains no credential data. |
-| `/data/identity/dropbear/` | `/etc/dropbear` | Dropbear host keys, preserving the radio's SSH identity and avoiding host-key warnings after an update. |
+| `/data/identity/dropbear/` | `/etc/dropbear` | Dropbear host keys, preserving PiSonic's SSH identity and avoiding host-key warnings after an update. |
 | `/data/bluetooth/` | `/var/lib/bluetooth` | BlueZ adapter/device records and phone pairing state. |
 
 The identity, network and Bluetooth trees are root-owned. The web process can

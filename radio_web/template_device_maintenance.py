@@ -77,9 +77,24 @@ def device_page(
         " Enable SSH</label></p>"
         '<p class="note">Allows root SSH access on the local network. Changes '
         "take effect immediately. A unique root password must first be provisioned "
-        "through pisonic-config.txt; its enable_ssh setting can still disable access.</p>"
+        "through pisonic-config.txt or set below; its enable_ssh setting can still "
+        "disable access.</p>"
         "</div>"
         "</form>"
+        '<div class="card"><h2>Root password</h2>'
+        '<p class="sub">The device\'s root / SSH login password. This is separate '
+        "from the web administrator password. Changing it takes effect immediately.</p>"
+        '<form method="post" action="/device/root-password" id="root-password">'
+        f"{csrf}"
+        '<p><label>New root password<br><input type="password" name="root_password" '
+        'autocomplete="new-password" required></label></p>'
+        '<p><label>Confirm new root password<br>'
+        '<input type="password" name="root_password_confirm" '
+        'autocomplete="new-password" required></label></p>'
+        '<p class="btnrow"><button class="btn-apply" type="submit">'
+        "Change root password</button></p>"
+        "</form>"
+        "</div>"
         '<div class="card physical-controls-card"><h2>Physical controls</h2>'
         "<p>Inspect the volume knob, preset buttons and power switch in real time, "
         "and calibrate how their ADS1115 readings are interpreted.</p>"

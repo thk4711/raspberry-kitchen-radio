@@ -34,11 +34,13 @@ from typing import Any, Callable, Dict, Optional, Tuple, Union
 from . import (
     audio_hardware_apply,
     data_backup,
+    device_store,
     equalizer_store,
     firmware_installer,
     firmware_slots,
     helper_protocol,
     network_apply,
+    persistent_config,
     validators,
 )
 from .device_store import apply_hostname_files, apply_time_files
@@ -59,6 +61,10 @@ _USB_AUDIO_INIT_SCRIPT = "/etc/init.d/S39usb-audio"
 # Fixed argv for the two power operations (BusyBox). Argument lists, shell=False.
 _REBOOT_CMD = ["/sbin/reboot"]
 _SHUTDOWN_CMD = ["/sbin/poweroff"]
+
+# Fixed argv for the batch password setter (BusyBox). Reads ``user:password``
+# lines on stdin; used to set the root login password. Argument list, shell=False.
+_CHPASSWD_CMD = ["/usr/sbin/chpasswd"]
 
 # Subprocess timeout: a restart returns promptly; cap it so a wedged operation
 # can never tie up the worker thread indefinitely.
@@ -151,6 +157,73 @@ def _restart_ssh(_args: Dict[str, Any]) -> Tuple[bool, str]:
         "SSH settings applied.",
         "Applying SSH settings failed.",
     )
+
+
+def _set_root_password(args: Dict[str, Any]) -> Tuple[bool, str]:
+    """Set the root (device/SSH) login password and persist only its hash.
+
+    Re-validates the password server-side (never trusts the web process), then
+    pipes ``root:<password>`` to BusyBox ``chpasswd`` with ``shell=False`` so the
+    secret never touches a shell or an argument vector. The plaintext is never
+    logged. On success the resulting hash is captured to the persistent identity
+    file (so it survives A/B firmware updates) and the non-secret
+    "credential provisioned" marker is created, matching what the SD-card
+    ``provision-from-boot`` path does. This unlocks the "Enable SSH" control.
+    """
+    raw = args.get("password", "")
+    if not isinstance(raw, str):
+        return False, "Invalid root password."
+    try:
+        password = validators.validate_root_password(raw)
+    except ValueError as exc:
+        return False, str(exc)
+    try:
+        result = subprocess.run(  # noqa: S603 - fixed argv, shell=False
+            _CHPASSWD_CMD,
+            input=f"root:{password}\n",
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            text=True,
+            timeout=_ACTION_TIMEOUT_SECONDS,
+            check=False,
+        )
+    except FileNotFoundError:
+        logger.error("set_root_password: chpasswd not found")
+        return False, "Could not change the root password."
+    except subprocess.TimeoutExpired:
+        logger.error("set_root_password: chpasswd timed out")
+        return False, "Could not change the root password."
+    except OSError as exc:
+        logger.error("set_root_password: chpasswd failed: %s", exc)
+        return False, "Could not change the root password."
+    if result.returncode != 0:
+        logger.error("set_root_password: chpasswd exit %s", result.returncode)
+        return False, "Could not change the root password."
+    try:
+        persistent_config.capture_root_password()
+    except (OSError, ValueError) as exc:
+        logger.error("set_root_password: hash persistence failed: %s", exc)
+        return False, "The password was changed but could not be persisted for updates."
+    try:
+        _mark_root_credential_provisioned()
+    except OSError as exc:
+        logger.warning("set_root_password: could not write credential marker: %s", exc)
+    logger.info("set_root_password: root password updated and hash persisted")
+    return True, "Root password changed."
+
+
+def _mark_root_credential_provisioned() -> None:
+    """Create the non-secret marker used to gate the Enable SSH control."""
+    marker = device_store.ROOT_CREDENTIAL_MARKER
+    directory = os.path.dirname(os.path.abspath(marker))
+    if directory:
+        os.makedirs(directory, exist_ok=True)
+    with open(marker, "w", encoding="utf-8"):
+        pass
+    try:
+        os.chmod(marker, 0o644)
+    except OSError:
+        pass
 
 
 def _reboot(_args: Dict[str, Any]) -> Tuple[bool, str]:
@@ -326,6 +399,7 @@ _OPERATIONS: Dict[str, Callable[[Dict[str, Any]], OperationResult]] = {
     "restart_radio": _restart_radio,
     "restart_mpd": _restart_mpd,
     "restart_ssh": _restart_ssh,
+    "set_root_password": _set_root_password,
     "reboot": _reboot,
     "shutdown": _shutdown,
     "set_hostname": _set_hostname,

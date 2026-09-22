@@ -1,6 +1,6 @@
 # Parametric equalizer
 
-The radio has an optional ten-band parametric equalizer in the authenticated web
+PiSonic has an optional ten-band parametric equalizer in the authenticated web
 interface. It processes the common ALSA playback path, so one configuration
 applies to all five sources (Internet Radio, AirPlay, Spotify Connect, Bluetooth
 and USB Audio).
@@ -44,7 +44,7 @@ is disabled; when it is enabled, only dots belonging to enabled bands can move.
   Ordinary changes (preamp, per-band type/frequency/gain/Q, and enabling or
   disabling individual bands) apply **live**, without interrupting playback.
   Only toggling the **whole** equalizer on or off has to insert or remove the
-  DSP stage in the ALSA route, which briefly restarts the radio and all audio
+  DSP stage in the ALSA route, which briefly restarts PiSonic and all audio
   receivers (MPD, AirPlay, Spotify, Bluetooth, USB Audio). See
   [Live updates without a stream restart](#live-updates-without-a-stream-restart)
   for why.
@@ -192,7 +192,7 @@ mypy
 The host tests validate settings, persistence, route generation and helper
 dispatch, but they do not execute ARM DSP audio. After building an image, test
 on the target with EQ enabled and disabled for every configured source. Confirm
-that MPD remains alive, the radio status snapshot stays fresh, the physical
+that MPD remains alive, the PiSonic status snapshot stays fresh, the physical
 volume knob still controls hardware or `Radio Volume`, and boosted filters do
 not clip at the chosen preamp setting.
 

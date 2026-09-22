@@ -44,6 +44,18 @@ class TestDeviceValidators:
         with pytest.raises(ValueError):
             validators.validate_ntp_server(server)
 
+    @pytest.mark.parametrize("password", ["goodpass1", "a b c d e f", " leading", "unicodé-pw"])
+    def test_valid_root_password(self, password):
+        assert validators.validate_root_password(password) == password
+
+    @pytest.mark.parametrize(
+        "password",
+        ["", "short", "a" * 129, "has:colon", "has\ttab", "has\nnewline"],
+    )
+    def test_invalid_root_password(self, password):
+        with pytest.raises(ValueError):
+            validators.validate_root_password(password)
+
 
 class TestDeviceStore:
     def test_load_defaults_from_system(self, managed, monkeypatch, tmp_path):

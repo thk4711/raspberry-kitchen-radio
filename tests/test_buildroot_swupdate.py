@@ -193,6 +193,7 @@ def test_uboot_ab_policy_selects_matching_root_and_counts_trials():
     assert "ext4load mmc 0:${rootpart}" in boot
     assert "scriptaddr=0x05400000" in environment
     assert "kernel_addr_r=0x00080000" in environment
+    assert "bootdelay=0" in environment
     assert "bootcmd=fatload mmc 0:1 ${scriptaddr} boot.scr; source ${scriptaddr}" in environment
 
 

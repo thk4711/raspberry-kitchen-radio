@@ -3,7 +3,7 @@
 The display smoke test script works with both supported SPI panels — the
 1.69" **ST7789** (240×280, rectangular, default) and the 1.28" **GC9A01**
 (240×240, round). It reads the active panel selection from `display.conf`
-and uses the same driver factory as the radio application itself:
+and uses the same driver factory as the PiSonic application itself:
 
 ```text
 /opt/pisonic/lib/display/display_test.py
@@ -15,7 +15,7 @@ AirPlay, Spotify, ADC polling, or the main radio controller.
 
 ## When to use it
 
-Use this when the radio application boots but the display stays blank, or when
+Use this when the PiSonic application boots but the display stays blank, or when
 you want to separate a display/wiring/SPI problem from a larger application
 startup problem.
 
@@ -148,7 +148,7 @@ lib/display/display.conf
 
 `display.conf` also carries an optional **`[ui]` theme section** (colours,
 safe-area geometry, font sizes, scrim opacity, OSD/toast/crossfade/idle timings
-and an `animations` on/off switch) used by the radio app's now-playing UI — see
+and an `animations` on/off switch) used by the PiSonic app's now-playing UI — see
 the documented keys in that file and the backdrop/contrast knobs in
 [`logos.md`](logos.md#customizing-the-backdrop-via-ui).
 Every key is optional; with the section absent the shipped defaults apply. To
@@ -174,7 +174,7 @@ The working Buildroot image should already have the required pieces enabled:
 
 ## Run the test on the Raspberry Pi
 
-Log in to the target as root, then stop the radio service so the main
+Log in to the target as root, then stop the PiSonic service so the main
 application is not using the display at the same time:
 
 ```sh
@@ -220,7 +220,7 @@ integrity: loose jumper wires, long wires, poor ground, or marginal power.
 ## Preview the now-playing UI (`--mock-now-playing`)
 
 To eyeball the real now-playing display on hardware without starting the full
-radio application, use the `--mock-now-playing` flag. This drives the actual
+PiSonic application, use the `--mock-now-playing` flag. This drives the actual
 `DisplayController` with synthetic metadata (title, artist, volume, preset
 toasts, and the idle clock screensaver) and cycles through the states
 automatically:
@@ -294,7 +294,7 @@ The display hardware path is basically working:
 - MOSI, SCLK, the configured CE0/CE1, RST, DC, and BL are probably wired correctly.
 - The Python display driver can initialize the selected panel (ST7789 or GC9A01).
 
-If the main radio app still does not show anything, investigate the radio app
+If the main PiSonic app still does not show anything, investigate the PiSonic app
 startup path, service logs, metadata rendering, or whether the power switch
 logic turns the display backlight off.
 
@@ -327,7 +327,7 @@ Likely causes:
 - `gpiozero`/GPIO access is failing; run the command manually and check the
   printed error.
 
-## Restart the radio app afterwards
+## Restart the PiSonic app afterwards
 
 After testing:
 

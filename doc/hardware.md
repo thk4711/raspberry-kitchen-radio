@@ -1,6 +1,6 @@
 # Hardware & wiring
 
-> **Status:** the base-radio pin and ADS1115 information below reflects the shipped
+> **Status:** the PiSonic base pin and ADS1115 information below reflects the shipped
 > `buildroot/external/board/radio/config.txt`, `radio.conf`, `display.conf` and
 > the code. A text wiring diagram, base pin summary, and a full
 > [schematic](#schematic) are included. No 3D-printable case files are part of
@@ -56,7 +56,7 @@ graph LR
 
 ![PiSonic schematic: SPI display (ST7789 1.69" or GC9A01 1.28"), ADS1115 controls (volume pot, six-button ladder, power switch)](images/Schematic_Raspberry-PI-Radio.png)
 
-This schematic shows the **base-radio wiring** and matches the shipped defaults
+This schematic shows the **PiSonic base wiring** and matches the shipped defaults
 in `display.conf` and `radio.conf` (cross-checked against the code):
 
 - the **SPI display** connected on SDA/DIN→BCM 10, SCL/SCK→BCM 11,
@@ -80,7 +80,7 @@ requirement) are described under
 ## USB audio gadget wiring
 
 The Pi 3A+ USB-A connector is used in **peripheral** mode so a computer, phone
-or tablet sees the radio as a USB sound card. This installation deliberately
+or tablet sees PiSonic as a USB sound card. This installation deliberately
 uses a three-wire, data-only connection. **Do not connect USB power/VBUS.**
 
 | USB 2.0 Type-A contact | Signal | Connection |
@@ -99,7 +99,7 @@ D+           (contact 3)  ------ D+
 GND          (contact 4)  ------ GND
 ```
 
-The radio must continue to be powered through its intended, independent power
+PiSonic must continue to be powered through its intended, independent power
 input. Connecting the host's VBUS to the independently powered Pi could
 back-feed either supply. Use a purpose-made data-only cable/adapter or physically
 remove and individually insulate the VBUS conductor. Never use an unmodified
@@ -111,7 +111,7 @@ multimeter before connecting either powered device. Connector numbering also
 looks mirrored between the contact and solder sides, so follow the signal names
 and verify continuity rather than relying on an orientation sketch. Keep D+ and
 D− together as a short twisted pair where practical; the common GND connection
-is required for reliable signaling.
+is required for signaling.
 
 The boot setting `dtoverlay=dwc2,dr_mode=peripheral` dedicates the Pi 3A+ USB-A
 connector to this gadget. It can no longer host a keyboard, storage device or
@@ -222,7 +222,7 @@ selected by the `panel =` key in `lib/display/display.conf`:
 Both panels use **identical SPI wiring** (DIN/SCK/CS/DC/RST/BL); only the
 init sequence, GRAM window, and rendered layout differ. No hardware changes
 are required when switching panels — edit `panel =` in `display.conf` (or use
-the **Display** page in the web interface) and restart the radio.
+the **Display** page in the web interface) and restart PiSonic.
 
 SPI must be enabled (`dtparam=spi=on`, above). The SPI clock is configurable
 via `spi_freq` in `display.conf`. `spi_bus` and `spi_device` select the spidev

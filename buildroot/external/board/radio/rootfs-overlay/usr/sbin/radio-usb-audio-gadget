@@ -6,6 +6,12 @@ GADGET_ROOT=/sys/kernel/config/usb_gadget
 GADGET="$GADGET_ROOT/$GADGET_NAME"
 CONFIG=c.1
 MODE_FILE=/etc/radio/usb_audio.ini
+HID_FUNCTION=hid.usb0
+# Consumer-control HID report descriptor: one input byte carrying a bitmap of
+# Play/Pause (bit0), Scan Next (bit1), Scan Previous (bit2) and Stop (bit3)
+# usages from the Consumer Page (0x0C). This lets the appliance send the host a
+# media Play/Pause key; the radio-usb-audio-hid helper writes the report bytes.
+HID_REPORT_DESC='\x05\x0c\x09\x01\xa1\x01\x15\x00\x25\x01\x75\x01\x95\x04\x09\xcd\x09\xb5\x09\xb6\x09\xb7\x81\x02\x95\x04\x81\x01\xc0'
 
 write_value() {
 	printf '%s' "$2" > "$1"
@@ -26,12 +32,14 @@ stop_gadget() {
 		[ -e "$function" ] || continue
 		rm -f "$function"
 	done
+	rm -f "$GADGET/configs/$CONFIG/$HID_FUNCTION"
 	rmdir "$GADGET/configs/$CONFIG/strings/0x409" 2>/dev/null || true
 	rmdir "$GADGET/configs/$CONFIG" 2>/dev/null || true
 	for function in "$GADGET"/functions/uac*.usb0; do
 		[ -d "$function" ] || continue
 		rmdir "$function" 2>/dev/null || true
 	done
+	rmdir "$GADGET/functions/$HID_FUNCTION" 2>/dev/null || true
 	rmdir "$GADGET/strings/0x409" 2>/dev/null || true
 	rmdir "$GADGET" 2>/dev/null || true
 }
@@ -52,6 +60,10 @@ start_gadget() {
 	modprobe dwc2
 	modprobe libcomposite
 	modprobe "$DRIVER"
+	# HID function driver for the composite media-key interface. Best-effort:
+	# an image without usb_f_hid still brings up audio (the HID block below is
+	# guarded), so a missing module never breaks the USB Audio source.
+	modprobe usb_f_hid 2>/dev/null || true
 	mkdir -p /sys/kernel/config
 	if ! grep -qs ' /sys/kernel/config configfs ' /proc/mounts; then
 		mount -t configfs configfs /sys/kernel/config
@@ -67,7 +79,7 @@ start_gadget() {
 	mkdir -p "$GADGET/strings/0x409"
 	write_value "$GADGET/strings/0x409/serialnumber" "$(serial_number)"
 	write_value "$GADGET/strings/0x409/manufacturer" "Raspberry Pi"
-	write_value "$GADGET/strings/0x409/product" "Raspberry Radio USB Audio"
+	write_value "$GADGET/strings/0x409/product" "PiSonic USB Audio"
 
 	mkdir -p "$GADGET/configs/$CONFIG/strings/0x409"
 	write_value "$GADGET/configs/$CONFIG/MaxPower" 2
@@ -94,6 +106,22 @@ start_gadget() {
 	write_value "$GADGET/functions/$FUNCTION/p_mute_present" 0
 	write_value "$GADGET/functions/$FUNCTION/p_volume_present" 0
 	ln -s "$GADGET/functions/$FUNCTION" "$GADGET/configs/$CONFIG/$FUNCTION"
+
+	# Composite HID consumer-control function (media keys). Guarded so audio is
+	# unaffected if usb_f_hid is unavailable: without it, /dev/hidgN is simply
+	# not created and radio-usb-audio-hid becomes a no-op, leaving the inhibit
+	# marker as the source-switch fallback.
+	if mkdir -p "$GADGET/functions/$HID_FUNCTION" 2>/dev/null; then
+		write_value "$GADGET/functions/$HID_FUNCTION/protocol" 0
+		write_value "$GADGET/functions/$HID_FUNCTION/subclass" 0
+		write_value "$GADGET/functions/$HID_FUNCTION/report_length" 1
+		# The report descriptor contains raw bytes, so use printf's escape
+		# handling rather than the plain-string write_value helper.
+		printf '%b' "$HID_REPORT_DESC" > "$GADGET/functions/$HID_FUNCTION/report_desc"
+		ln -s "$GADGET/functions/$HID_FUNCTION" "$GADGET/configs/$CONFIG/$HID_FUNCTION"
+	else
+		echo "usb_f_hid unavailable; media-key HID function not created" >&2
+	fi
 
 	udc=""
 	tries=0

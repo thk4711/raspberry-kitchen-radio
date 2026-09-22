@@ -1,6 +1,6 @@
 # Adding a new `MusicSource`
 
-The radio treats every playback backend uniformly through the `MusicSource`
+PiSonic treats every playback backend uniformly through the `MusicSource`
 abstraction in [`lib/music_source.py`](../lib/music_source.py). MPD (internet
 radio), AirPlay, Spotify Connect, Bluetooth, and USB Audio are `MusicSource`
 subclasses. This guide
@@ -142,7 +142,11 @@ flips to `True`, and stops the other services.
 - [`lib/spotify_service/spotify_service.py`](../lib/spotify_service/spotify_service.py)
   — wraps the `go-librespot` backend and reads its API for metadata.
 - [`lib/airplay_service/airplay_service.py`](../lib/airplay_service/airplay_service.py)
-  — wraps `shairport-sync` and parses its metadata pipe.
+  — wraps `shairport-sync` and parses its metadata pipe. Its `set_play_state`
+  shows the *layered stop* pattern: a best-effort remote `Pause` over the
+  `org.gnome.ShairportSync.RemoteControl` D-Bus interface plus a guaranteed local
+  inhibit marker, so a source switch always happens even when the sender cannot
+  be paused remotely (see [`doc/airplay.md`](airplay.md#source-switching-stopping-airplay)).
 - [`lib/bluetooth_service/bluetooth_service.py`](../lib/bluetooth_service/bluetooth_service.py)
   — pure D-Bus *consumer* of BlueZ (`org.bluez.MediaPlayer1`): no daemon of its
   own (the `S42bluetooth` init script owns `bluealsa`/`bluealsa-aplay` and the

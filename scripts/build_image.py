@@ -351,6 +351,25 @@ def native_swupdate_checker(buildroot_dir: Path) -> str:
     return str(parent / "swupdate-checker-build" / "swupdate")
 
 
+def shairport_sync_srcdir(download_cache: Path) -> str:
+    """Return the shairport-sync OVERRIDE_SRCDIR that build.sh uses.
+
+    The ``--fast`` phase runs ``make`` directly instead of ``build.sh``, so it
+    must forward the same ``SHAIRPORT_SYNC_OVERRIDE_SRCDIR``; otherwise a
+    shairport-sync rebuild would fall back to the mainline package download
+    (stable 4.3.7 tarball / hash), which is not what we build. Mirror build.sh's
+    default and honour the same environment overrides so the two stay in sync.
+    """
+    explicit = os.environ.get("SHAIRPORT_SYNC_SRCDIR")
+    if explicit:
+        return explicit
+    commit = os.environ.get(
+        "SHAIRPORT_SYNC_DEV_COMMIT",
+        "78eb528bac5a8fd8cc4cfe5b5023cce43fb063a6",
+    )
+    return str(download_cache / "shairport-sync-dev" / commit)
+
+
 def local_build(args: argparse.Namespace, repository: Path) -> tuple[Path, Path]:
     """Run the supported build helper directly on this host."""
     environment = os.environ.copy()
@@ -369,7 +388,15 @@ def local_build(args: argparse.Namespace, repository: Path) -> tuple[Path, Path]
         )
         fast_env = dict(environment)
         fast_env["SWUPDATE_CHECKER"] = native_swupdate_checker(args.buildroot_dir)
-        run(["make", f"-j{args.jobs}"], cwd=args.buildroot_dir, env=fast_env)
+        run(
+            [
+                "make",
+                f"-j{args.jobs}",
+                f"SHAIRPORT_SYNC_OVERRIDE_SRCDIR={shairport_sync_srcdir(args.download_cache)}",
+            ],
+            cwd=args.buildroot_dir,
+            env=fast_env,
+        )
     images = args.buildroot_dir / "output" / "images"
     return images / "sdcard.img", images / f"pisonic-{args.version}.swu"
 

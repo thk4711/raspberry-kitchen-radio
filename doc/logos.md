@@ -1,6 +1,6 @@
 # Station logos: how they're rendered, customized, and added
 
-This document explains how the radio turns a preset station's logo into the art
+This document explains how PiSonic turns a preset station's logo into the art
 on the SPI display, what you can customize, and how to prepare and add your own
 logos. For the station list itself (URLs, button order) see
 [`stations.md`](stations.md); for the licensing/provenance of the *vendored*
@@ -66,7 +66,7 @@ The path from `stations.conf` to pixels:
 Because the backdrop colour is **sampled from the logo itself**, a naive
 gradient at the same brightness as the logo makes the logo melt into the
 background — most station logos are bright, so a bright wash around a bright tile
-has almost no edge contrast. The radio therefore builds the backdrop
+has almost no edge contrast. PiSonic therefore builds the backdrop
 **deliberately darker than the (usually bright) logo**, so the centred tile
 stands out. This is tunable (see [Customizing the backdrop](#customizing-the-backdrop-via-ui)).
 
@@ -111,7 +111,7 @@ The easiest way is the **web interface**: on the **Radio stations** page use the
 to PNG, proportionally scales it down to at most 512×512, and saves it under
 `/etc/radio/logos/` with a cleaned version of the uploaded file name. The new
 logo then appears in every preset's Logo dropdown — choose it, click **Save** on
-the preset, then **Apply and restart radio**. No `scp` or rebuild is needed.
+the preset, then **Apply and restart PiSonic**. No `scp` or rebuild is needed.
 
 To add a logo **as a vendored file in the repo** (e.g. for a shipped preset)
 instead:
@@ -157,7 +157,7 @@ the appliance image) and no new dependency.
 
 ## Customizing the backdrop via `[ui]`
 
-The radio-mode backdrop is themeable through the optional `[ui]` section of
+The PiSonic backdrop is themeable through the optional `[ui]` section of
 [`lib/display/display.conf`](../lib/display/display.conf).
 Every key is optional; leaving it out keeps the shipped default. The keys that
 affect the logo/backdrop:

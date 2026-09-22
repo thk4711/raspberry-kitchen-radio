@@ -26,8 +26,11 @@ Docker involved. Only flashing the SD card is done on your workstation.
   check the completed update archive without installing it. The `swupdate`
   package pulls its `libubootenv0.1` runtime dependency, so `libubootenv.so.0`
   resolves on the default loader path. `build.sh`'s apt step installs both (it
-  lists `swupdate` and `libubootenv-tool`); when you run with `--no-apt`,
-  install them yourself (`apt-get install swupdate`). Before the long build,
+  lists `swupdate`, `libubootenv-tool`, and `libplist-utils`); the last package
+  provides the native `plistutil` program required while configuring the pinned
+  shairport-sync development build for AirPlay 2. When you run with `--no-apt`,
+  install these host tools yourself (`apt-get install swupdate libplist-utils`).
+  Before the long build,
   `build.sh` runs a preflight that verifies a native `swupdate` checker
   actually **runs** (a binary whose libraries cannot be resolved exits 127 and
   is rejected), failing fast with an actionable message otherwise. Point
@@ -154,6 +157,9 @@ make BR2_EXTERNAL=$HOME/embedded/radio-repo/buildroot/external menuconfig
 buildroot/
 └─ external/               # BR2_EXTERNAL tree
    ├─ external.desc / external.mk / Config.in
+   │                       #   external.mk also pins shairport-sync to a specific
+   │                       #   development-branch commit (git), overriding the
+   │                       #   mainline stable release. See doc/airplay.md.
    ├─ configs/radio_rpi3_defconfig   # the working 32-bit Pi 3 base
    ├─ package/             # go-librespot (pinned) and radio-app
    │                       #   (nqptp, python-smbus2, python-rpi-gpio,
@@ -174,6 +180,8 @@ buildroot/
        ├─ image-layout.conf # fixed A/B partition sizes, labels, UUIDs, env offsets
        ├─ boot.cmd          # U-Boot A/B trial counter and automatic fallback
        ├─ uboot.fragment    # redundant raw environment and ext4 boot support
+       ├─ uboot-env.txt     # seeded U-Boot env; bootdelay=0 (no autoboot wait —
+       │                    #   raise it and rebuild for U-Boot debugging)
        ├─ genimage.cfg.in   # p1 loader, p2/p3 firmware slots, p4 persistent data
        ├─ post-build.sh     # users, /data + tmpfs fstab, hostname, service layout
        └─ rootfs-overlay/   # init.d scripts (S12data-resize, S13zram, S14watchdog,

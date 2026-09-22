@@ -17,6 +17,8 @@ ASSETS: Dict[str, Tuple[str, str]] = {
     "/static/app.css": ("app.css", "text/css; charset=utf-8"),
     "/static/app.js": ("app.js", "text/javascript; charset=utf-8"),
     "/static/radio.svg": ("radio.svg", "image/svg+xml"),
+    "/static/PiSonic-Logo.svg": ("PiSonic-Logo.svg", "image/svg+xml"),
+    "/static/PiSonic-Logo.png": ("PiSonic-Logo.png", "image/png"),
 }
 
 

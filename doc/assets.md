@@ -1,7 +1,7 @@
 # Asset management policy
 
 This project **vendors** (commits) a small number of static, non-code assets so
-the radio works out of the box — no extra download step is required to build the
+PiSonic works out of the box — no extra download step is required to build the
 [Buildroot appliance image](buildroot.md).
 
 The media backends (shairport-sync, nqptp, go-librespot) are **not** vendored:

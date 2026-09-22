@@ -28,6 +28,7 @@ class USBAudioService(MusicSource):
         card: str = "UAC1Gadget",
         inhibit_file: str = "/run/usb-audio-inhibited",
         command_timeout: float = 2.0,
+        hid_helper: str = "/usr/bin/radio-usb-audio-hid",
     ) -> None:
         self.name = "usb"
         configured_card = os.environ.get("RADIO_USB_AUDIO_CARD")
@@ -47,6 +48,7 @@ class USBAudioService(MusicSource):
             self.card = "UAC2Gadget" if mode == "uac2" else card
         self.inhibit_file = Path(os.environ.get("RADIO_USB_AUDIO_INHIBIT_FILE", inhibit_file))
         self.command_timeout = command_timeout
+        self.hid_helper = os.environ.get("RADIO_USB_AUDIO_HID_HELPER", hid_helper)
         # Inhibition belongs to the lifetime of the radio controller. Do not
         # carry a marker over a controller restart: if the host still has an
         # active stream, the fresh controller must be able to detect it.
@@ -111,8 +113,40 @@ class USBAudioService(MusicSource):
             return False
         return not self.inhibit_file.exists()
 
+    def _send_media_key(self, key: str) -> bool:
+        """Best-effort media key to the host over the composite HID gadget.
+
+        Returns True when the helper reported success. Any failure (helper
+        missing, host not enumerating the HID interface, timeout) is treated as a
+        no-op so the inhibit marker remains the guaranteed source-switch path.
+        Many hosts map Play/Pause to the foreground media app, but behaviour is
+        not universal, which is exactly why the inhibit fallback is always kept.
+        """
+        if not self.hid_helper:
+            return False
+        try:
+            result = subprocess.run(
+                [self.hid_helper, key],
+                check=False,
+                capture_output=True,
+                text=True,
+                timeout=self.command_timeout,
+            )
+        except (OSError, subprocess.SubprocessError) as exc:
+            logger.debug("Unable to send USB Audio media key: %s", exc)
+            return False
+        return result.returncode == 0
+
     def set_play_state(self, desired_state: bool) -> bool:
-        """Enable routing, or inhibit it until the current host stream closes."""
+        """Enable routing, or inhibit it until the current host stream closes.
+
+        On stop, additionally send a best-effort Play/Pause media key so a host
+        that honours HID consumer keys actually pauses its player. The local
+        inhibit marker is always the authoritative fallback, so the source switch
+        happens regardless of whether the host acted on the key.
+        """
+        if not desired_state:
+            self._send_media_key("playpause")
         return self._set_inhibited(not desired_state)
 
     def play_index(self, index: int) -> bool:

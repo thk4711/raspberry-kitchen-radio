@@ -173,6 +173,7 @@ done
 for helper in \
 	"${TARGET_DIR}/usr/sbin/radio-usb-audio-gadget" \
 	"${TARGET_DIR}/usr/sbin/radio-usb-audio-bridge" \
+	"${TARGET_DIR}/usr/bin/radio-usb-audio-hid" \
 	"${TARGET_DIR}/usr/bin/radio-usb-audio-stream-playing"; do
 	[ ! -f "$helper" ] || chmod 0755 "$helper"
 done

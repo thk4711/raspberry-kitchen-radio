@@ -31,6 +31,8 @@ SOCKET_PATH = os.environ.get("RADIO_HELPER_SOCKET", "/run/radio-helper.sock")
 #   restart_radio  restart the player supervisor (re-reads managed config)
 #   restart_mpd    restart the MPD service
 #   restart_ssh    restart Dropbear (re-reads managed remote-access config)
+#   set_root_password  set the root (device/SSH) login password now and persist
+#                  only its hash for A/B updates; arg: "password"
 #   reboot         reboot the board
 #   shutdown       power the board off
 #   set_hostname   persist the device name (applied on reboot); arg: "name"
@@ -53,6 +55,7 @@ ACTION_IDS: Tuple[str, ...] = (
     "restart_radio",
     "restart_mpd",
     "restart_ssh",
+    "set_root_password",
     "reboot",
     "shutdown",
     "set_hostname",

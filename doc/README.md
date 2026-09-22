@@ -12,7 +12,7 @@ Project documentation index.
 | [persistent-data.md](persistent-data.md) | **Persistent-data reference.** The full `/data` inventory, image seeding, `p4` mounting, compatibility links, and update isolation. |
 | [firmware-updates.md](firmware-updates.md) | **Firmware operator guide.** Upload, installation, trial acceptance, rollback, and recovery. |
 | [firmware-update-architecture.md](firmware-update-architecture.md) | **Firmware developer reference.** Image layout, the redundant U-Boot state machine, SWU construction, fallback, and porting checklist. |
-| [hardware.md](hardware.md) | Base-radio wiring, full schematic, display, USB gadget, and ADS1115 controls. |
+| [hardware.md](hardware.md) | PiSonic base wiring, full schematic, display, USB gadget, and ADS1115 controls. |
 | [analog-audio.md](analog-audio.md) | Switching a development appliance from an I2S DAC to the Pi's built-in headphone output. |
 | [sound-devices.md](sound-devices.md) · [color-coded HTML](https://thk4711.github.io/pisonic/sound-devices.html) | Every selectable sound device, with a color-coded 40-pin map, routing, and qualification. The HTML version is published to GitHub Pages by [`../.github/workflows/pages.yml`](../.github/workflows/pages.yml). |
 | [alsa-audio-path.md](alsa-audio-path.md) | **ALSA topology & routing reference.** How every source converges on ALSA `default`, the EQ and softvol/dmix stages, the receiver bridges, and verification. |
@@ -21,6 +21,7 @@ Project documentation index.
 | [stations.md](stations.md) | Adding and editing the internet-radio preset stations. |
 | [web-interface.md](web-interface.md) | The web administration interface: login, dashboard and settings pages, firmware management, and recovery. |
 | [bluetooth.md](bluetooth.md) | The Bluetooth (A2DP) source: connecting a phone, connection-gated pairing, playback/display behavior, and troubleshooting. |
+| [airplay.md](airplay.md) | The AirPlay source: the pinned shairport-sync development branch, layered source switching (remote pause + inhibit fallback), and on-target validation. |
 | [usb-audio.md](usb-audio.md) | The USB Audio Class source: profile, source switching, and troubleshooting. Wiring and the no-VBUS requirement are in `hardware.md`. |
 | [logos.md](logos.md) | How station logos are rendered and prepared, the fallback tile, and the `[ui]` backdrop/contrast knobs. |
 | [adding-a-music-source.md](adding-a-music-source.md) | Adding a new `MusicSource` playback backend. |

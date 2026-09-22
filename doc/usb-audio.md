@@ -1,7 +1,7 @@
 # USB audio source
 
 The Raspberry Pi 3A+ can appear to a computer, phone or tablet as a playback-only
-USB sound card named **Raspberry Radio USB Audio**. Starting a USB stream
+USB sound card named **PiSonic USB Audio**. Starting a USB stream
 automatically selects this source and stops the previously active source.
 
 > **Wire the connection before enabling it.** The required connection carries
@@ -18,11 +18,11 @@ support. The Audio page can switch the gadget to an experimental UAC2 profile.
 
 | Property | Value |
 | --- | --- |
-| Direction | Host playback to radio only (no microphone) |
+| Direction | Host playback to Internet Radio only (no microphone) |
 | Channels | 2 (stereo) |
 | Format | Signed 16-bit little-endian PCM |
 | Rate | Fixed 48 kHz |
-| Product | `Raspberry Radio USB Audio` |
+| Product | `PiSonic USB Audio` |
 | VID:PID | `1d6b:0101` (private prototype use only) |
 
 ### UAC2 high-resolution mode
@@ -86,12 +86,35 @@ are independent.
 
 ## Source switching
 
-USB Audio has no command with which the radio can pause the host. When another
-source takes over, the app creates `/run/usb-audio-inhibited`; the bridge closes
-`alsaloop` and ignores the still-open USB stream. The inhibition is removed after
-the host closes that stream (`Capture Rate` returns to zero), so a later, newly
-started USB stream can take over normally. Pressing a radio preset therefore
-reliably switches away even if the computer keeps its audio device open.
+USB Audio has no in-band command to pause the host, so PiSonic uses two
+mechanisms together when another source takes over:
+
+1. **Inhibit marker (authoritative fallback).** The app creates
+   `/run/usb-audio-inhibited`; the bridge closes `alsaloop` and ignores the
+   still-open USB stream. The inhibition is removed after the host closes that
+   stream (`Capture Rate` returns to zero), so a later, newly started USB stream
+   can take over normally. Pressing a radio preset therefore reliably switches
+   away even if the computer keeps its audio device open.
+2. **HID media key (best effort).** The USB gadget is *composite* — it presents a
+   consumer-control HID interface alongside the USB sound card. On stop the app
+   runs `radio-usb-audio-hid playpause`, which writes a Play/Pause consumer usage
+   to `/dev/hidg0`. A host that maps media keys to its player then actually
+   pauses playback, rather than continuing to stream into a muted device.
+
+The HID key is best effort: not every host acts on consumer keys, and the key
+targets whatever the host treats as the active media app, so the inhibit marker
+is always kept as the guaranteed switch. If `usb_f_hid` is unavailable the gadget
+still comes up as an audio-only device and the HID step becomes a no-op.
+
+### Composite HID gadget
+
+The gadget adds `functions/hid.usb0` (a one-byte consumer-control report:
+Play/Pause, Scan Next, Scan Previous, Stop) next to the UAC function and links
+both into the same configuration. This changes the device from an audio-only
+class to a composite device, so **hosts must re-enumerate** (disconnect/reconnect,
+or a fresh image) to see the new interface; Windows in particular caches
+descriptors by VID/PID. The kernel needs `CONFIG_USB_CONFIGFS_F_HID=y`
+(`linux-usb-audio.fragment`).
 
 The default MPD station is started before the source-polling thread. An
 already-active USB host therefore wins according to the documented
@@ -111,6 +134,11 @@ cat /proc/asound/cards
 arecord -l
 aplay -l
 radio-usb-audio-stream-playing
+
+# Composite HID media-key interface
+ls -l /dev/hidg0                       # present once the host enumerates the HID function
+cat /sys/kernel/config/usb_gadget/radio-usb-audio/functions/hid.usb0/report_length
+radio-usb-audio-hid playpause          # send a Play/Pause key to the host
 
 # While the host is playing (UAC1 normally reports 48000; UAC2 may report
 # 44100, 48000 or 96000)
@@ -156,7 +184,7 @@ profile is a routing policy, not a substitute for target hardware validation.
 
 - iOS showing `Playback Inactive` is the upstream UAC1 alternate-interface
   string, not the ConfigFS product name. The appliance kernel patch replaces it
-  with the appliance function name `Raspberry Radio USB Audio`; a rebuilt image
+  with the appliance function name `PiSonic USB Audio`; a rebuilt image
   and USB disconnect/reconnect are required for that descriptor change.
 
 - Restart the complete stack with `/etc/init.d/S39usb-audio restart`.

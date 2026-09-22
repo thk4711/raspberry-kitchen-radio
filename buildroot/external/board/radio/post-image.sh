@@ -61,6 +61,7 @@ done
 for required_environment in \
 	'scriptaddr=0x05400000' \
 	'kernel_addr_r=0x00080000' \
+	'bootdelay=0' \
 	'bootcmd=fatload mmc 0:1 ${scriptaddr} boot.scr; source ${scriptaddr}'; do
 	if ! grep -Fqx "$required_environment" "${BOARD_DIR}/uboot-env.txt"; then
 		echo "post-image.sh: seeded U-Boot environment missing: ${required_environment}" >&2

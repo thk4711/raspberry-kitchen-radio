@@ -110,7 +110,7 @@ a:hover { color: var(--brand-strong); }
   text-decoration: none;
 }
 .brand:hover { color: var(--ink); }
-.brand img { width: 38px; height: 38px; filter: drop-shadow(0 5px 8px rgba(20, 36, 58, 0.16)); }
+.brand-logo { width: 220px; height: 60px; object-fit: contain; object-position: left center; }
 .brand-copy small { display: block; color: var(--muted); font-size: 0.66rem; font-weight: 650; letter-spacing: 0.08em; line-height: 1.1; text-transform: uppercase; }
 
 .primary-nav {
@@ -486,6 +486,7 @@ ul { padding-left: 1.2rem; }
 @media (max-width: 840px) {
   .header-inner { display: block; width: 100%; padding: 0.7rem 1rem 0; }
   .brand { margin-bottom: 0.55rem; }
+  .brand-logo { width: 190px; height: 54px; }
   .primary-nav { justify-content: flex-start; margin: 0 -1rem; padding: 0 1rem 0.65rem; }
   .primary-nav a { padding: 0.42rem 0.62rem; }
 }

@@ -145,11 +145,31 @@ hard-coded assumption after the system has saved its environment.
 | `scriptaddr` | RAM destination for `boot.scr`, `0x05400000`. |
 | `kernel_addr_r` | RAM destination for `zImage`, `0x00080000`. |
 | `bootcmd` | Loads `boot.scr` from FAT `p1` and executes it. |
+| `bootdelay` | Autoboot countdown in seconds; shipped as `0` so the appliance boots straight into the kernel with no delay before SD-card activity. |
 
 Persistent environments replace compiled defaults rather than layering only the
 changed values over them. Addresses referenced by `bootcmd` or `boot.scr` must
 therefore be present in the seed. If `scriptaddr` is absent, `fatload` receives
 an empty address and `source` may execute stale memory.
+
+### Boot delay and U-Boot debugging
+
+`bootdelay=0` disables U-Boot's "Hit any key to stop autoboot" countdown, which
+otherwise defaults to the compiled-in `2` seconds and delays every boot before
+the kernel is loaded from the SD card. The trade-off is that **the U-Boot
+console cannot be interrupted at boot** while it is `0`.
+
+To regain an interrupt window for U-Boot debugging:
+
+- Temporarily on a running device: `fw_setenv bootdelay 3` then reboot; restore
+  with `fw_setenv bootdelay 0`. This writes the redundant MMC environment that
+  U-Boot actually reads and needs no rebuild.
+- Permanently in a rebuilt image: change `bootdelay=0` to e.g. `bootdelay=3` in
+  `buildroot/external/board/radio/uboot-env.txt` and rebuild. Keep this in sync
+  with the `'bootdelay=0'` entry in `board/radio/post-image.sh`'s
+  `required_environment` list and the `bootdelay=0` assertion in
+  `tests/test_buildroot_swupdate.py` (adjust or relax those checks when
+  intentionally shipping a non-zero delay).
 
 ## Normal U-Boot boot flow
 
@@ -330,7 +350,7 @@ non-blocking evaluator with a 120-second deadline. Checks are intentionally loca
 - `/data` is read-write ext4;
 - the persistent schema migration is complete;
 - the local `/healthz` endpoint responds successfully;
-- the radio heartbeat is recent;
+- the PiSonic heartbeat is recent;
 - MPD is running when Internet Radio is enabled.
 
 When healthy, it atomically writes `bootcount=0` and `upgrade_available=0`,

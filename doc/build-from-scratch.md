@@ -1,13 +1,13 @@
-# Building the radio image from scratch (beginner's guide)
+# Building the PiSonic image from scratch (beginner's guide)
 
 This guide takes you from a fresh download of this project to a flashed SD card
-that boots straight into the radio. **No prior embedded-Linux experience is
+that boots straight into PiSonic. **No prior embedded-Linux experience is
 assumed.** You do not need to understand Buildroot — one script does the build.
 
 ## What you're building
 
 A small, self-contained Linux "appliance" image for the **Raspberry Pi 3A+**
-that boots directly into the radio app. It is produced by
+that boots directly into the PiSonic app. It is produced by
 [Buildroot](https://buildroot.org/), a tool that downloads and compiles a whole
 minimal operating system for you. It produces an installation image,
 `sdcard.img`, to write to an SD card and a matching versioned
@@ -96,7 +96,9 @@ Useful variations:
 - `./buildroot/build.sh --clean` — recompile from clean.
 - `./buildroot/build.sh --dirclean` — wipe everything and do a full rebuild.
 - `./buildroot/build.sh --no-apt` — skip the `apt` step (if the build tools are
-  already installed, or you can't use `sudo`).
+  already installed, or you can't use `sudo`). This includes the native
+  `plistutil` program from Debian/Ubuntu's `libplist-utils` package, required to
+  configure the pinned shairport-sync development build for AirPlay 2.
 
 ## Optional: collect named artifacts locally or build remotely
 
@@ -205,6 +207,6 @@ partition (`p4`) to use the SD card's remaining capacity. The loader and two
   validation, service layout, debugging).
 - [`doc/firmware-updates.md`](firmware-updates.md) — upload the generated `.swu`,
   follow trial activation, roll back, and recover an unreachable radio.
-- [`doc/hardware.md`](hardware.md) — base-radio wiring, GPIO, display and controls.
+- [`doc/hardware.md`](hardware.md) — PiSonic base wiring, GPIO, display and controls.
 - [`doc/sound-devices.md`](sound-devices.md) — choose and wire a sound device
   using its dedicated pinout.

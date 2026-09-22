@@ -4,6 +4,18 @@ upgrade_available=0
 bootcount=0
 bootlimit=3
 rollback_from=none
+# Disable U-Boot's autoboot countdown so the appliance boots straight into the
+# kernel (saves the compiled-in 2 s "Hit any key to stop autoboot" wait before
+# SD-card activity begins). Because a seeded environment REPLACES the compiled
+# defaults rather than layering on top of them, this value is authoritative.
+#
+# Trade-off: with bootdelay=0 the U-Boot console cannot be interrupted at boot.
+# To regain an interrupt window for U-Boot debugging, raise this value (e.g.
+# bootdelay=3) and rebuild the image; keep it in sync with the required
+# `bootdelay=0` check in post-image validation and the buildroot swupdate test.
+# On a running device you can temporarily override it with `fw_setenv bootdelay 3`
+# (reboot to apply) and restore with `fw_setenv bootdelay 0`.
+bootdelay=0
 scriptaddr=0x05400000
 kernel_addr_r=0x00080000
 bootcmd=fatload mmc 0:1 ${scriptaddr} boot.scr; source ${scriptaddr}

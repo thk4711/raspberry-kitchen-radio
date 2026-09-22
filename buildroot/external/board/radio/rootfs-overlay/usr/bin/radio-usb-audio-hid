@@ -1,0 +1,36 @@
+#!/bin/sh
+# Send a USB HID consumer-control media key to the connected host.
+#
+# The composite USB Audio gadget (radio-usb-audio-gadget) exposes a one-byte
+# consumer-control report whose bits are: 0x01 Play/Pause, 0x02 Scan Next,
+# 0x04 Scan Previous, 0x08 Stop. A key "press" writes the bit(s), then a short
+# release report (0x00) is sent so the host registers a single keypress.
+#
+# Usage: radio-usb-audio-hid {playpause|next|previous|stop}
+#
+# Best-effort by design: if the HID gadget device is absent (older image, or
+# usb_f_hid unavailable) this exits 0 without doing anything, so the caller can
+# fall back to the inhibit marker. Never fails the source-switch path.
+set -eu
+
+HID_DEVICE="${RADIO_USB_AUDIO_HID_DEVICE:-/dev/hidg0}"
+
+case "${1:-playpause}" in
+	playpause) byte='\x01' ;;
+	next) byte='\x02' ;;
+	previous) byte='\x04' ;;
+	stop) byte='\x08' ;;
+	*) echo "Usage: $0 {playpause|next|previous|stop}" >&2; exit 2 ;;
+esac
+
+# No HID endpoint (host not enumerated, or HID function not created): no-op.
+[ -w "$HID_DEVICE" ] || exit 0
+
+# Press then release. Suppress write errors (e.g. host disconnected mid-write)
+# so this helper never breaks the arbitration path. Append (>>) so the press and
+# release are two sequential HID reports rather than the second truncating the
+# first; on a /dev/hidgN character device each write is delivered as its own
+# report regardless, but >> keeps the intent unambiguous.
+printf '%b' "$byte" >> "$HID_DEVICE" 2>/dev/null || exit 0
+printf '%b' '\x00' >> "$HID_DEVICE" 2>/dev/null || exit 0
+exit 0

@@ -2,7 +2,7 @@
 
 This document is the reference for the **minimal, fast-booting Buildroot
 appliance image** for the PiSonic — the supported way to run the
-radio. The image boots straight into the radio with no general-purpose OS
+radio. The image boots straight into PiSonic with no general-purpose OS
 underneath.
 
 ## Overview
@@ -18,7 +18,7 @@ underneath.
 - **Bluetooth A2DP source:** the on-chip Bluetooth radio is enabled and the
   image builds BlueZ (`bluez5_utils` + audio plugins) and `bluez-alsa`. A no-PIN
   auto-pairing agent + `bluealsa`/`bluealsa-aplay` (init script `S42bluetooth`)
-  turn the radio into an A2DP receiver that is discoverable/pairable whenever no
+  turn PiSonic into an A2DP receiver that is discoverable/pairable whenever no
   device is connected; AVRCP track metadata
   is read by `radio.py` over the `org.bluez` D-Bus API.
 - **USB Audio source:** DWC2 runs in peripheral mode and a BusyBox service creates
@@ -65,7 +65,7 @@ This prevents a reused build directory from silently changing the firmware
 source. To deliberately test a patched or different checkout, use
 `--allow-unverified-buildroot`; this development-only escape hatch prints
 warnings instead of weakening the default. The requested and actual Buildroot
-revision and the radio repository commit are printed in `output/radio-build.log`,
+revision and the PiSonic repository commit are printed in `output/radio-build.log`,
 and the two actual commits are embedded in `/etc/radio-release.json`.
 
 `build.sh` requires and prints both the installation image
@@ -537,7 +537,7 @@ BusyBox init -> /etc/inittab
                        #   Listens on a local unix
                        #   socket (/run/radio-helper.sock, chowned root:radio-web
                        #   0660) and performs only a fixed whitelist of actions
-                       #   (restart radio/MPD, reboot, shutdown, set hostname,
+                       #   (restart PiSonic/MPD, reboot, shutdown, set hostname,
                        #   set time). Starts BEFORE S80radio-web.
   S80radio-web         # web admin interface (python3 -m radio_web). Runs as the
                        #   unprivileged 'radio-web' user (Phase 7 privilege
@@ -601,7 +601,7 @@ branded frame from the very first useful `sysinit` step:
 
 ### Self-recovery and reliability
 
-The radio is an appliance: it must never stay unusable. Recovery is layered,
+PiSonic is an appliance: it must never stay unusable. Recovery is layered,
 fastest first, so a cheap targeted restart is tried before a full reboot:
 
 1. **App crash** — `radio.py` exits (uncaught exception, OOM kill, `SIGSEGV`).
@@ -718,7 +718,7 @@ again, edit its value, remove the leading `#`, and reboot.
   `/etc/localtime` to the matching entry and writes `/etc/timezone`. It requires
   the tz database (`BR2_TARGET_TZ_INFO`, enabled in the defconfig); otherwise the
   appliance — and the display's top status-bar clock — stays on UTC. Because it
-  runs before `S90radio`, the radio app starts already in the local zone.
+  runs before `S90radio`, the PiSonic app starts already in the local zone.
 - The **sound card** is selected after the first network boot from the web
   interface's Audio page. This updates both the FAT `config.txt` overlay and the
   matching ALSA/MPD/radio settings before requesting a reboot.
@@ -781,6 +781,7 @@ variables form the boot transaction:
 | `bootcount` | Trial attempts consumed by U-Boot. |
 | `bootlimit` | Attempts allowed before fallback; shipped as `3`. |
 | `rollback_from` | Failed slot recorded when U-Boot falls back, otherwise `none`. |
+| `bootdelay` | U-Boot autoboot countdown in seconds; shipped as `0` for fast appliance boot (no delay before SD activity). Raise it (e.g. `3`) and rebuild to regain a U-Boot console interrupt window for debugging — see the [firmware-update architecture reference](firmware-update-architecture.md#boot-delay-and-u-boot-debugging). |
 
 On every trial boot, `boot.scr` increments and saves `bootcount`. When it exceeds
 `bootlimit`, U-Boot selects `previous_slot`, clears the trial state, and records
@@ -953,7 +954,7 @@ Why the setup looks the way it does:
   `linux/amd64` Docker container. It never produced a reliably bootable SD image
   (emulated amd64, an untested aarch64 target, and stale hand-rolled packages all
   stacked up). A plain native build on an x86 Debian box from Buildroot's proven
-  `raspberrypi3_defconfig` boots, so we keep the 32-bit base and layer the radio
+  `raspberrypi3_defconfig` boots, so we keep the 32-bit base and layer PiSonic
   on top via `BR2_EXTERNAL`. The Docker/aarch64 path has been removed.
 - **Most custom packages are now redundant.** On a modern Buildroot, upstream
   already ships almost everything: `shairport-sync` (AirPlay 2 auto-`select`s the
@@ -984,6 +985,6 @@ Why the setup looks the way it does:
   and layout in more detail.
 - [`firmware-updates.md`](firmware-updates.md) — operator update, activation,
   rollback, and unreachable-interface recovery procedures.
-- [`hardware.md`](hardware.md) — base-radio GPIO, display and ADS1115 wiring.
+- [`hardware.md`](hardware.md) — PiSonic base GPIO, display and ADS1115 wiring.
 - [`sound-devices.md`](sound-devices.md) — selectable audio overlays and one
   complete pinout per output device.

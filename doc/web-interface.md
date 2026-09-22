@@ -1,8 +1,8 @@
 # Web administration interface
 
-The radio serves a small, local **web administration interface** on your home
-WiFi. Use it to see what the radio is doing, edit presets and settings, install
-firmware to the inactive A/B slot, and restart or reboot the radio — all from a
+PiSonic serves a small, local **web administration interface** on your home
+WiFi. Use it to see what PiSonic is doing, edit presets and settings, install
+firmware to the inactive A/B slot, and restart or reboot PiSonic — all from a
 phone or laptop browser, without SSH.
 
 It is served by a separate, lightweight service (`radio_web`) built entirely
@@ -17,13 +17,13 @@ from the Python standard library — no extra web server, database or framework.
 
 ## Reaching the interface
 
-The interface listens on **port 8080**, bound to the radio's WiFi (`wlan0`)
+The interface listens on **port 8080**, bound to PiSonic's WiFi (`wlan0`)
 address and to loopback (`127.0.0.1`). Open one of:
 
 - `http://<hostname>.local:8080` — using the device's hostname (set during
   SD-card provisioning or later under Device settings; see
   [`buildroot.md`](buildroot.md)).
-- `http://<device-ip>:8080` — using the radio's IP address.
+- `http://<device-ip>:8080` — using the device's IP address.
 
 Not sure of the address? The **Dashboard** (below) shows the WiFi IP once you
 are connected, or check your router's client list. The Pi 3A+ is WiFi-only (no
@@ -49,7 +49,7 @@ never exposed to the internet.
 2. **Log in.** After setup you log in with that password. A session cookie
    (HttpOnly, SameSite=Strict) keeps you signed in; repeated failed logins are
    rate-limited. Use **Log out** to end the session. Sessions are held in memory
-   and are cleared on reboot or when the radio restarts.
+   and are cleared on reboot or when PiSonic restarts.
 
 The **Dashboard is public** (read-only status); every editing/maintenance page
 requires login.
@@ -91,7 +91,7 @@ interpretation: mapped/applied volume, detected preset button, and ON/OFF state.
 
 Use the capture buttons to record volume endpoints, button 1/button 6 ladder
 endpoints, and both power-switch positions. Saving writes `/etc/radio/adc.ini`;
-choose **Save and restart radio** to apply it immediately. Live data uses an
+choose **Save and restart PiSonic** to apply it immediately. Live data uses an
 authenticated, same-origin WebSocket and automatically reconnects after a player
 or WiFi interruption.
 - **System status:** hostname, app version, uptime, CPU temperature, memory and
@@ -99,7 +99,7 @@ or WiFi interruption.
 - **Bluetooth status (read-only):** the adapter's visible name (it follows the
   device name, set under **Device settings**), whether it is powered, and whether
   it is currently discoverable. There are no Bluetooth controls: when nothing is
-  connected the radio is discoverable and pairs with no PIN automatically, so no
+  connected PiSonic is discoverable and pairs with no PIN automatically, so no
   manual pairing action is needed (see [`bluetooth.md`](bluetooth.md)).
 
 If the player is down or a metric is unavailable, that field simply shows a
@@ -115,7 +115,7 @@ URL** (http/https) and an optional **logo filename**:
   see [`stations.md`](stations.md)).
 - **Save** validates and stores your edits.
 - **Upload a logo** uploads your own logo image (see below).
-- **Apply and restart radio** restarts the player so the new presets take
+- **Apply and restart PiSonic** restarts the player so the new presets take
   effect.
 - **Restore built-in** discards your edits and reverts to the shipped presets.
 
@@ -134,7 +134,7 @@ Logo dropdown), or leave it blank to use a generated initials tile (see
 Turn the user-facing music sources on or off:
 
 - **Internet Radio, AirPlay, Spotify, Bluetooth and USB Audio.**
-- **Apply** restarts the radio so disabled sources are neither started nor
+- **Apply** restarts PiSonic so disabled sources are neither started nor
   shown as running.
 - **Restore built-in** re-enables every source.
 
@@ -154,8 +154,16 @@ Choices are written to `/etc/radio/sources.ini`. A missing file or key means
   source. Changes apply immediately; disabling it closes new SSH access after
   the current session ends. `enable_ssh=0` in `pisonic-config.txt` still overrides
   the web setting. The generic image has root password login locked, so SSH can
-  be enabled only after a unique root password has been provisioned through
-  `pisonic-config.txt`; the web interface cannot create or reveal that credential.
+  be enabled only after a unique root password has been provisioned — either
+  through `pisonic-config.txt` or with the **Change root password** control below.
+- **Change root password**: sets the device's root / SSH login password. This is
+  a separate form directly below Enable SSH and takes effect immediately. The
+  new password is confirmed twice, validated (8..128 characters, no control
+  characters or `:`), and applied by the root-owned helper via `chpasswd`; only
+  the resulting hash is persisted (to `/data/identity/root-password.hash`) so it
+  survives A/B firmware updates. It is **separate** from the web administrator
+  password and, once set, unlocks the Enable SSH control. The web interface never
+  stores or reveals the plaintext.
 - The old root-filesystem expansion control has been removed for the A/B image.
   Firmware slots have fixed equal sizes; the final persistent data partition is
   expanded automatically by the guarded early-boot service.
@@ -173,7 +181,7 @@ A small, safe subset of the display settings and theme behaviour:
 - **Display panel** — choose between the 1.69" **ST7789** (240×280, rectangular,
   default) and the 1.28" **GC9A01** (240×240, round). Both panels use the same
   SPI wiring; only the driver and the rendered layout differ. Takes effect after
-  a radio restart.
+  a PiSonic restart.
 - **Theme preset** (Default / High contrast / Dim night / No animations),
   **animations** on/off, **idle timeout** (clock screensaver), **crossfade**
   duration, **clock size**, and the volume-OSD / preset-toast durations.
@@ -181,7 +189,7 @@ A small, safe subset of the display settings and theme behaviour:
 Display options are written to `/etc/radio/display.ini`. The file contains a
 `[display]` section (with `panel`, `width`, and `height`) layered over the
 shipped `display.conf`, and a `[ui]` section with the theme keys. They take
-effect after **Apply and restart radio**.
+effect after **Apply and restart PiSonic**.
 
 The display's low-level SPI bus and hardware chip-select are not web settings.
 They are configured in the shipped `[display]` section. The default
@@ -208,7 +216,7 @@ frequency, gain and Q. The logarithmic response graph updates immediately and
 bell/shelf points can be dragged. A preamp control supplies headroom for boosted
 bands. **Save and Apply** updates the sound live — ordinary band and preamp changes are pushed to the
 running LADSPA plugin without interrupting playback. Only enabling or disabling
-the whole equalizer regenerates the ALSA route and briefly restarts the radio
+the whole equalizer regenerates the ALSA route and briefly restarts PiSonic
 application, MPD, AirPlay/Spotify, Bluetooth and the USB Audio bridge so every
 source reopens it.
 **Reset flat** disables the EQ and restores the preamp, all bands, and all graph
@@ -252,7 +260,7 @@ The SD-card `pisonic-config.txt` remains the recovery route.
 
 Change the WiFi network or set a static IP. Because a bad WiFi change could drop
 the very connection you are using, the new settings are **tried first and revert
-automatically** if the radio cannot reconnect within about a minute — so you
+automatically** if PiSonic cannot reconnect within about a minute — so you
 cannot lock yourself out. If the page reloads after a change, click **Keep these
 settings** to confirm (or **Revert now** to go back immediately). The SD card
 `pisonic-config.txt` remains the recovery route.
@@ -264,7 +272,7 @@ settings** to confirm (or **Revert now** to go back immediately). The SD card
 
 ### Maintenance (`/maintenance`)
 
-- **Restart player** — restarts the main radio application and its audio
+- **Restart player** — restarts the main PiSonic application and its audio
   integrations while the operating system and web interface keep running.
   **Restart MPD** restarts only the internet-radio playback service. Both take
   effect immediately.
@@ -294,7 +302,7 @@ settings** to confirm (or **Revert now** to go back immediately). The SD card
   progress, reboots automatically, reconnects when the web service returns, and
   waits for trial acceptance. The detached update continues safely if the browser
   is closed. Reboot, shutdown, another upload and sound-card boot changes are
-  rejected while installation is active. After reboot, the radio allows up to 120 seconds
+  rejected while installation is active. After reboot, PiSonic allows up to 120 seconds
   for local boot-health checks. A healthy slot is accepted automatically; an
   unhealthy slot is retried and then rolled back to the previous firmware by
   U-Boot. The overlay reports acceptance, a pending failed trial, or an
@@ -323,12 +331,12 @@ recovery when this interface is unreachable, and the full security notes — see
 
 | Change | How it takes effect |
 | --- | --- |
-| Station presets (`/stations`) | **Restart radio** — offered inline as "Apply and restart radio". |
-| Music sources (`/sources`) | **Restart radio** — offered inline as "Apply". |
+| Station presets (`/stations`) | **Restart PiSonic** — offered inline as "Apply and restart PiSonic". |
+| Music sources (`/sources`) | **Restart PiSonic** — offered inline as "Apply". |
 | SSH remote access (`/device`) | Applied immediately. |
 | Timezone / NTP server (`/device`) | Applied on save; fully in effect after the next time sync / reboot. |
 | Device name (`/device`) | **Reboot** the device. |
-| Display (`/settings`) | **Restart radio** — offered inline as "Apply and restart radio". |
+| Display (`/settings`) | **Restart PiSonic** — offered inline as "Apply and restart PiSonic". |
 | Audio (`/audio-hardware`) | One **Apply changes** action: a maximum-volume-only change restarts the player; a sound-card or USB Audio mode change offers a device reboot after all settings are saved. |
 | WiFi / static IP (`/network`) | Applied immediately on a **try-then-auto-revert** basis; confirm to keep. |
 | Admin password / login | Immediate. |

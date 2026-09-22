@@ -49,7 +49,7 @@ selects, reorder the sections in `stations.conf`.
    backdrop colour); the shipped files are a good template. **Optional:** leave
    `logo=` blank (or point at a missing file) and the display shows a generated
    initials tile from the station `name` instead — see [`assets.md`](assets.md).
-3. Rebuild/reflash the image (or, on a running target, restart the radio with
+3. Rebuild/reflash the image (or, on a running target, restart PiSonic with
    `/etc/init.d/S90radio restart`) so `MPDService` re-reads the config.
 
 ## Web UI logos
@@ -65,7 +65,7 @@ spaces and unusual characters turned into `-`, e.g. `MDR JUMP Logo.png` →
 usable characters falls back to `upload-<hash>.png`. Two *different* images that
 would produce the same name get a short hash suffix so neither overwrites the
 other. The new logo then appears in every preset dropdown. Choose it, click
-**Save** on the required preset, then **Apply and restart radio** to make the
+**Save** on the required preset, then **Apply and restart PiSonic** to make the
 display reload it.
 
 ## Logos & licensing

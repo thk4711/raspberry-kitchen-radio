@@ -120,6 +120,70 @@ class TestDispatch:
         assert hostname_file.read_text().strip() == "new-name"
         assert "new-name" in hosts_file.read_text()
 
+    def test_set_root_password_revalidates_argument(self):
+        # Too-short password is rejected server-side regardless of the client.
+        ok, message = helper.dispatch("set_root_password", {"password": "short"})
+        assert ok is False
+        assert "characters" in message.lower()
+
+    def test_set_root_password_rejects_non_string(self):
+        ok, message = helper.dispatch("set_root_password", {"password": 123})
+        assert ok is False
+        assert "invalid" in message.lower()
+
+    def test_set_root_password_pipes_fixed_argv_and_persists(self, monkeypatch, tmp_path):
+        recorded = {}
+
+        def fake_run(argv, **kwargs):
+            recorded["argv"] = argv
+            recorded["input"] = kwargs.get("input")
+
+            class R:
+                returncode = 0
+
+            return R()
+
+        captured = {"called": False}
+
+        def fake_capture():
+            captured["called"] = True
+
+        marker = tmp_path / "root-credential-provisioned"
+        monkeypatch.setattr(helper.subprocess, "run", fake_run)
+        monkeypatch.setattr(helper.persistent_config, "capture_root_password", fake_capture)
+        monkeypatch.setattr(helper.device_store, "ROOT_CREDENTIAL_MARKER", str(marker))
+        ok, message = helper.dispatch("set_root_password", {"password": "s3cret-pass"})
+        assert ok is True
+        assert message == "Root password changed."
+        assert recorded["argv"] == ["/usr/sbin/chpasswd"]
+        # The secret is piped on stdin, never placed in the argument vector.
+        assert recorded["input"] == "root:s3cret-pass\n"
+        assert "s3cret-pass" not in " ".join(recorded["argv"])
+        assert captured["called"] is True
+        assert marker.is_file()
+
+    def test_set_root_password_reports_chpasswd_failure(self, monkeypatch, tmp_path):
+        def fake_run(_argv, **_kwargs):
+            class R:
+                returncode = 1
+
+            return R()
+
+        called = {"capture": False}
+        monkeypatch.setattr(helper.subprocess, "run", fake_run)
+        monkeypatch.setattr(
+            helper.persistent_config,
+            "capture_root_password",
+            lambda: called.__setitem__("capture", True),
+        )
+        monkeypatch.setattr(helper.device_store, "ROOT_CREDENTIAL_MARKER", str(tmp_path / "marker"))
+        ok, message = helper.dispatch("set_root_password", {"password": "s3cret-pass"})
+        assert ok is False
+        assert "could not change" in message.lower()
+        # A failed set must not persist a hash or drop the capability marker.
+        assert called["capture"] is False
+        assert not (tmp_path / "marker").exists()
+
     @pytest.mark.parametrize(
         "action",
         [

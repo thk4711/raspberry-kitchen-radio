@@ -1,22 +1,21 @@
 # PiSonic
 
 PiSonic turns a Raspberry Pi 3A+ into a **standalone internet audio
-appliance and streaming speaker** with real, tactile controls. Power it on and it
-boots straight into playback — no desktop, no login, no app to launch. Turn the
-knob to change the volume, press a button to switch stations, and stream to it
-from your phone over AirPlay, Spotify Connect, Bluetooth, or USB Audio.
+appliance or streaming speaker**.It feels like a device and not like a project. It Boots straight into playback
+no general-purpose desktop OS.
 
-Under the hood it is a small Python application on a minimal, fast-booting
-[Buildroot](https://buildroot.org/) appliance image built for the
-**Raspberry Pi 3A+**.
-
-## What you get
-
-### A standalone audio appliance
-
-- Boots straight into playback — no general-purpose desktop OS.
-- Physical controls: a volume knob, preset buttons, and a power switch.
-- Now-playing information and station logos on an SPI display.
+- Bluetooth audio
+- Airplay 2
+- Spotify Connect
+- Internet radio
+- USB sound card
+- Parametric 10 band EQ
+- WEB interface
+- Reversible firmware updates with persisten configuration
+- Support for many Raspberry Pi audio hats
+- Tactile buttons and volume potentiometer support
+- Rectangular or round SPI display support
+- very small memory and storage footprint
 
 ### Five audio sources
 
@@ -58,10 +57,12 @@ firmware updates, trial boots, and automatic rollback.
 - A local audio appliance that can be administered from a phone or laptop.
 - A hackable embedded audio project with extensible music-source backends.
 
-## Hardware at a glance
+## Hardware
 
-The appliance image targets the **Raspberry Pi 3A+** only; other Pi models are
-not supported. A typical build uses:
+The appliance image targets the **Raspberry Pi 3A+** This device is still affordable and more than adequat for this purpose.
+Other Pi models are not supported. 
+
+A typical build uses:
 
 - Raspberry Pi 3A+.
 - SPI-connected display for now-playing information and station logos. Two
@@ -87,18 +88,11 @@ The usual first setup flow is:
 
 1. **Burn the image to an SD card.**
 
-   Flash a completed `sdcard.img` to a microSD card using a tool such as:
+   Flash a completed `sdcard.img` to a microSD card using a tool such as [Raspberry Pi Imager](https://www.raspberrypi.com/software/) or [balenaEtcher](https://etcher.balena.io/)
 
-   - [Raspberry Pi Imager](https://www.raspberrypi.com/software/)
-   - [balenaEtcher](https://etcher.balena.io/)
-   - GNOME Disks
-   - `dd` on Linux/macOS
-   - Win32 Disk Imager on Windows
-
-   If you still need to build the image, follow the beginner walkthrough in
-   [`doc/build-from-scratch.md`](doc/build-from-scratch.md) or the Buildroot
+   You can also build the image, follow the beginner walkthrough in [`doc/build-from-scratch.md`](doc/build-from-scratch.md) or the Buildroot
    quick start in [`buildroot/README.md`](buildroot/README.md).
-
+   
 2. **Edit `pisonic-config.txt` on the boot partition.**
 
    After flashing, remove and reinsert the SD card on your computer. Open the

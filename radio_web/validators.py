@@ -396,6 +396,13 @@ def validate_panel(value: str) -> str:
 
 # WiFi SSID: 1..32 bytes (the 802.11 limit), no control characters. Stored
 # verbatim (double-quoted, escaped) in wpa_supplicant.conf by the helper.
+# Root (device / SSH login) password. Bounded so a fat-finger cannot store a
+# multi-kilobyte value, and free of characters that would break the pipe fed to
+# ``chpasswd`` (newline) or the colon-separated ``/etc/shadow`` field the hash
+# lands in. The minimum matches the WiFi passphrase floor for consistency.
+ROOT_PASSWORD_MIN = 8
+ROOT_PASSWORD_MAX = 128
+
 MAX_SSID_LENGTH = 32
 # WPA-PSK passphrase: 8..63 printable characters (the WPA2-personal range
 # enforced everywhere else in the image — see provision-from-boot).
@@ -472,3 +479,24 @@ def validate_dns_list(value: str) -> str:
         raise ValueError("At most three DNS servers are allowed.")
     cleaned = [validate_ipv4(part, "DNS server") for part in parts]
     return " ".join(cleaned)
+
+
+def validate_root_password(value: str) -> str:
+    """Return a cleaned root (device/SSH) password, or raise :class:`ValueError`.
+
+    The password is later handed to BusyBox ``chpasswd`` (via the root helper)
+    and its hash stored in the colon-separated ``/etc/shadow`` field, so control
+    characters (which include the newline that terminates the ``chpasswd`` line)
+    and a literal ``:`` are rejected. The value is never trimmed — leading or
+    trailing spaces are legitimate password characters.
+    """
+    password = value or ""
+    if not (ROOT_PASSWORD_MIN <= len(password) <= ROOT_PASSWORD_MAX):
+        raise ValueError(
+            f"Root password must be {ROOT_PASSWORD_MIN}..{ROOT_PASSWORD_MAX} characters."
+        )
+    if _CONTROL_CHARS.search(password):
+        raise ValueError("Root password contains invalid control characters.")
+    if ":" in password:
+        raise ValueError("Root password must not contain a colon.")
+    return password

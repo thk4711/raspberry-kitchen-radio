@@ -6,3 +6,8 @@ CONFIG_USB_DWC2=m
 CONFIG_USB_CONFIGFS=m
 CONFIG_USB_CONFIGFS_F_UAC1=y
 CONFIG_USB_CONFIGFS_F_UAC2=y
+# HID function for the composite audio+HID gadget. The appliance adds a
+# consumer-control HID interface next to the UAC function so the host can be
+# sent media keys (Play/Pause) — USB Audio has no in-band pause command, so this
+# lets the radio pause the host's player when another source takes over.
+CONFIG_USB_CONFIGFS_F_HID=y

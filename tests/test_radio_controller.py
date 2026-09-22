@@ -131,7 +131,55 @@ def test_play_state_transition_selects_first_new_source_and_stops_others(monkeyp
     previous.set_play_state.assert_called_once_with(False)
 
 
-def test_invalid_or_failing_play_state_is_treated_as_stopped(monkeypatch):
+def test_button_press_proactively_stops_other_sources(monkeypatch):
+    _radio, controller = _controller(monkeypatch)
+    controller.update_metadata = mock.Mock()
+    controller.mpd.name = "mpd"
+    controller.mpd.stations = [{"name": f"Station {index}"} for index in range(1, 7)]
+    airplay = mock.Mock()
+    airplay.get_play_state.return_value = True
+    usb = mock.Mock()
+    usb.get_play_state.return_value = True
+    controller.services = [
+        {"name": "airplay", "service": airplay, "state": True},
+        {"name": "usb", "service": usb, "state": True},
+        {"name": "mpd", "service": controller.mpd, "state": False},
+    ]
+
+    controller.handle_button_press(2)
+
+    # MPD becomes active and the other sources are stopped immediately, without
+    # waiting for the next arbitration tick.
+    assert controller.active_service is controller.mpd
+    controller.mpd.play_index.assert_called_once_with(2)
+    airplay.set_play_state.assert_called_once_with(False)
+    usb.set_play_state.assert_called_once_with(False)
+    # MPD itself is never stopped by the helper.
+    controller.mpd.set_play_state.assert_not_called()
+
+
+def test_stop_other_services_skips_keep_and_survives_backend_errors(monkeypatch):
+    _radio, controller = _controller(monkeypatch)
+    keep = mock.Mock()
+    playing = mock.Mock()
+    playing.get_play_state.return_value = True
+    idle = mock.Mock()
+    idle.get_play_state.return_value = False
+    failing = mock.Mock()
+    failing.get_play_state.side_effect = RuntimeError("offline")
+    controller.services = [
+        {"name": "mpd", "service": keep, "state": True},
+        {"name": "airplay", "service": playing, "state": True},
+        {"name": "usb", "service": idle, "state": False},
+        {"name": "spotify", "service": failing, "state": True},
+    ]
+
+    controller._stop_other_services("mpd")
+
+    keep.set_play_state.assert_not_called()  # the kept source is untouched
+    playing.set_play_state.assert_called_once_with(False)
+    idle.set_play_state.assert_not_called()  # already stopped, left alone
+    failing.set_play_state.assert_not_called()  # error swallowed, no crash
     _radio, controller = _controller(monkeypatch)
     invalid = mock.Mock()
     invalid.get_play_state.return_value = "yes"

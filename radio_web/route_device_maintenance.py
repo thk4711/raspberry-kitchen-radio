@@ -27,6 +27,7 @@ from .route_common import (
 _DEVICE_FLASHES = {
     "saved": "Device settings saved.",
     "restored": "Device settings reset to defaults.",
+    "password_changed": "Root password changed.",
 }
 
 _MAINTENANCE_FLASHES = {
@@ -147,6 +148,32 @@ def _device_post(req: Request) -> Response:
     if errors:
         return _device_page_response(req, cleaned, error=" ".join(errors))
     return _redirect("/device?msg=saved")
+
+
+def _device_root_password_post(req: Request) -> Response:
+    """Change the root (device/SSH) login password via the privileged helper.
+
+    The plaintext is validated here and re-validated in the helper; it is never
+    persisted by the web layer nor echoed back into the rendered page.
+    """
+    if not auth.require_auth(req.session):
+        return _redirect("/login")
+    if not auth.check_csrf(req.session, req.form.get("csrf_token")):
+        return 403, _HTML, templates.forbidden(), []
+    password = req.form.get("root_password", "")
+    confirm = req.form.get("root_password_confirm", "")
+    if password != confirm:
+        return _device_page_response(
+            req, device_store.load_device(), error="The two passwords do not match."
+        )
+    try:
+        cleaned = validators.validate_root_password(password)
+    except ValueError as exc:
+        return _device_page_response(req, device_store.load_device(), error=str(exc))
+    ok, detail = actions.run_action("set_root_password", password=cleaned)
+    if not ok:
+        return _device_page_response(req, device_store.load_device(), error=detail)
+    return _redirect("/device?msg=password_changed")
 
 
 def _maintenance_flash(req: Request) -> Optional[str]:

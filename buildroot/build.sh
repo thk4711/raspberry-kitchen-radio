@@ -46,6 +46,20 @@ BUILDROOT_COMMIT="${BUILDROOT_COMMIT:-72d9d4fa636a371ef9eb99c92a735ce9f6d829d5}"
 BUILDROOT_GIT_URL="${BUILDROOT_GIT_URL:-https://gitlab.com/buildroot.org/buildroot.git}"
 DEFCONFIG_NAME="radio_rpi3_defconfig"
 BUILD_MARKER="${BUILDROOT_DIR}/output/radio-build.started"
+
+# --- shairport-sync development source (built via Buildroot OVERRIDE_SRCDIR) --
+# We track the upstream shairport-sync *development* branch (5.6-dev line) for
+# experimental AirPlay 2 remote-control support (see doc/airplay.md). Rather than
+# repoint the mainline Buildroot package's _VERSION/_SITE (which fights include
+# ordering and Make's :=/= expansion, producing an inconsistent build dir), we
+# clone the pinned commit into a persistent cache dir and hand it to Buildroot as
+# SHAIRPORT_SYNC_OVERRIDE_SRCDIR. Buildroot then rsyncs from that dir into
+# output/build/shairport-sync-custom and SKIPS download/extract/hash entirely, so
+# there is no tarball, no .hash mismatch, and no <pkg>-<version> dir confusion.
+# Bump SHAIRPORT_SYNC_DEV_COMMIT deliberately, then rebuild and validate on-target.
+SHAIRPORT_SYNC_DEV_REPO="${SHAIRPORT_SYNC_DEV_REPO:-https://github.com/mikebrady/shairport-sync.git}"
+SHAIRPORT_SYNC_DEV_COMMIT="${SHAIRPORT_SYNC_DEV_COMMIT:-78eb528bac5a8fd8cc4cfe5b5023cce43fb063a6}"
+SHAIRPORT_SYNC_SRCDIR="${SHAIRPORT_SYNC_SRCDIR:-${BR2_DL_DIR}/shairport-sync-dev/${SHAIRPORT_SYNC_DEV_COMMIT}}"
 # --- Options -----------------------------------------------------------------
 do_clean=0
 do_dirclean=0
@@ -94,7 +108,7 @@ install_host_packages() {
 	# Packages required by Buildroot's host prerequisites plus what our kernel /
 	# firmware / go builds need. See buildroot/README.md and the Buildroot manual.
 	pkgs="build-essential bc bison flex libncurses-dev libssl-dev swupdate \
-		libubootenv-tool \
+		libubootenv-tool libplist-utils \
 		rsync cpio unzip wget file git python3 gawk perl \
 		mtools dosfstools genext2fs"
 
@@ -194,6 +208,36 @@ repository_commit() {
 }
 
 
+# --- shairport-sync development checkout (for OVERRIDE_SRCDIR) ---------------
+# Idempotently ensure a clean local checkout of the pinned development commit.
+# Lives under BR2_DL_DIR so it persists across builds (not re-cloned each run).
+prepare_shairport_sync_src() {
+	command -v git >/dev/null 2>&1 || die "git is required to check out shairport-sync"
+	mkdir -p "$(dirname -- "$SHAIRPORT_SYNC_SRCDIR")"
+
+	if [ ! -d "${SHAIRPORT_SYNC_SRCDIR}/.git" ]; then
+		echo "build.sh: cloning shairport-sync ($SHAIRPORT_SYNC_DEV_COMMIT) ..."
+		rm -rf "$SHAIRPORT_SYNC_SRCDIR"
+		git clone "$SHAIRPORT_SYNC_DEV_REPO" "$SHAIRPORT_SYNC_SRCDIR" \
+			|| die "failed to clone shairport-sync development source"
+	fi
+
+	# Fast no-op when the pinned commit is already checked out cleanly.
+	current=$(git -C "$SHAIRPORT_SYNC_SRCDIR" rev-parse --verify HEAD 2>/dev/null || echo none)
+	if [ "$current" != "$SHAIRPORT_SYNC_DEV_COMMIT" ]; then
+		echo "build.sh: checking out shairport-sync $SHAIRPORT_SYNC_DEV_COMMIT ..."
+		git -C "$SHAIRPORT_SYNC_SRCDIR" fetch --tags --force origin \
+			|| die "failed to fetch shairport-sync updates"
+		git -C "$SHAIRPORT_SYNC_SRCDIR" checkout -f "$SHAIRPORT_SYNC_DEV_COMMIT" \
+			|| die "failed to check out shairport-sync $SHAIRPORT_SYNC_DEV_COMMIT"
+	fi
+	git -C "$SHAIRPORT_SYNC_SRCDIR" submodule update --init --recursive \
+		|| die "failed to init shairport-sync submodules"
+	# Clean stray build artefacts but keep the submodule checkouts.
+	git -C "$SHAIRPORT_SYNC_SRCDIR" clean -ffdx -e '.git' >/dev/null 2>&1 || true
+	echo "build.sh: shairport-sync src = $SHAIRPORT_SYNC_SRCDIR ($SHAIRPORT_SYNC_DEV_COMMIT)"
+}
+
 # --- 4/5. Configure + compile ------------------------------------------------
 build_image() {
 	BR2_EXTERNAL_ABS=$(CDPATH='' cd -- "$EXTERNAL_DIR" && pwd)
@@ -228,11 +272,12 @@ build_image() {
 
 	echo "build.sh: building with -j$jobs (log: $log_file) ..."
 	echo "build.sh: BR2_DL_DIR=$BR2_DL_DIR"
+	echo "build.sh: SHAIRPORT_SYNC_OVERRIDE_SRCDIR=$SHAIRPORT_SYNC_SRCDIR"
 	# Tee to a log so a long build can be inspected/copied afterwards.
 	if command -v tee >/dev/null 2>&1; then
-		make -j"$jobs" 2>&1 | tee -a "$log_file"
+		make -j"$jobs" SHAIRPORT_SYNC_OVERRIDE_SRCDIR="$SHAIRPORT_SYNC_SRCDIR" 2>&1 | tee -a "$log_file"
 	else
-		make -j"$jobs" >> "$log_file" 2>&1
+		make -j"$jobs" SHAIRPORT_SYNC_OVERRIDE_SRCDIR="$SHAIRPORT_SYNC_SRCDIR" >> "$log_file" 2>&1
 	fi
 }
 
@@ -291,10 +336,12 @@ echo "build.sh: BR2_EXTERNAL = $EXTERNAL_DIR"
 echo "build.sh: buildroot    = $BUILDROOT_DIR ($BUILDROOT_VERSION)"
 echo "build.sh: expected     = $BUILDROOT_COMMIT"
 echo "build.sh: dl cache     = $BR2_DL_DIR"
+echo "build.sh: shairport    = $SHAIRPORT_SYNC_DEV_COMMIT"
 echo
 
 install_host_packages
 prepare_buildroot
+prepare_shairport_sync_src
 preflight_tooling
 build_image
 report_images

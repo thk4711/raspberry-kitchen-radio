@@ -147,7 +147,12 @@ class DisplayController(DisplayRenderingMixin):
         )
         self.disp.Init()
         self.disp.bl_DutyCycle(0)
-        self.disp.clear()
+        # NOTE: deliberately NOT calling self.disp.clear() here. clear() fills
+        # the panel white, which would briefly flash over the early boot splash
+        # during the handoff. Init() already leaves the panel's GRAM undefined,
+        # and the branded splash frame pushed at the end of __init__ overwrites
+        # the whole panel before the backlight is turned on (radio.py calls
+        # toggle_backlight(True) only later), so nothing garbage is ever visible.
         # Font hierarchy (Workstream 3): bold title, regular artist, small badge.
         # Sizes come from the resolved theme (Workstream 5).
         fonts_dir = f"{self.module_location}/fonts"
@@ -310,11 +315,23 @@ class DisplayController(DisplayRenderingMixin):
         # frame (e.g. a metadata poll that changed nothing on screen).
         self._last_frame_sig: Optional[bytes] = None
 
-        # Paint a branded boot splash so the panel shows the product identity
-        # immediately instead of the clear() white until the first metadata
+        # Re-paint the branded PiSonic-logo splash so the display continues to
+        # show the exact same frame the early boot splash already drew, seamlessly
+        # bridging the panel re-init above until the first real metadata frame
         # arrives (Workstream 4.6). It is a normal composed full frame, so it
         # counts as the single initial push.
         self._push_frame(self._render_splash(), force=True)
+
+        # The early boot splash left the backlight on, but constructing the panel
+        # above drives it to 0% (see lcdconfig.RaspberryPi.__init__). Now that the
+        # branded splash frame is in GRAM, turn the backlight back on immediately
+        # so the logo stays lit continuously across the handoff instead of going
+        # black for the ~1 s until radio.py reads the power switch. radio.py's
+        # toggle_backlight() remains the authority afterwards and will blank the
+        # panel a moment later if the power switch is off.
+        self.disp.bl_DutyCycle(100)
+        with self._state_lock:
+            self.is_on = True
 
         # Start the single compositor/writer thread.
         self.update_text_thread = threading.Thread(target=self.update_text, daemon=True)
@@ -897,38 +914,25 @@ class DisplayController(DisplayRenderingMixin):
         )
 
     def _render_splash(self) -> Image.Image:
-        """Render the branded boot splash shown before the first metadata (4.6).
+        """Render the branded splash shown before the first metadata (4.6).
 
-        A dark vertical gradient with the product name centred and a small
-        subtitle, so the panel shows product identity at power-on instead of the
-        driver's clear() white. Uses only the vendored fonts and numpy helpers.
+        This paints the **same** branded PiSonic-logo frame the early boot splash
+        (``lib/display/boot_splash.py``) already drew at power-on, so re-initing
+        the panel here (which clears its GRAM) hands the display back to a frame
+        that looks identical to what was on screen — no separate "RADIO
+        starting…" screen and no visible break. The boot splash and this in-app
+        splash therefore stay pixel-compatible by construction.
+
+        Delegating to ``boot_splash.render_splash_frame`` keeps a single source
+        of truth for the splash look; that renderer needs only numpy + Pillow
+        (its hardware imports are deferred into ``boot_splash.main``), so it is
+        safe to import here. It also degrades gracefully to a legible
+        version/setup line if the logo asset is ever missing.
         """
-        arr = compositor.vertical_gradient(
-            self.width, self.height, self.theme.idle_bg_top, self.theme.idle_bg_bottom
-        )
-        frame = Image.fromarray(arr, "RGB")
-        draw = ImageDraw.Draw(frame)
+        from display import boot_splash  # noqa: PLC0415
 
-        title = "RADIO"
-        subtitle = "SETUP REQUIRED" if os.path.isfile(_PROVISION_STATUS_FILE) else "starting…"
-        tw, th, ttop = self._measure(title, self.font_clock)
-        sw, sh, stop = self._measure(subtitle, self.font_date)
-        block_h = th + 10 + sh
-        y = (self.height - block_h) // 2
-        draw.text(
-            ((self.width - tw) // 2, y - ttop),
-            title,
-            font=self.font_clock,
-            fill=self.theme.text_color,
-        )
-        y += th + 10
-        draw.text(
-            ((self.width - sw) // 2, y - stop),
-            subtitle,
-            font=self.font_date,
-            fill=self.theme.subtext_color,
-        )
-        return frame
+        subtitle = "SETUP REQUIRED" if os.path.isfile(_PROVISION_STATUS_FILE) else boot_splash._SUBTITLE
+        return boot_splash.render_splash_frame(self.width, self.height, self.theme, subtitle)
 
     def _push_frame(self, frame: Image.Image, force: bool = False) -> bool:
         """Pack ``frame`` to RGB565 and push it to the panel in one write.

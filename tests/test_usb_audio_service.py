@@ -114,6 +114,62 @@ def test_metadata_and_unsupported_preset(monkeypatch, tmp_path):
     assert service.play_index(1) is False
 
 
+def test_stop_sends_media_key_and_inhibits(monkeypatch, tmp_path):
+    inhibit = tmp_path / "inhibited"
+    calls = []
+
+    def run(args, **kwargs):
+        calls.append(args)
+        return _result()
+
+    monkeypatch.setattr(subprocess, "run", run)
+    service = USBAudioService(
+        inhibit_file=str(inhibit), hid_helper="/usr/bin/radio-usb-audio-hid"
+    )
+    # The constructor's _set_inhibited(False) does not call subprocess; only the
+    # HID helper path does. Reset so we assert on the stop call alone.
+    calls.clear()
+
+    assert service.set_play_state(False) is True
+    assert inhibit.exists()  # inhibit marker is always the authoritative fallback
+    assert calls == [["/usr/bin/radio-usb-audio-hid", "playpause"]]
+
+
+def test_stop_still_inhibits_when_hid_helper_fails(monkeypatch, tmp_path):
+    inhibit = tmp_path / "inhibited"
+    monkeypatch.setattr(subprocess, "run", mock.Mock(side_effect=OSError("no hidg")))
+    service = USBAudioService(inhibit_file=str(inhibit))
+
+    # A failing/absent HID helper must not prevent the guaranteed source switch.
+    assert service.set_play_state(False) is True
+    assert inhibit.exists()
+
+
+def test_start_does_not_send_media_key(monkeypatch, tmp_path):
+    inhibit = tmp_path / "inhibited"
+    inhibit.touch()
+    run = mock.Mock(return_value=_result())
+    monkeypatch.setattr(subprocess, "run", run)
+    service = USBAudioService(inhibit_file=str(inhibit))
+    run.reset_mock()
+
+    assert service.set_play_state(True) is True
+    assert not inhibit.exists()
+    run.assert_not_called()  # starting never presses a media key
+
+
+def test_empty_hid_helper_disables_media_key(monkeypatch, tmp_path):
+    inhibit = tmp_path / "inhibited"
+    run = mock.Mock(return_value=_result())
+    monkeypatch.setattr(subprocess, "run", run)
+    service = USBAudioService(inhibit_file=str(inhibit), hid_helper="")
+    run.reset_mock()
+
+    assert service.set_play_state(False) is True
+    assert inhibit.exists()
+    run.assert_not_called()
+
+
 def test_controller_selects_new_usb_stream_and_stops_previous_source(monkeypatch):
     """Exercise the controller boundary without constructing Pi hardware."""
     radio = _import_radio(monkeypatch)

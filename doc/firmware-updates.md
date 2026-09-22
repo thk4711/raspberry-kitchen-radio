@@ -87,7 +87,7 @@ when transfer integrity matters.
 4. Leave the appliance powered while upload, validation, writing, syncing and
    reboot progress are shown. Closing the browser does not stop the detached
    installer.
-5. The radio reboots automatically. Keep the overlay open; it reconnects when
+5. PiSonic reboots automatically. Keep the overlay open; it reconnects when
    the web service returns and waits for the new trial firmware to pass its local
    health checks. A refreshed Maintenance page resumes an update started in the
    same browser tab.
@@ -149,7 +149,7 @@ For A, it must show `p2` and `radio.slot=A`.
 
 The background health evaluator has up to 120 seconds to confirm slot/root
 agreement, writable persistent data, completed schema migration, the local web
-health endpoint, the radio heartbeat, and MPD when Internet Radio is enabled.
+health endpoint, the PiSonic heartbeat, and MPD when Internet Radio is enabled.
 Internet access, NTP, WiFi connectivity, and a working external stream are not
 acceptance requirements.
 

@@ -7,6 +7,69 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **Change the root/SSH password from the web interface.** The Device settings
+  page gained a **Change root password** control directly below Enable SSH. It
+  posts to a dedicated `/device/root-password` route (auth + CSRF), confirms the
+  password twice, validates it (8..128 characters, no control characters or `:`),
+  and applies it through a new root-owned helper action `set_root_password`
+  (BusyBox `chpasswd`, `shell=False`, secret piped on stdin and never logged).
+  Only the resulting hash is persisted to
+  `/data/identity/root-password.hash` so it survives A/B firmware updates, and
+  the `root-credential-provisioned` marker is created so Enable SSH becomes
+  available. Previously a unique root password could only be set via
+  `pisonic-config.txt`. See
+  [`doc/web-interface.md`](doc/web-interface.md#device-settings-device).
+- **USB Audio can now pause the host (composite HID media key).** The USB gadget
+  gained a consumer-control HID interface (`functions/hid.usb0`) next to the
+  sound card, and on stop the app sends a Play/Pause media key via the new
+  `radio-usb-audio-hid` helper (`/dev/hidg0`). This lets a host that honours media
+  keys actually pause its player instead of streaming into a muted device; the
+  `/run/usb-audio-inhibited` marker remains the guaranteed fallback. Requires the
+  new `CONFIG_USB_CONFIGFS_F_HID=y` kernel option and a host re-enumeration. See
+  [`doc/usb-audio.md`](doc/usb-audio.md#source-switching).
+- **AirPlay now honors the single-active-source rule.** When another music
+  source starts (or a preset button is pressed), the app now stops AirPlay via a
+  layered mechanism: a best-effort remote `Pause` over the
+  `org.gnome.ShairportSync.RemoteControl` D-Bus interface plus a guaranteed local
+  inhibit marker (`/run/airplay-inhibited`, configurable via `[airplay]
+  inhibit_file`). Previously `AirplayService.set_play_state(False)` was a no-op,
+  so AirPlay kept playing when it should have yielded. See
+  [`doc/airplay.md`](doc/airplay.md).
+- **New [`doc/airplay.md`](doc/airplay.md)** documenting the AirPlay source, the
+  pinned shairport-sync development branch, source switching, and on-target
+  validation.
+
+### Changed
+- **Buildroot tracks the shairport-sync `development` branch** (pinned to a
+  specific commit in `buildroot/external/external.mk`) instead of the mainline
+  stable release, enabling experimental remote-control support for AirPlay 2
+  clients. This is a major jump (4.3.7 → 5.6-dev); revalidate `airplay.conf` and
+  the D-Bus interface on-target after bumping the pin.
+- **Preset buttons stop other sources immediately.** `handle_button_press` now
+  stops the other sources at press time (shared `_stop_other_services` helper)
+  rather than waiting for the next arbitration tick, so switching to a preset is
+  reliable even for sources whose stop is best-effort remote control (AirPlay,
+  USB).
+
+### Fixed
+- **Buildroot image build no longer fails on the pinned shairport-sync
+  development commit.** Repointing the mainline package's `_VERSION`/`_SITE` from
+  `buildroot/external/external.mk` proved unreliable: the mainline `.mk` is
+  included afterwards and finalises the package with `$(eval …)`, so an
+  `override` produced an inconsistent package (source extracted into
+  `shairport-sync-<commit>` but the build/stamp dir stayed
+  `shairport-sync-4.3.7`, failing with `tar: … No such file`), and the git
+  archive also tripped the `4.3.7` source hash. Instead, `buildroot/build.sh`
+  now clones the pinned commit (`SHAIRPORT_SYNC_DEV_COMMIT`) into a persistent
+  cache dir and passes it to Buildroot as `SHAIRPORT_SYNC_OVERRIDE_SRCDIR`, which
+  rsyncs the source into `output/build/shairport-sync-custom/` and skips
+  download/extract/hash entirely. `scripts/build_image.py` forwards the same
+  override on its `--fast` path. See [`doc/airplay.md`](doc/airplay.md). Note:
+  after switching, run `make shairport-sync-dirclean` on the build host and
+  remove any stale `output/build/shairport-sync-4.3.7/` /
+  `output/build/shairport-sync-<commit>/` directories from earlier attempts.
+
 ## [0.3.1] - 2026-09-21
 
 ### Changed
