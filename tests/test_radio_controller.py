@@ -61,6 +61,7 @@ def test_source_flags_default_and_layer_managed_values(monkeypatch):
 
 def test_switch_button_and_volume_forward_to_collaborators(monkeypatch):
     radio, controller = _controller(monkeypatch)
+    monkeypatch.setattr(radio.equalizer_store, "write_runtime_volume", lambda _v: None)
     controller.update_metadata = mock.Mock()
     controller.mpd.stations = [{"name": f"Station {index}"} for index in range(1, 7)]
 
@@ -78,6 +79,21 @@ def test_switch_button_and_volume_forward_to_collaborators(monkeypatch):
     controller.display.show_volume.assert_called_once_with(42)
     controller.display.show_volume.side_effect = RuntimeError("display failed")
     controller.handle_volume_change(43)  # display failures never escape the ADC callback
+
+
+def test_volume_change_pushes_loudness_volume_and_survives_failure(monkeypatch):
+    radio, controller = _controller(monkeypatch)
+    pushed = []
+    monkeypatch.setattr(radio.equalizer_store, "write_runtime_volume", pushed.append)
+    controller.handle_volume_change(37)
+    assert pushed == [37.0]
+    # A runtime-write failure is best effort and must never break the ADC loop.
+    monkeypatch.setattr(
+        radio.equalizer_store,
+        "write_runtime_volume",
+        mock.Mock(side_effect=OSError("tmpfs missing")),
+    )
+    controller.handle_volume_change(50)  # does not raise
 
 
 def test_update_metadata_selects_radio_and_cover_art_modes(monkeypatch):

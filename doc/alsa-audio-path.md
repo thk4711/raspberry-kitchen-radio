@@ -38,7 +38,8 @@ the hardware:
 Both optional stages (`[…]`) are present only in some configurations:
 
 - The **LADSPA EQ** stage exists only while the equalizer is enabled on the web
-  Audio page.
+  Audio page. It also hosts the optional loudness compensation, whose bass/treble
+  boost tapers with the current volume (fed live from the ADC volume loop).
 - The **`Radio Volume` softvol + dmix** stage exists only for cards that have no
   usable hardware volume control (most bare I2S DACs). Cards with a hardware
   mixer (built-in headphones → `PCM`, many DAC/amp HATs → `Digital`) use that

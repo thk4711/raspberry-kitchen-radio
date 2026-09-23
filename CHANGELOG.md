@@ -8,6 +8,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Loudness compensation for the parametric equalizer.** The Audio page's
+  equalizer form gained a **Loudness** toggle and a `0`–`10` amount control that
+  add a Fletcher-Munson "smile": a low shelf (~120 Hz, up to +10 dB) and a gentle
+  high shelf (~10 kHz, up to +4 dB) whose boost tracks the volume knob live and
+  tapers to `0 dB` at full volume. It lives inside the existing `radio_equalizer`
+  LADSPA plugin (so it is active while the equalizer is enabled) and rides the
+  same live `/run/radio/equalizer.rt` runtime file, so both the controls and the
+  volume-knob movement apply without interrupting playback. The runtime layout
+  grew three control floats (loudness enabled, amount, current volume) and its
+  magic was bumped `REA1`→`REA2`; `radio.py` pushes the current volume into the
+  runtime file from the ADC volume loop. Settings persist in `equalizer.ini`
+  (new `[loudness]` section) and survive A/B firmware updates. The graph previews
+  the loudness shape at a representative low volume.
 - **Change the root/SSH password from the web interface.** The Device settings
   page gained a **Change root password** control directly below Enable SSH. It
   posts to a dedicated `/device/root-password` route (auth + CSRF), confirms the

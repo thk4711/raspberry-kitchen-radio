@@ -38,20 +38,42 @@ keyboard-accessible controls. When the global EQ is bypassed, the response line
 is flat and the dots are subdued. Dots cannot be dragged while the complete EQ
 is disabled; when it is enabled, only dots belonging to enabled bands can move.
 
+### Loudness compensation
+
+Alongside the preamp control the equalizer offers optional **loudness**
+compensation (a Fletcher-Munson "smile"). At low listening volumes the ear is
+less sensitive to bass and, to a smaller degree, treble; loudness compensates by
+boosting a low shelf (around 120 Hz, up to about +10 dB) and a gentle high shelf
+(around 10 kHz, up to about +4 dB). The boost **tracks the volume knob live**: it
+is strongest near silence and tapers smoothly to `0 dB` at full volume, so it
+never colours the sound when you turn up.
+
+- **Loudness** — enables or disables the compensation.
+- **Loudness amount** — `0` to `10`. `0` disables the boost; `10` applies the
+  full smile. Intermediate values scale both shelves proportionally.
+
+Loudness shares the equalizer's DSP stage, so it is only active while the whole
+equalizer is enabled. Turning loudness on with every band flat gives you just the
+volume-tracked bass/treble lift. Because it rides the same live runtime file as
+the bands, changing the loudness controls — and the volume knob moving — apply
+without interrupting playback. The response graph previews the loudness shape at
+a representative low volume; on the device the actual boost follows the knob.
+
 ### Save, apply and reset
 
 - **Save and Apply** validates and stores the controls, then updates the sound.
-  Ordinary changes (preamp, per-band type/frequency/gain/Q, and enabling or
-  disabling individual bands) apply **live**, without interrupting playback.
-  Only toggling the **whole** equalizer on or off has to insert or remove the
-  DSP stage in the ALSA route, which briefly restarts PiSonic and all audio
-  receivers (MPD, AirPlay, Spotify, Bluetooth, USB Audio). See
-  [Live updates without a stream restart](#live-updates-without-a-stream-restart)
+  Ordinary changes (preamp, per-band type/frequency/gain/Q, enabling or
+  disabling individual bands, and the loudness controls) apply **live**, without
+  interrupting playback. Only toggling the **whole** equalizer on or off has to
+  insert or remove the DSP stage in the ALSA route, which briefly restarts
+  PiSonic and all audio receivers (MPD, AirPlay, Spotify, Bluetooth, USB Audio).
+  See [Live updates without a stream restart](#live-updates-without-a-stream-restart)
   for why.
 - **Reset flat** immediately resets the form and graph, then applies the reset:
-  the EQ is disabled, the preamp returns to its `-3 dB` default and all band gains
-  become `0 dB`, all bands become disabled Bell filters with `Q = 1`, and the dots
-  return to 60, 120, 250, 500, 1000, 2000, 4000, 8000, 12000 and 16000 Hz.
+  the EQ is disabled, the preamp returns to its `-3 dB` default, loudness is
+  disabled (amount `5`), all band gains become `0 dB`, all bands become disabled
+  Bell filters with `Q = 1`, and the dots return to 60, 120, 250, 500, 1000,
+  2000, 4000, 8000, 12000 and 16000 Hz.
 
 The browser graph is a preview. Audio changes only after **Save and Apply** (or
 **Reset flat**) completes.
@@ -139,10 +161,12 @@ The feature is split into small components:
 | `radio_web/helper.py` | Seeds the runtime file at boot, applies live parameter pushes, and restarts every long-lived PCM consumer only on a structural (stage on/off) change. |
 
 The LADSPA plugin is mono and uses ALSA's `policy duplicate` to create one
-instance per stereo channel. It exposes 51 control inputs: preamp plus enable,
-type, frequency, gain and Q for each of ten bands. The ALSA LADSPA PCM is fixed
-to two channels and requires native FLOAT/non-interleaved samples; surrounding
-`plug` stages convert normal application formats and the selected output format.
+instance per stereo channel. It exposes 54 control inputs: preamp; enable, type,
+frequency, gain and Q for each of ten bands; and three loudness controls
+(enabled, amount and the current volume used to taper the boost). The ALSA
+LADSPA PCM is fixed to two channels and requires native FLOAT/non-interleaved
+samples; surrounding `plug` stages convert normal application formats and the
+selected output format.
 
 ### Live updates without a stream restart
 
@@ -151,15 +175,17 @@ opened, and exposes no runtime control elements — so historically every audio
 consumer had to be restarted to apply new values. To make ordinary changes
 live, the project plugin additionally memory-maps a small fixed-size runtime
 file (`/run/radio/equalizer.rt`, overridable with `RADIO_EQUALIZER_RT`). The
-file holds a `magic`, a `generation` counter and the 51 control floats in the
+file holds a `magic`, a `generation` counter and the 54 control floats in the
 same order as the ports. `apply_equalizer` writes it atomically and bumps the
 generation; the plugin cheaply checks the generation once per `run()` call and
 recomputes coefficients when it changes, never allocating in the audio path.
 When the file is absent or malformed the plugin transparently falls back to the
-values ALSA connected to its control ports. Because inserting or removing the
-`ladspa` stage itself is still an open-time change on alsa-lib 1.2.15, toggling
-the whole EQ on or off remains the one case that rewrites `asound.conf` and
-restarts the consumers.
+values ALSA connected to its control ports. The volume knob rides the same
+mechanism: `radio.py` pushes the current level into the last control float on
+every debounced change, so loudness tapers live without any restart. Because
+inserting or removing the `ladspa` stage itself is still an open-time change on
+alsa-lib 1.2.15, toggling the whole EQ on or off remains the one case that
+rewrites `asound.conf` and restarts the consumers.
 
 All browser values are treated as untrusted. The server accepts exactly ten
 bands and known filter names, rejects NaN/infinity, and enforces the documented
@@ -168,16 +194,23 @@ ranges before writing. The root helper receives only the fixed
 
 ### Changing the implementation
 
-Keep the following synchronized when adding a filter type or changing a range:
+Keep the following synchronized when adding a filter type, changing a range, or
+extending the runtime layout (as the loudness controls did):
 
-1. `FILTER_TYPES`, validation and defaults in `equalizer_store.py`.
-2. Numeric filter IDs and biquad equations in `radio_equalizer.c`.
-3. Select options and browser response equations in `templates.py` / `app.js`.
+1. `FILTER_TYPES`, validation, defaults and the loudness fields in
+   `equalizer_store.py`.
+2. Numeric filter IDs, biquad equations and the loudness shelves in
+   `radio_equalizer.c`.
+3. Select options, the loudness controls and browser response equations in
+   `template_display_audio.py` / `app.js`.
 4. ALSA control serialization and the runtime-file value order in
    `audio_hardware_apply.py` / `equalizer_store.py`. The `.rt` layout
    (`RUNTIME_MAGIC`, count) must match `RT_MAGIC` / `CONTROL_VALUES` in
-   `radio_equalizer.c`.
-5. This user guide and the tests.
+   `radio_equalizer.c`. **Bump the magic** (currently `REA2`) whenever the value
+   count or ordering changes so an older plugin never misreads a longer file.
+5. The volume hook in `radio.py` (`_update_loudness_volume`) that pushes the
+   current knob level into the runtime file for loudness tracking.
+6. This user guide and the tests.
 
 The C plugin must remain allocation-free in its audio `run()` callback. Test
 host-side logic with:

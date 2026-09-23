@@ -74,6 +74,62 @@ def test_enabled_equalizer_wraps_default_and_serializes_all_controls():
     assert "                    3 80" in rendered
 
 
+def test_control_values_include_loudness_triple():
+    form = _form()
+    form["loudness_enabled"] = "true"
+    form["loudness_amount"] = "8"
+    settings = equalizer_store.validate_settings(form)
+    values = equalizer_store.control_values(settings, current_volume=30.0)
+    # The last three control values are loudness enabled, amount and volume.
+    assert values[equalizer_store.RUNTIME_CONTROL_VALUES - 3] == 1.0
+    assert values[equalizer_store.RUNTIME_CONTROL_VALUES - 2] == 8.0
+    assert values[equalizer_store.RUNTIME_CONTROL_VALUES - 1] == 30.0
+    # Volume is clamped to 0..100.
+    high = equalizer_store.control_values(settings, current_volume=250.0)
+    assert high[equalizer_store.RUNTIME_CONTROL_VALUES - 1] == 100.0
+
+
+def test_loudness_round_trips_through_ini(managed):
+    form = _form()
+    form["loudness_enabled"] = "true"
+    form["loudness_amount"] = "7.5"
+    saved = equalizer_store.save_equalizer(form)
+    loaded = equalizer_store.load_equalizer()
+    assert loaded == saved
+    assert loaded["loudness_enabled"] is True
+    assert loaded["loudness_amount"] == 7.5
+
+
+def test_loudness_amount_out_of_range_is_rejected():
+    form = _form()
+    form["loudness_amount"] = "11"
+    with pytest.raises(ValueError):
+        equalizer_store.validate_settings(form)
+
+
+def test_write_runtime_volume_tracks_knob_and_preserves_settings(managed, monkeypatch, tmp_path):
+    rt = tmp_path / "run" / "equalizer.rt"
+    monkeypatch.setenv("RADIO_EQUALIZER_RT", str(rt))
+    form = _form()
+    form["loudness_enabled"] = "true"
+    form["loudness_amount"] = "6"
+    equalizer_store.save_equalizer(form)
+    # A full EQ write seeds the file (volume defaults to 100 when absent).
+    equalizer_store.write_runtime(equalizer_store.load_equalizer())
+    _m, gen1, *values1 = equalizer_store.RUNTIME_STRUCT.unpack(rt.read_bytes())
+    assert values1[equalizer_store.RUNTIME_CONTROL_VALUES - 1] == 100.0
+    # The volume-only update changes just the volume slot and bumps generation.
+    equalizer_store.write_runtime_volume(20.0)
+    _m2, gen2, *values2 = equalizer_store.RUNTIME_STRUCT.unpack(rt.read_bytes())
+    assert gen2 == gen1 + 1
+    assert values2[equalizer_store.RUNTIME_CONTROL_VALUES - 1] == 20.0
+    assert values2[equalizer_store.RUNTIME_CONTROL_VALUES - 2] == 6.0  # amount kept
+    # A subsequent full EQ write carries the tracked volume over.
+    equalizer_store.write_runtime(equalizer_store.load_equalizer())
+    _m3, _gen3, *values3 = equalizer_store.RUNTIME_STRUCT.unpack(rt.read_bytes())
+    assert values3[equalizer_store.RUNTIME_CONTROL_VALUES - 1] == 20.0
+
+
 def test_disabled_equalizer_has_no_ladspa():
     rendered = audio_hardware_apply.render_asound(
         audio_hardware_store.PROFILES["headphones"], equalizer_store.defaults()

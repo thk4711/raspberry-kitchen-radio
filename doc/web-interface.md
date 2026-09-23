@@ -214,7 +214,10 @@ provides a ten-band **parametric equalizer**. Enable or bypass the
 whole EQ, choose bell, low/high shelf, or low/high-pass for each band, and edit
 frequency, gain and Q. The logarithmic response graph updates immediately and
 bell/shelf points can be dragged. A preamp control supplies headroom for boosted
-bands. **Save and Apply** updates the sound live — ordinary band and preamp changes are pushed to the
+bands, and an optional **loudness** control (with a `0`–`10` amount) adds a
+Fletcher-Munson bass/treble boost that tracks the volume knob live and tapers to
+nothing at full volume. **Save and Apply** updates the sound live — ordinary
+band, preamp and loudness changes are pushed to the
 running LADSPA plugin without interrupting playback. Only enabling or disabling
 the whole equalizer regenerates the ALSA route and briefly restarts PiSonic
 application, MPD, AirPlay/Spotify, Bluetooth and the USB Audio bridge so every

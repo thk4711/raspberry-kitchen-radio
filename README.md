@@ -11,7 +11,7 @@ no general-purpose desktop OS.
 - Spotify Connect
 - Internet radio
 - USB sound card
-- Parametric 10 band EQ
+- Parametric 10 band EQ with loudness compensation
 - WEB interface
 - Reversible firmware updates with persisten configuration
 - Support for many Raspberry Pi audio hats
@@ -40,7 +40,9 @@ firmware.
 ### Sound tuning
 
 A built-in **ten-band parametric equalizer** in the web interface, with per-band
-frequency, gain, Q, and filter type. Ordinary adjustments apply live; enabling
+frequency, gain, Q, and filter type. It also offers optional **loudness
+compensation** (a Fletcher-Munson bass/treble boost that tracks the volume knob
+live and fades out as you turn up). Ordinary adjustments apply live; enabling
 or bypassing the whole EQ briefly restarts the audio path. Settings survive
 firmware updates, trial boots, and automatic rollback.
 

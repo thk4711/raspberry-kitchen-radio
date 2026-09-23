@@ -168,6 +168,16 @@ def _equalizer_controls(settings: equalizer_store.EqualizerSettings) -> str:
                 band["q"],
             )
         )
+    # Loudness controls (enabled, amount, current volume). The static asound.conf
+    # is only the fallback used before the live runtime file exists, so seed the
+    # volume at full (100 -> no boost); the ADC loop then tapers it live.
+    values.extend(
+        (
+            1 if settings["loudness_enabled"] else 0,
+            settings["loudness_amount"],
+            100,
+        )
+    )
     return "\n".join(f"                    {index} {value:g}" for index, value in enumerate(values))
 
 

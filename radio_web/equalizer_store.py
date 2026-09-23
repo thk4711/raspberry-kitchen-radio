@@ -5,7 +5,7 @@ import math
 import os
 import struct
 import tempfile
-from typing import Dict, List, Mapping, TypedDict
+from typing import Dict, List, Mapping, Tuple, TypedDict
 
 from . import config_store
 
@@ -18,13 +18,21 @@ MAX_BANDS = 10
 # Live runtime file the C LADSPA plugin re-reads without a stream restart. It is
 # a non-persistent tmpfs cache regenerated from the persistent equalizer.ini; it
 # must NOT live on the data partition. Layout mirrors radio_equalizer.c: a uint32
-# magic, a uint32 generation counter, then 51 native-endian floats (preamp plus
-# five fields for each of ten bands). RADIO_EQUALIZER_RT overrides the path so
-# host tests never touch /run.
-RUNTIME_MAGIC = 0x52454131  # "REA1"; keep in sync with RT_MAGIC in radio_equalizer.c
-RUNTIME_CONTROL_VALUES = 1 + MAX_BANDS * 5
+# magic, a uint32 generation counter, then 54 native-endian floats (preamp,
+# five fields for each of ten bands, then three loudness controls:
+# loudness_enabled, loudness_amount and current_volume). RADIO_EQUALIZER_RT
+# overrides the path so host tests never touch /run.
+RUNTIME_MAGIC = 0x52454132  # "REA2"; keep in sync with RT_MAGIC in radio_equalizer.c
+# Preamp + five fields per band + three loudness controls (enabled, amount, volume).
+RUNTIME_LOUDNESS_VALUES = 3
+RUNTIME_CONTROL_VALUES = 1 + MAX_BANDS * 5 + RUNTIME_LOUDNESS_VALUES
 RUNTIME_STRUCT = struct.Struct("=II" + "f" * RUNTIME_CONTROL_VALUES)
 DEFAULT_RUNTIME_PATH = "/run/radio/equalizer.rt"
+
+# Loudness compensation range. 0 disables the boost; 10 applies the full
+# Fletcher-Munson "smile". The C plugin scales this with the current volume.
+LOUDNESS_MIN_AMOUNT = 0.0
+LOUDNESS_MAX_AMOUNT = 10.0
 
 
 class EqualizerBand(TypedDict):
@@ -39,6 +47,8 @@ class EqualizerSettings(TypedDict):
     enabled: bool
     preamp_db: float
     bands: List[EqualizerBand]
+    loudness_enabled: bool
+    loudness_amount: float
 
 
 _DEFAULT_FREQUENCIES = (60, 120, 250, 500, 1000, 2000, 4000, 8000, 12000, 16000)
@@ -58,6 +68,8 @@ def defaults() -> EqualizerSettings:
             }
             for frequency in _DEFAULT_FREQUENCIES
         ],
+        "loudness_enabled": False,
+        "loudness_amount": 5.0,
     }
 
 
@@ -113,6 +125,13 @@ def validate_settings(submitted: Mapping[str, object]) -> EqualizerSettings:
         "enabled": _boolean(submitted.get("eq_enabled", ""), "Equalizer"),
         "preamp_db": _number(submitted.get("eq_preamp_db", ""), "Preamp", -24, 0),
         "bands": bands,
+        "loudness_enabled": _boolean(submitted.get("loudness_enabled", ""), "Loudness"),
+        "loudness_amount": _number(
+            submitted.get("loudness_amount", ""),
+            "Loudness amount",
+            LOUDNESS_MIN_AMOUNT,
+            LOUDNESS_MAX_AMOUNT,
+        ),
     }
 
 
@@ -134,6 +153,14 @@ def serialize_equalizer(settings: EqualizerSettings) -> str:
                 f"q = {band['q']:g}",
             )
         )
+    lines.extend(
+        (
+            "",
+            "[loudness]",
+            f"enabled = {'true' if settings['loudness_enabled'] else 'false'}",
+            f"amount = {settings['loudness_amount']:g}",
+        )
+    )
     return "\n".join(lines) + "\n"
 
 
@@ -141,6 +168,8 @@ def _as_form(settings: EqualizerSettings) -> Dict[str, object]:
     values: Dict[str, object] = {
         "eq_enabled": settings["enabled"],
         "eq_preamp_db": settings["preamp_db"],
+        "loudness_enabled": settings["loudness_enabled"],
+        "loudness_amount": settings["loudness_amount"],
     }
     for index, band in enumerate(settings["bands"], 1):
         for key, value in band.items():
@@ -163,6 +192,18 @@ def load_equalizer() -> EqualizerSettings:
             section = f"band{index}"
             for key in ("enabled", "type", "frequency", "gain_db", "q"):
                 values[f"eq_band_{index}_{key}"] = parser.get(section, key)
+        # Loudness was added after the initial release; a persisted equalizer.ini
+        # written by older firmware has no [loudness] section, so fall back to the
+        # shipped defaults instead of rejecting the whole file.
+        loudness_defaults = defaults()
+        values["loudness_enabled"] = parser.get(
+            "loudness",
+            "enabled",
+            fallback="true" if loudness_defaults["loudness_enabled"] else "false",
+        )
+        values["loudness_amount"] = parser.get(
+            "loudness", "amount", fallback=str(loudness_defaults["loudness_amount"])
+        )
         return validate_settings(values)
     except (configparser.Error, KeyError, ValueError):
         return defaults()
@@ -195,13 +236,18 @@ def runtime_path() -> str:
     return os.environ.get("RADIO_EQUALIZER_RT", DEFAULT_RUNTIME_PATH)
 
 
-def control_values(settings: EqualizerSettings) -> List[float]:
-    """Return the 51 LADSPA control values in port order (preamp then bands).
+def control_values(settings: EqualizerSettings, current_volume: float = 100.0) -> List[float]:
+    """Return the 54 LADSPA control values in port order.
 
     The order matches the C plugin and ``audio_hardware_apply._equalizer_controls``:
-    preamp, then per band ``enabled, type, frequency, gain, Q``. When the EQ is
-    globally disabled every band collapses to an identity bell at ``0 dB`` so the
-    live path can bypass without a config change.
+    preamp, then per band ``enabled, type, frequency, gain, Q``, then the three
+    loudness controls ``loudness_enabled, loudness_amount, current_volume``. When
+    the EQ is globally disabled every band collapses to an identity bell at
+    ``0 dB`` so the live path can bypass without a config change.
+
+    Loudness lives in the same stage (Option A): it is only applied while the EQ
+    stage is enabled, so a disabled EQ collapses loudness to off as well.
+    ``current_volume`` (0..100) lets the plugin taper the boost with the knob.
     """
     if not settings["enabled"]:
         return [0.0] * RUNTIME_CONTROL_VALUES
@@ -216,28 +262,52 @@ def control_values(settings: EqualizerSettings) -> List[float]:
                 float(band["q"]),
             )
         )
+    values.extend(
+        (
+            1.0 if settings["loudness_enabled"] else 0.0,
+            float(settings["loudness_amount"]),
+            float(max(0.0, min(100.0, current_volume))),
+        )
+    )
     return values
 
 
 def _read_generation(path: str) -> int:
+    generation, _ = _read_generation_and_volume(path)
+    return generation
+
+
+def _read_generation_and_volume(path: str) -> Tuple[int, float]:
+    """Return ``(generation, current_volume)`` from an existing runtime file.
+
+    ``current_volume`` defaults to ``100.0`` (full, i.e. no loudness taper) when
+    the file is absent, truncated, or has the wrong magic. Reading it back lets a
+    web EQ apply preserve the volume the ADC loop last pushed, so re-applying the
+    EQ never resets loudness tracking to full volume.
+    """
     try:
         with open(path, "rb") as handle:
-            header = handle.read(RUNTIME_STRUCT.size)
+            data = handle.read(RUNTIME_STRUCT.size)
     except OSError:
-        return 0
-    if len(header) < RUNTIME_STRUCT.size:
-        return 0
-    magic, generation = struct.unpack_from("=II", header)
-    return generation if magic == RUNTIME_MAGIC else 0
+        return 0, 100.0
+    if len(data) < RUNTIME_STRUCT.size:
+        return 0, 100.0
+    magic, generation = struct.unpack_from("=II", data)
+    if magic != RUNTIME_MAGIC:
+        return 0, 100.0
+    unpacked = RUNTIME_STRUCT.unpack(data)
+    # Layout: magic, generation, then RUNTIME_CONTROL_VALUES floats; the volume
+    # is the final control value.
+    current_volume = float(unpacked[-1])
+    return generation, current_volume
 
 
-def write_runtime(settings: EqualizerSettings) -> None:
-    """Atomically write the live runtime file, bumping the generation counter.
+def _write_runtime_payload(control: List[float]) -> None:
+    """Atomically write the fixed-size runtime block, bumping the generation.
 
-    The plugin re-reads this file (no stream restart) whenever the generation
-    changes. The write is a fixed-size temp file in the same directory swapped in
-    with ``os.replace`` so the plugin never sees a torn frame. The directory is
-    created if missing (it lives on tmpfs, e.g. ``/run/radio``).
+    The write is a fixed-size temp file in the same directory swapped in with
+    ``os.replace`` so the plugin never sees a torn frame. The directory is created
+    if missing (it lives on tmpfs, e.g. ``/run/radio``).
 
     The runtime directory is forced to ``0755`` and the file to ``0644``
     regardless of the process umask. This is essential: the LADSPA plugin is
@@ -259,7 +329,7 @@ def write_runtime(settings: EqualizerSettings) -> None:
     generation = (_read_generation(path) + 1) & 0xFFFFFFFF
     if generation == 0:  # Skip 0 so a fresh file always looks "seen".
         generation = 1
-    payload = RUNTIME_STRUCT.pack(RUNTIME_MAGIC, generation, *control_values(settings))
+    payload = RUNTIME_STRUCT.pack(RUNTIME_MAGIC, generation, *control)
     fd, tmp = tempfile.mkstemp(prefix=".eqrt-", dir=directory)
     try:
         with os.fdopen(fd, "wb") as handle:
@@ -274,3 +344,27 @@ def write_runtime(settings: EqualizerSettings) -> None:
         except FileNotFoundError:
             pass
         raise
+
+
+def write_runtime(settings: EqualizerSettings) -> None:
+    """Atomically write the live runtime file, bumping the generation counter.
+
+    The plugin re-reads this file (no stream restart) whenever the generation
+    changes. The current-volume slot is carried over from any existing file so a
+    web EQ apply preserves the volume the ADC loop last pushed for loudness
+    tracking.
+    """
+    _, current_volume = _read_generation_and_volume(runtime_path())
+    _write_runtime_payload(control_values(settings, current_volume))
+
+
+def write_runtime_volume(current_volume: float) -> None:
+    """Update only the loudness current-volume slot and bump the generation.
+
+    Called from the ADC/volume loop (via ``radio.py``) whenever the physical knob
+    moves, so the loudness boost tapers with volume without a stream restart. It
+    reloads the persistent settings so band/preamp/loudness parameters stay
+    authoritative; the write is best effort and cheap (a debounced, fixed-size
+    atomic replace, never per audio sample).
+    """
+    _write_runtime_payload(control_values(load_equalizer(), current_volume))

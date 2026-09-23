@@ -89,7 +89,7 @@ from status_snapshot import (
 from usb_audio_service.usb_audio_service import USBAudioService
 from utilities import MANAGED_CONFIG_DIR, UtilityLibrary
 
-from radio_web import audio_hardware_store
+from radio_web import audio_hardware_store, equalizer_store
 
 utility = UtilityLibrary()
 
@@ -482,8 +482,10 @@ class RadioController:
         """Forward a volume-knob change to the display's volume OSD.
 
         The ADC controller already applies the level to the ALSA mixer; this
-        only surfaces it on screen as a briefly-shown, auto-hiding overlay.
-        Guarded so a display hiccup never disturbs the ADC loop.
+        surfaces it on screen as a briefly-shown, auto-hiding overlay and pushes
+        the new level to the equalizer runtime file so the optional loudness
+        compensation can taper its bass/treble boost live with the volume knob.
+        Both steps are guarded so a hiccup never disturbs the ADC loop.
 
         Args:
             volume (int): The new volume level, 0..100.
@@ -492,6 +494,19 @@ class RadioController:
             self.display.show_volume(volume)
         except Exception as e:
             logger.error(f"Unable to show volume OSD: {e}")
+        self._update_loudness_volume(volume)
+
+    def _update_loudness_volume(self, volume: int) -> None:
+        """Push the current volume into the EQ runtime file for loudness tracking.
+
+        Best effort: the loudness feature is optional and the runtime file lives
+        on tmpfs, so any failure (missing directory, permissions, no EQ applied
+        yet) must never break the volume loop.
+        """
+        try:
+            equalizer_store.write_runtime_volume(float(volume))
+        except Exception as e:
+            logger.debug(f"Unable to update loudness volume: {e}")
 
     def update_metadata(self) -> None:
         """
@@ -594,6 +609,9 @@ class RadioController:
                 logger.error("No valid initial volume reading; audio remains disabled")
                 while True:
                     sleep(1)
+            # Seed the loudness runtime volume once from the applied initial level
+            # so the boost is correct before the knob is first moved.
+            self._update_loudness_volume(initial_volume)
             self.adc_controller.start_monitoring()
             self.power_switch = self.adc_controller.read_adc_switch()
             self.handle_switch_state_change(1, self.power_switch)

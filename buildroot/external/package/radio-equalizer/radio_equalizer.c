@@ -64,15 +64,33 @@ typedef struct _LADSPA_Descriptor {
     void (*cleanup)(LADSPA_Handle);
 } LADSPA_Descriptor;
 
-enum { BANDS = 10, INPUT_PORT = 51, OUTPUT_PORT = 52, PORTS = 53 };
-enum { CONTROL_VALUES = 51 };
+/* Ports: preamp (1) + 5 x BANDS bands + 3 loudness controls (enabled, amount,
+ * volume), then the audio input/output. LOUDNESS_BASE indexes the first loudness
+ * control value. */
+enum { BANDS = 10, LOUDNESS_BASE = 1 + BANDS * 5, LOUDNESS_VALUES = 3 };
+enum { CONTROL_VALUES = LOUDNESS_BASE + LOUDNESS_VALUES };
+enum { INPUT_PORT = CONTROL_VALUES, OUTPUT_PORT = CONTROL_VALUES + 1, PORTS = CONTROL_VALUES + 2 };
 enum { FILTER_LOW_SHELF = 1, FILTER_HIGH_SHELF, FILTER_HIGH_PASS, FILTER_LOW_PASS };
+
+/* Loudness (Fletcher-Munson) compensation. A low-shelf bass boost plus a gentle
+ * high-shelf treble boost, both tapering from their maximum near volume 0 to
+ * 0 dB at full volume. The boost also scales with the user "amount" (0..10).
+ * Applied in the same biquad cascade as the bands, only while the EQ stage is
+ * enabled (Option A: loudness shares the equalizer stage). */
+#define LOUDNESS_LOW_FREQ 120.0f
+#define LOUDNESS_LOW_MAX_DB 10.0f
+#define LOUDNESS_HIGH_FREQ 10000.0f
+#define LOUDNESS_HIGH_MAX_DB 4.0f
+#define LOUDNESS_SHELF_Q 0.7f
+#define LOUDNESS_MAX_AMOUNT 10.0f
 
 /* Fixed-size runtime file the web layer rewrites for live parameter updates.
  * The layout is stable and endian-native (the writer runs on the same host):
  * magic identifies the format, generation increments on every write, and values
- * mirrors the 51 LADSPA control ports (preamp + 5 fields x 10 bands). */
-#define RT_MAGIC 0x52454131u /* "REA1" */
+ * mirrors the 54 LADSPA control ports (preamp + 5 fields x 10 bands + 3 loudness
+ * controls). The magic is bumped whenever this layout changes so an old plugin
+ * never misreads a new, longer file. */
+#define RT_MAGIC 0x52454132u /* "REA2" */
 #define RT_DEFAULT_PATH "/run/radio/equalizer.rt"
 typedef struct { uint32_t magic; uint32_t generation; float values[CONTROL_VALUES]; } RtBlock;
 
@@ -81,6 +99,8 @@ typedef struct {
     unsigned long rate;
     LADSPA_Data *ports[PORTS];
     Biquad filters[BANDS];
+    Biquad loudness_low;
+    Biquad loudness_high;
     /* Live runtime-file state (best effort; enabled when a valid path exists). */
     char rt_path[256];
     int rt_enabled;
@@ -163,7 +183,13 @@ static void coefficients(Biquad *f, int type, float frequency, float gain, float
 
 static LADSPA_Handle instantiate(const LADSPA_Descriptor *descriptor, unsigned long rate) {
     Equalizer *eq = calloc(1, sizeof(*eq)); unsigned int i; (void)descriptor;
-    if (eq) { eq->rate = rate; for (i = 0; i < BANDS; ++i) identity(&eq->filters[i]); rt_open(eq); }
+    if (eq) {
+        eq->rate = rate;
+        for (i = 0; i < BANDS; ++i) identity(&eq->filters[i]);
+        identity(&eq->loudness_low);
+        identity(&eq->loudness_high);
+        rt_open(eq);
+    }
     return eq;
 }
 static void connect_port(LADSPA_Handle h, unsigned long p, LADSPA_Data *d) {
@@ -172,16 +198,48 @@ static void connect_port(LADSPA_Handle h, unsigned long p, LADSPA_Data *d) {
 static void activate(LADSPA_Handle h) {
     Equalizer *eq = h; unsigned int i;
     for (i = 0; i < BANDS; ++i) eq->filters[i].z1 = eq->filters[i].z2 = 0.0f;
+    eq->loudness_low.z1 = eq->loudness_low.z2 = 0.0f;
+    eq->loudness_high.z1 = eq->loudness_high.z2 = 0.0f;
 }
+
+/* Configure the two loudness shelves from the live/connected control values.
+ * The boost scales with the user amount (0..LOUDNESS_MAX_AMOUNT) and tapers
+ * linearly from full at volume 0 to nothing at volume 100. When loudness is off
+ * (or fully tapered) both shelves collapse to identity so the cascade is a
+ * transparent pass-through. Allocation-free, called once per run(). */
+static void loudness_coefficients(Equalizer *eq, float enabled, float amount,
+                                  float volume) {
+    float scale, low_freq, high_freq;
+    if (enabled < 0.5f) { identity(&eq->loudness_low); identity(&eq->loudness_high); return; }
+    if (amount < 0.0f) amount = 0.0f;
+    if (amount > LOUDNESS_MAX_AMOUNT) amount = LOUDNESS_MAX_AMOUNT;
+    if (volume < 0.0f) volume = 0.0f;
+    if (volume > 100.0f) volume = 100.0f;
+    scale = (amount / LOUDNESS_MAX_AMOUNT) * (1.0f - volume / 100.0f);
+    if (scale <= 0.0f) { identity(&eq->loudness_low); identity(&eq->loudness_high); return; }
+    low_freq = LOUDNESS_LOW_FREQ;
+    high_freq = LOUDNESS_HIGH_FREQ;
+    if (low_freq > eq->rate * 0.45f) low_freq = eq->rate * 0.45f;
+    if (high_freq > eq->rate * 0.45f) high_freq = eq->rate * 0.45f;
+    coefficients(&eq->loudness_low, FILTER_LOW_SHELF, low_freq,
+                 LOUDNESS_LOW_MAX_DB * scale, LOUDNESS_SHELF_Q, (float)eq->rate);
+    coefficients(&eq->loudness_high, FILTER_HIGH_SHELF, high_freq,
+                 LOUDNESS_HIGH_MAX_DB * scale, LOUDNESS_SHELF_Q, (float)eq->rate);
+}
+
 static void run(LADSPA_Handle h, unsigned long count) {
     Equalizer *eq = h; LADSPA_Data *input = eq->ports[INPUT_PORT], *output = eq->ports[OUTPUT_PORT];
     /* Prefer live values from the runtime file; fall back to the connected
      * control ports when it is absent. control[0] is preamp, then 5 fields per
-     * band (enabled, type, frequency, gain, Q) — the same order as the ports. */
+     * band (enabled, type, frequency, gain, Q), then 3 loudness controls
+     * (enabled, amount, current volume) — the same order as the ports. */
     const int live = rt_refresh(eq);
     const float *ctl = eq->control; unsigned long pos; unsigned int band;
     const float preamp_db = live ? ctl[0] : *eq->ports[0];
     const float preamp = powf(10.0f, preamp_db / 20.0f);
+    const float loud_enabled = live ? ctl[LOUDNESS_BASE] : *eq->ports[LOUDNESS_BASE];
+    const float loud_amount = live ? ctl[LOUDNESS_BASE + 1] : *eq->ports[LOUDNESS_BASE + 1];
+    const float loud_volume = live ? ctl[LOUDNESS_BASE + 2] : *eq->ports[LOUDNESS_BASE + 2];
     for (band = 0; band < BANDS; ++band) {
         const unsigned int base = 1 + band * 5;
         const float enabled = live ? ctl[base] : *eq->ports[base];
@@ -195,12 +253,23 @@ static void run(LADSPA_Handle h, unsigned long count) {
                          gain, q, (float)eq->rate);
         } else identity(&eq->filters[band]);
     }
+    loudness_coefficients(eq, loud_enabled, loud_amount, loud_volume);
     for (pos = 0; pos < count; ++pos) {
         float sample = input[pos] * preamp;
         for (band = 0; band < BANDS; ++band) {
             Biquad *f = &eq->filters[band]; const float next = f->b0 * sample + f->z1;
             f->z1 = f->b1 * sample - f->a1 * next + f->z2; f->z2 = f->b2 * sample - f->a2 * next;
             sample = next;
+        }
+        {
+            Biquad *lf = &eq->loudness_low; const float low = lf->b0 * sample + lf->z1;
+            lf->z1 = lf->b1 * sample - lf->a1 * low + lf->z2; lf->z2 = lf->b2 * sample - lf->a2 * low;
+            sample = low;
+        }
+        {
+            Biquad *hf = &eq->loudness_high; const float high = hf->b0 * sample + hf->z1;
+            hf->z1 = hf->b1 * sample - hf->a1 * high + hf->z2; hf->z2 = hf->b2 * sample - hf->a2 * high;
+            sample = high;
         }
         output[pos] = sample;
     }
@@ -236,6 +305,16 @@ static void initialize_descriptor(void) {
             port_hints[port] = (LADSPA_PortRangeHint){3 | extras[field], low[field], high[field]};
         }
     }
+    /* Loudness controls: enabled (toggle), amount (0..10), current volume (0..100). */
+    port_descriptors[LOUDNESS_BASE] = LADSPA_PORT_INPUT | LADSPA_PORT_CONTROL;
+    port_names[LOUDNESS_BASE] = "Loudness Enabled";
+    port_hints[LOUDNESS_BASE] = (LADSPA_PortRangeHint){3 | LADSPA_HINT_TOGGLED, 0.0f, 1.0f};
+    port_descriptors[LOUDNESS_BASE + 1] = LADSPA_PORT_INPUT | LADSPA_PORT_CONTROL;
+    port_names[LOUDNESS_BASE + 1] = "Loudness Amount";
+    port_hints[LOUDNESS_BASE + 1] = (LADSPA_PortRangeHint){3, 0.0f, LOUDNESS_MAX_AMOUNT};
+    port_descriptors[LOUDNESS_BASE + 2] = LADSPA_PORT_INPUT | LADSPA_PORT_CONTROL;
+    port_names[LOUDNESS_BASE + 2] = "Loudness Volume";
+    port_hints[LOUDNESS_BASE + 2] = (LADSPA_PortRangeHint){3, 0.0f, 100.0f};
     port_descriptors[INPUT_PORT] = LADSPA_PORT_INPUT | LADSPA_PORT_AUDIO;
     port_descriptors[OUTPUT_PORT] = LADSPA_PORT_OUTPUT | LADSPA_PORT_AUDIO;
     port_names[INPUT_PORT] = "Input"; port_names[OUTPUT_PORT] = "Output";

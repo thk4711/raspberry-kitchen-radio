@@ -28,7 +28,7 @@ unless noted otherwise.
 | `/data/radio/display.ini` | `/etc/radio/display.ini` | Display preferences. |
 | `/data/radio/audio.ini` | `/etc/radio/audio.ini` | Maximum-volume setting. |
 | `/data/radio/audio_hardware.ini` | `/etc/radio/audio_hardware.ini` | Selected sound-card profile. |
-| `/data/radio/equalizer.ini` | `/etc/radio/equalizer.ini` | Parametric equalizer and preamp settings. |
+| `/data/radio/equalizer.ini` | `/etc/radio/equalizer.ini` | Parametric equalizer, preamp and loudness-compensation settings. |
 | `/data/radio/adc.ini` | `/etc/radio/adc.ini` | ADS1115 volume, button and power calibration. |
 | `/data/radio/usb_audio.ini` | `/etc/radio/usb_audio.ini` | Selected UAC1/UAC2 USB Audio mode. |
 | `/data/radio/usb_audio_output.ini` | `/etc/radio/usb_audio_output.ini` | Output parameters generated from the selected sound-card profile and consumed by the USB Audio bridge. |

@@ -41,3 +41,26 @@ def test_equalizer_user_and_developer_guide_covers_contract():
         "tests/test_equalizer.py",
     ):
         assert required in text
+
+
+def test_loudness_controls_are_in_c_plugin_and_match_python_contract():
+    """The C plugin and equalizer_store must agree on the runtime layout.
+
+    Loudness added three control values and bumped the magic; if the C side and
+    the Python writer drift, the plugin silently falls back to stale values, so
+    guard the count and magic together here.
+    """
+    from radio_web import equalizer_store
+
+    source = (PACKAGE / "radio_equalizer.c").read_text(encoding="utf-8")
+    # The plugin implements the volume-tracked loudness shelves.
+    assert "Loudness Enabled" in source
+    assert "Loudness Amount" in source
+    assert "Loudness Volume" in source
+    assert "loudness_coefficients" in source
+    # Magic must match RUNTIME_MAGIC (0x52454132, "REA2").
+    assert "0x52454132u" in source
+    assert equalizer_store.RUNTIME_MAGIC == 0x52454132
+    # Three loudness controls appended after preamp + 10 bands x 5 fields.
+    assert equalizer_store.RUNTIME_CONTROL_VALUES == 1 + 10 * 5 + 3
+    assert "LOUDNESS_VALUES = 3" in source

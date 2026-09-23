@@ -72,8 +72,16 @@
     const points = bands.map((band, index) => add("circle", { r: 8, fill: colors[index], class: "eq-point", tabindex: 0 }));
     const enabledControl = document.querySelector('[name="eq_enabled"]');
     const preampControl = document.querySelector('[name="eq_preamp_db"]');
+    const loudnessControl = document.querySelector('[name="loudness_enabled"]');
+    const loudnessAmountControl = document.querySelector('[name="loudness_amount"]');
     const resetControl = document.querySelector('[value="restore_equalizer"]');
     const flatFrequencies = [60, 120, 250, 500, 1000, 2000, 4000, 8000, 12000, 16000];
+    // Preview loudness at a representative low volume so the graph shows the
+    // boost shape; on the device the boost tapers live with the volume knob.
+    // Keep these in sync with radio_equalizer.c.
+    const LOUDNESS_PREVIEW_VOLUME = 25;
+    const LOUDNESS_LOW = { frequency: 120, maxDb: 10, q: 0.7, type: "low_shelf" };
+    const LOUDNESS_HIGH = { frequency: 10000, maxDb: 4, q: 0.7, type: "high_shelf" };
 
     function bandValues(band) {
       const get = (suffix) => band.querySelector(`[name$="_${suffix}"]`);
@@ -117,6 +125,17 @@
       const dr = 1 + a1 * c1 + a2 * c2, di = -a1 * s1 - a2 * s2;
       return 10 * Math.log10(Math.max(1e-12, (nr * nr + ni * ni) / (dr * dr + di * di)));
     }
+    function loudnessResponse(frequency) {
+      if (!enabledControl.checked || !loudnessControl || !loudnessControl.checked) return 0;
+      const amount = Math.max(0, Math.min(10, Number(loudnessAmountControl.value) || 0));
+      const scale = (amount / 10) * (1 - LOUDNESS_PREVIEW_VOLUME / 100);
+      if (scale <= 0) return 0;
+      const low = { enabled: true, type: LOUDNESS_LOW.type, frequency: LOUDNESS_LOW.frequency,
+        gain: LOUDNESS_LOW.maxDb * scale, q: LOUDNESS_LOW.q };
+      const high = { enabled: true, type: LOUDNESS_HIGH.type, frequency: LOUDNESS_HIGH.frequency,
+        gain: LOUDNESS_HIGH.maxDb * scale, q: LOUDNESS_HIGH.q };
+      return magnitude(low, frequency) + magnitude(high, frequency);
+    }
     function redraw() {
       const values = bands.map(bandValues);
       const equalizerEnabled = enabledControl.checked;
@@ -125,7 +144,7 @@
       for (let pixel = left; pixel <= right; pixel += 3) {
         const frequency = frequencyForX(pixel);
         const response = equalizerEnabled
-          ? values.reduce((sum, value) => sum + magnitude(value, frequency), 0)
+          ? values.reduce((sum, value) => sum + magnitude(value, frequency), 0) + loudnessResponse(frequency)
           : 0;
         const db = Math.max(-18, Math.min(18, preamp + response));
         path += `${path ? "L" : "M"}${pixel.toFixed(1)},${yForDb(db).toFixed(1)}`;
@@ -163,6 +182,8 @@
     bands.forEach((band) => band.addEventListener("input", redraw));
     enabledControl.addEventListener("input", redraw);
     preampControl.addEventListener("input", redraw);
+    if (loudnessControl) loudnessControl.addEventListener("input", redraw);
+    if (loudnessAmountControl) loudnessAmountControl.addEventListener("input", redraw);
     // Reset the controls and graph immediately on pointer activation. The form
     // submission still performs the authoritative server-side reset/apply; this
     // prevents the old curve and dragged dot positions lingering while service
@@ -170,6 +191,8 @@
     resetControl.addEventListener("click", () => {
       enabledControl.checked = false;
       preampControl.value = "-3";
+      if (loudnessControl) loudnessControl.checked = false;
+      if (loudnessAmountControl) loudnessAmountControl.value = "5";
       bands.forEach((band, index) => {
         const get = (suffix) => band.querySelector(`[name$="_${suffix}"]`);
         get("enabled").checked = false;
