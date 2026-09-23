@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="radio_web/static/PiSonic-Logo.svg" alt="PiSonic Logo" width="400"/>
+</p>
+
 # PiSonic
 
 PiSonic turns a Raspberry Pi 3A+ into a **standalone internet audio
