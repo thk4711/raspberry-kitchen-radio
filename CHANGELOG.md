@@ -41,7 +41,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   validation.
 
 ### Changed
-- **Buildroot tracks the shairport-sync `development` branch** (pinned to a
+- **Replaced the vendored `lib/ADS1x15` ADS1115 driver with a small
+  first-party driver, `lib/ads1115.py`.** The old third-party library
+  (`Adafruit_ADS1x15.py` + `Adafruit_I2C.py`, ~800 lines) implemented ADS1015
+  support, differential reads, the comparator/threshold registers, and
+  continuous-conversion mode — none of which the appliance used. The new driver
+  implements only the single-ended, single-shot millivolt read the radio
+  actually needs (`ADS1115.read_channel_mv(channel)`), talks to the chip
+  directly over `smbus2`, and is fully typed, documented, unit-tested, and
+  covered by ruff/mypy like the rest of `lib/`. `ADCController` now imports
+  `from ads1115 import ADS1115`; ADC calibration constants in `radio.conf`
+  (`[adc]`) are unchanged (readings stay in millivolts at the ±6.144 V range).
+
   specific commit in `buildroot/external/external.mk`) instead of the mainline
   stable release, enabling experimental remote-control support for AirPlay 2
   clients. This is a major jump (4.3.7 → 5.6-dev); revalidate `airplay.conf` and

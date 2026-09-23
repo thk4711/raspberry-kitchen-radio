@@ -36,7 +36,7 @@ spidev==3.8
 gpiozero==2.0.1
 
 # smbus2 is used by the (optional) button_handler.py I2C path AND by the
-# ADS1115 ADC access layer (ADS1x15/Adafruit_I2C.py).
+# first-party ADS1115 ADC driver (lib/ads1115.py).
 smbus2==0.5.0
 
 # ---------------------------------------------------------------------------
@@ -55,7 +55,7 @@ smbus2==0.5.0
 #   - python3-pyalsaaudio -> alsaaudio  (alsa_controller.py, volume mixer)
 #   - mpd / mpc           -> the Music Player Daemon used by mpd_service.py
 #
-# NOTE: the ADS1115 ADC layer (ADS1x15/Adafruit_I2C.py) now uses the pure-Python
+# NOTE: the ADS1115 ADC driver (lib/ads1115.py) uses the pure-Python
 # smbus2 package listed above, so the old system python3-smbus binding is no
 # longer required.
 # ---------------------------------------------------------------------------

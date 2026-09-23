@@ -38,8 +38,6 @@ skip_empty = true
 # never suggest syntax unavailable on the appliance image or the CI floor.
 target-version = "py39"
 line-length = 100
-# The ADS1x15 driver is vendored third-party code; do not lint/reformat it.
-extend-exclude = ["lib/ADS1x15"]
 
 [tool.ruff.lint]
 # E/W pycodestyle, F pyflakes, I import-sort, B bugbear. Kept focused to fit the
@@ -83,10 +81,8 @@ ignore_missing_imports = true
 follow_imports = "silent"
 warn_redundant_casts = true
 check_untyped_defs = true
-# Vendored third-party driver is out of scope for typing.
-exclude = ["lib/ADS1x15/"]
 # Check every first-party production Python file. Tests are validated by pytest
-# and compileall; the vendored ADS1x15 driver remains the only source exclusion.
+# and compileall.
 files = [
     "radio.py",
     "lib",

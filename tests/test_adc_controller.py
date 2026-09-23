@@ -1,6 +1,6 @@
 """Tests for ADCController in lib/adc_controller.py.
 
-The ``ADS1x15`` driver and ``alsaaudio`` are stubbed in conftest.py.
+The ``ads1115`` driver and ``alsaaudio`` are stubbed in conftest.py.
 ``ADCController.__init__`` opens hardware and starts a polling thread, so these
 tests either call the static/pure methods directly or build an instance with
 ``__new__`` and inject a mock ADC — no hardware and no background thread.
@@ -52,7 +52,7 @@ class TestFindButton:
 def _controller_with_mock_ads(read_value):
     ctrl = ADCController.__new__(ADCController)
     ctrl.ads = mock.Mock()
-    ctrl.ads.readADCSingleEnded.return_value = read_value
+    ctrl.ads.read_channel_mv.return_value = read_value
     ctrl.volume_min_input = 0.93
     ctrl.volume_max_input = 3282
     ctrl.button_min = 100
@@ -116,7 +116,7 @@ class TestDiagnosticsSnapshot:
         ctrl._raw_values = {0: 1641, 1: 850, 2: 100, 3: None}
         ctrl.max_volume = 80
         ctrl.switch_threshold = 300
-        ctrl.ads.readADCSingleEnded.return_value = 222
+        ctrl.ads.read_channel_mv.return_value = 222
         ctrl._publish_snapshot(49, True, 2)
         snapshot = ctrl.snapshot_callback.call_args.args[0]
         assert snapshot["channels"]["0"]["raw_mv"] == 1641

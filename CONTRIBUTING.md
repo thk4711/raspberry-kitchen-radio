@@ -49,8 +49,8 @@ your machine rather than in the pipeline:
   at import time and breaks on the **Python 3.9** appliance floor, even though
   it runs fine on a newer local interpreter.
 - **mypy** checks all first-party production Python in `radio.py`, `lib/`,
-  `radio_web/`, and `scripts/`. The vendored `lib/ADS1x15/` driver is excluded;
-  hardware-only imports without host type stubs are treated as external.
+  `radio_web/`, and `scripts/`. Hardware-only imports without host type stubs
+  are treated as external.
 - **shellcheck** runs the **same version CI uses (0.9.0)** via the pinned
   `koalaman/shellcheck:v0.9.0` Docker image, so it does not drift from the
   pipeline (a newer local shellcheck can miss findings CI still reports). This

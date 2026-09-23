@@ -10,7 +10,7 @@
 #     pytest
 #
 # The hardware/system-only libraries (RPi.GPIO, alsaaudio, dbus, spidev,
-# gpiozero, smbus2, the ADS1x15 driver) are stubbed in tests/conftest.py, so
+# gpiozero, smbus2, the ads1115 driver) are stubbed in tests/conftest.py, so
 # they are deliberately NOT installed here. The heavier runtime pins in
 # requirements.txt (numpy, Pillow, spidev, and an older pydantic) are only
 # needed on the target and some have no wheels for very new CPython versions,

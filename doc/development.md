@@ -54,8 +54,8 @@ Test discovery and the import path are configured in
 is added to `pythonpath`, so `from music_source import ...` resolves exactly as
 it does at runtime, where `radio.py` does `sys.path.insert(0, .../lib)`).
 
-To see the raw coverage scope, including the vendored ADS1x15 driver and the
-on-target display diagnostic program:
+To see the raw coverage scope, including the on-target display diagnostic
+program:
 
 ```bash
 pytest --cov --cov-report=term-missing
@@ -66,13 +66,13 @@ application quality gate. After collecting coverage, generate the separate
 first-party report with:
 
 ```bash
-coverage report --omit='lib/ADS1x15/*,lib/display/display_test.py'
+coverage report --omit='lib/display/display_test.py'
 ```
 
-Only the vendored driver and the standalone target-hardware diagnostic are
-excluded; hardware-facing first-party adapters and panel drivers remain in the
-gate. CI requires **80% first-party coverage**; raise this ratcheted floor as
-additional runtime paths become safely testable on the host.
+Only the standalone target-hardware diagnostic is excluded; hardware-facing
+first-party adapters and panel drivers remain in the gate. CI requires **80%
+first-party coverage**; raise this ratcheted floor as additional runtime paths
+become safely testable on the host.
 
 ## Linting, formatting and type checks
 
@@ -98,14 +98,12 @@ pre-commit install
 
 - **ruff** targets Python 3.9 (`target-version = "py39"` in `pyproject.toml`),
   the oldest supported interpreter, so lint/format never suggest syntax the
-  appliance image or the CI floor cannot run. The vendored `lib/ADS1x15` driver
-  is excluded.
+  appliance image or the CI floor cannot run.
 - **mypy** gates all first-party production Python in `radio.py`, `lib/`,
-  `radio_web/`, and `scripts/`: 96 of 96 files at the time this scope was
-  established. It also checks bodies of legacy functions that do not yet have
-  complete signatures. The vendored `lib/ADS1x15/` driver is excluded, and
-  hardware/system imports without host stubs are treated as external. The
-  checker target is 3.10 while the runtime floor stays 3.9.
+  `radio_web/`, and `scripts/`. It also checks bodies of legacy functions that
+  do not yet have complete signatures. Hardware/system imports without host
+  stubs are treated as external. The checker target is 3.10 while the runtime
+  floor stays 3.9.
 
 ## Continuous integration
 

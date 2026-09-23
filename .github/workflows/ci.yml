@@ -18,10 +18,10 @@ jobs:
       - run: ruff check .
       - run: ruff format --check .
       - run: mypy
-      - name: Tests and raw coverage (includes vendor/hardware-only code)
+      - name: Tests and raw coverage (includes hardware-only code)
         run: pytest -q --cov --cov-report=term-missing
       - name: First-party application coverage gate
-        run: coverage report --omit='lib/ADS1x15/*,lib/display/display_test.py' --fail-under=83
+        run: coverage report --omit='lib/display/display_test.py' --fail-under=83
       - run: python3 scripts/check-release-consistency.py
       - run: python -m compileall -q lib radio.py tests
       - run: find buildroot -type f -name '*.sh' -exec sh -n {} \;

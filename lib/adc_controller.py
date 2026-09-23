@@ -4,12 +4,11 @@ import time
 from time import sleep
 from typing import Callable, Optional
 
-from ADS1x15.Adafruit_ADS1x15 import ADS1x15
+from ads1115 import ADS1115
 from alsa_controller import ALSAController
 
 logger = logging.getLogger(__name__)
 
-ADS1115 = 0x01
 I2C_ADDRESS = 0x48
 
 # Polling / debounce timing for the ADC input loop.
@@ -33,7 +32,7 @@ class ADCController:
     It monitors and processes inputs from a volume knob, buttons, and a power switch.
 
     Attributes:
-        ads (ADS1x15): Instance of the ADS1x15 ADC controller.
+        ads (ADS1115): Instance of the ADS1115 ADC driver.
         alsa_controller (ALSAController): Manages audio mixer volume settings.
         switch_callback (function): Callback function invoked when the switch state changes.
         button_callback (function): Callback function invoked when a button press is detected.
@@ -87,7 +86,7 @@ class ADCController:
                 before it is applied, so the physical knob can never exceed it.
                 Defaults to 100 (uncapped). Managed by the web UI.
         """
-        self.ads = ADS1x15(address=i2c_address, ic=ADS1115, busnum=i2c_bus)
+        self.ads = ADS1115(i2c_address=i2c_address, i2c_bus=i2c_bus)
         self.alsa_controller = ALSAController(
             mixer_name=mixer_name, mixer_max_percent=mixer_max_percent
         )
@@ -146,7 +145,7 @@ class ADCController:
         return int(mapped_value)
 
     def _read_channel(self, channel: int) -> float:
-        value = self.ads.readADCSingleEnded(channel=channel)
+        value = self.ads.read_channel_mv(channel)
         if not hasattr(self, "_raw_values"):
             self._raw_values = {0: None, 1: None, 2: None, 3: None}
         self._raw_values[channel] = value

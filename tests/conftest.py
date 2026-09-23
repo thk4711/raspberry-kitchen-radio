@@ -2,9 +2,9 @@
 
 This project targets a Raspberry Pi 3A+ and imports several hardware/system
 libraries at module scope (``RPi.GPIO``, ``alsaaudio``, ``dbus``, ``spidev``,
-``gpiozero``, ``smbus2`` and the ADS1115 ``ADS1x15`` driver). None of those
-exist on a plain development or CI machine, so we install lightweight stub
-modules into ``sys.modules`` *before* the tests import the code under test.
+``gpiozero``, ``smbus2`` and the first-party ADS1115 ``ads1115`` driver). None
+of those exist on a plain development or CI machine, so we install lightweight
+stub modules into ``sys.modules`` *before* the tests import the code under test.
 
 Stubbing (rather than skipping the tests) means the pure-logic units get real
 coverage everywhere, including CI.
@@ -75,22 +75,19 @@ def _make_dbus() -> None:
     _install_stub("dbus", dbus)
 
 
-def _make_ads1x15() -> None:
-    """Stub the ``ADS1x15`` driver package used by ``adc_controller``."""
-    pkg = types.ModuleType("ADS1x15")
-    driver = types.ModuleType("ADS1x15.Adafruit_ADS1x15")
+def _make_ads1115() -> None:
+    """Stub the first-party ``ads1115`` driver used by ``adc_controller``."""
+    module = types.ModuleType("ads1115")
 
-    class ADS1x15:  # pragma: no cover - replaced/mocked in tests
+    class ADS1115:  # pragma: no cover - replaced/mocked in tests
         def __init__(self, *args, **kwargs):
             pass
 
-        def readADCSingleEnded(self, *args, **kwargs):
+        def read_channel_mv(self, channel, *args, **kwargs):
             return 0
 
-    driver.ADS1x15 = ADS1x15
-    pkg.Adafruit_ADS1x15 = driver
-    _install_stub("ADS1x15", pkg)
-    _install_stub("ADS1x15.Adafruit_ADS1x15", driver)
+    module.ADS1115 = ADS1115
+    _install_stub("ads1115", module)
 
 
 def _make_simple_stub(name: str) -> None:
@@ -103,7 +100,7 @@ def _make_simple_stub(name: str) -> None:
 _make_rpi_gpio()
 _make_alsaaudio()
 _make_dbus()
-_make_ads1x15()
+_make_ads1115()
 for _name in ("spidev", "gpiozero", "smbus2"):
     _make_simple_stub(_name)
 
