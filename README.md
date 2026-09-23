@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="radio_web/static/PiSonic-Logo.svg" alt="PiSonic Logo" width="400"/>
+  <img src="radio_web/static/PiSonic-Logo.svg" alt="PiSonic Logo" width="200"/>
 </p>
 
 # PiSonic
