@@ -2,8 +2,6 @@
   <img src="radio_web/static/PiSonic-Logo.svg" alt="PiSonic Logo" width="200"/>
 </p>
 
-# PiSonic
-
 PiSonic turns a Raspberry Pi 3A+ into a **standalone internet audio
 appliance or streaming speaker**.It feels like a device and not like a project. It Boots straight into playback
 no general-purpose desktop OS.
