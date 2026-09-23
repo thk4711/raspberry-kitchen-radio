@@ -123,9 +123,7 @@ def test_stop_sends_media_key_and_inhibits(monkeypatch, tmp_path):
         return _result()
 
     monkeypatch.setattr(subprocess, "run", run)
-    service = USBAudioService(
-        inhibit_file=str(inhibit), hid_helper="/usr/bin/radio-usb-audio-hid"
-    )
+    service = USBAudioService(inhibit_file=str(inhibit), hid_helper="/usr/bin/radio-usb-audio-hid")
     # The constructor's _set_inhibited(False) does not call subprocess; only the
     # HID helper path does. Reset so we assert on the stop call alone.
     calls.clear()

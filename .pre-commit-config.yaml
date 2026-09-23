@@ -34,14 +34,17 @@ repos:
       - id: ruff-format    # format locally; CI verifies with `ruff format --check`
 
   - repo: https://github.com/pre-commit/mirrors-mypy
-    rev: v1.11.2
+    rev: v1.20.2
     hooks:
       - id: mypy
         # mypy reads its repository-wide production scope and settings from
         # pyproject.toml; pass no explicit files so it matches CI.
         pass_filenames: false
         args: []
-        additional_dependencies: ["pydantic>=2.10"]
+        # The hook runs in its own isolated venv, so it needs the same type
+        # stubs CI's mypy sees (requirements-dev.txt) or it reports spurious
+        # import-untyped errors for requests/yaml that CI never hits.
+        additional_dependencies: ["pydantic>=2.10", "types-requests", "types-PyYAML"]
 
   - repo: local
     hooks:

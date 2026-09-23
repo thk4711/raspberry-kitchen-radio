@@ -67,8 +67,8 @@ def test_every_audio_profile_has_one_documented_pinout_table():
         assert f"### {profile.label}" in section
         assert (
             section.count(
-                "| BCM | Signal / radio connection | Physical pin (odd) | "
-                "Physical pin (even) | Signal / radio connection | BCM |"
+                "| BCM | Signal / device connection | Physical pin (odd) | "
+                "Physical pin (even) | Signal / device connection | BCM |"
             )
             == 1
         )

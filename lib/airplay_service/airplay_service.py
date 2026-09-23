@@ -43,9 +43,7 @@ class AirplayService(MusicSource):
         # RemoteControl command interface, resolved by the D-Bus worker alongside
         # the properties interface so set_play_state() can reuse the live object.
         self.remote_control_interface = None
-        self.inhibit_file = Path(
-            os.environ.get("RADIO_AIRPLAY_INHIBIT_FILE", inhibit_file)
-        )
+        self.inhibit_file = Path(os.environ.get("RADIO_AIRPLAY_INHIBIT_FILE", inhibit_file))
         self.metadata = Metadata(name="", title="", cover="", md5="", state=False)
         # Inhibition belongs to the lifetime of the radio controller, mirroring the
         # USB source: never carry a marker over a controller restart, so a still-

@@ -204,22 +204,26 @@ def test_read_display_conf_layers_managed_display_ini(monkeypatch, tmp_path):
     script_dir.mkdir()
     managed_dir.mkdir()
     nl = chr(10)
-    default_text = nl.join([
-        "[display]",
-        "width = 240",
-        "height = 280",
-        "spi_device = 0",
-        "[ui]",
-        "rotate_180 = false",
-        "",
-    ])
-    override_text = nl.join([
-        "[display]",
-        "height = 240",
-        "[ui]",
-        "rotate_180 = true",
-        "",
-    ])
+    default_text = nl.join(
+        [
+            "[display]",
+            "width = 240",
+            "height = 280",
+            "spi_device = 0",
+            "[ui]",
+            "rotate_180 = false",
+            "",
+        ]
+    )
+    override_text = nl.join(
+        [
+            "[display]",
+            "height = 240",
+            "[ui]",
+            "rotate_180 = true",
+            "",
+        ]
+    )
     (script_dir / "display.conf").write_text(default_text)
     (managed_dir / "display.ini").write_text(override_text)
     monkeypatch.setattr(boot_splash, "_SCRIPT_DIR", str(script_dir))

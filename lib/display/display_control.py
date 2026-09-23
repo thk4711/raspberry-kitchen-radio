@@ -931,7 +931,9 @@ class DisplayController(DisplayRenderingMixin):
         """
         from display import boot_splash  # noqa: PLC0415
 
-        subtitle = "SETUP REQUIRED" if os.path.isfile(_PROVISION_STATUS_FILE) else boot_splash._SUBTITLE
+        subtitle = (
+            "SETUP REQUIRED" if os.path.isfile(_PROVISION_STATUS_FILE) else boot_splash._SUBTITLE
+        )
         return boot_splash.render_splash_frame(self.width, self.height, self.theme, subtitle)
 
     def _push_frame(self, frame: Image.Image, force: bool = False) -> bool:
