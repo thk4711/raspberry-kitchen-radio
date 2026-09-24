@@ -13,11 +13,15 @@ USB Audio, volume and output Apply/Restore controls.
 
 ### Global controls
 
-- **Enable equalizer** inserts or bypasses the complete DSP stage.
-- **Preamp Gain** applies gain before the filters. Its range is `-24` to `0 dB`
-  and it defaults to `-3 dB` to leave headroom out of the box. Reduce it further
-  when boosting bands to preserve headroom; a practical starting point is a
-  preamp reduction equal to the largest positive band gain.
+- **Enable equalizer** inserts or bypasses the complete DSP stage. It is the
+  first control; while it is off, the Loudness level and per-band controls are
+  grayed out and disabled to show they only take effect with the equalizer on.
+- **Preamp gain** is set **automatically** and shown as plain text (not an
+  editable field). It reserves
+  headroom before the filters so nothing clips: it equals about minus the largest
+  boost in the chain — the biggest positive gain among the enabled bands, or the
+  loudness low-shelf boost, whichever is greater — clamped to the `-24` to `0 dB`
+  range. A flat EQ with no loudness needs no reduction (`0 dB`).
 - The graph covers 20 Hz to 20 kHz on a logarithmic frequency axis and shows the
   combined preamp and filter response.
 
@@ -40,7 +44,7 @@ is disabled; when it is enabled, only dots belonging to enabled bands can move.
 
 ### Loudness compensation
 
-Alongside the preamp control the equalizer offers optional **loudness**
+Alongside the preamp readout the equalizer offers optional **loudness**
 compensation (a Fletcher-Munson "smile"). At low listening volumes the ear is
 less sensitive to bass and, to a smaller degree, treble; loudness compensates by
 boosting a low shelf (around 120 Hz, up to about +10 dB) and a gentle high shelf
@@ -48,9 +52,9 @@ boosting a low shelf (around 120 Hz, up to about +10 dB) and a gentle high shelf
 is strongest near silence and tapers smoothly to `0 dB` at full volume, so it
 never colours the sound when you turn up.
 
-- **Loudness** — enables or disables the compensation.
-- **Loudness amount** — `0` to `10`. `0` disables the boost; `10` applies the
-  full smile. Intermediate values scale both shelves proportionally.
+- **Loudness level** — `0` to `10`. `0` turns loudness off; `10` applies the
+  full smile. Intermediate values scale both shelves proportionally. There is no
+  separate on/off switch — the level *is* the control.
 
 Loudness shares the equalizer's DSP stage, so it is only active while the whole
 equalizer is enabled. Turning loudness on with every band flat gives you just the

@@ -28,7 +28,7 @@ Signed-off-by: PiSonic <radio@localhost>
  	opts->fb_max = FBACK_FAST_MAX;
  
 -	scnprintf(opts->function_name, sizeof(opts->function_name), "Source/Sink");
-+	scnprintf(opts->function_name, sizeof(opts->function_name), "Raspberry Radio USB Audio");
++	scnprintf(opts->function_name, sizeof(opts->function_name), "PiSonic USB Audio");
  	scnprintf(opts->if_ctrl_name, sizeof(opts->if_ctrl_name), "Topology Control");
  	scnprintf(opts->clksrc_in_name, sizeof(opts->clksrc_in_name), "Input Clock");
  	scnprintf(opts->clksrc_out_name, sizeof(opts->clksrc_out_name), "Output Clock");

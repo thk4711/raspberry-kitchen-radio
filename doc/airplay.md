@@ -56,6 +56,27 @@ re-check `lib/airplay_service/airplay.conf` parsing and the D-Bus interface afte
 every bump. Because it is an experimental branch on an A/B firmware appliance,
 prefer a health-checked trial boot before accepting a new pin.
 
+## Metadata delivery (why `get_plist_metadata = "no"`)
+
+PiSonic reads now-playing metadata and cover art from shairport-sync's classic
+**metadata FIFO** (`pipe_name = "/tmp/shairport-sync-metadata"`), parsed by
+[`AirplayMetadataProcessor`](../lib/airplay_service/airplay_metadata_processor.py).
+
+The 5.x development branch changed the default to **AirPlay-2 plist metadata**
+(`diagnostics.get_plist_metadata = "yes"`). In that mode a modern sender delivers
+title/artist/album and artwork as a binary plist that shairport-sync routes
+**only to its D-Bus/MPRIS interface — it is never written to the FIFO**. The pipe
+reader therefore receives nothing and the display/web now-playing view goes
+blank, even though audio still plays. This is controlled by the advertised
+AirPlay feature bits: `get_plist_metadata = "yes"` sets **bit 50** (plist
+metadata); `"no"` sets **bits 15/16/17** (classic artwork/progress/text) which
+route metadata through the FIFO exactly as on stable 4.3.7.
+
+`airplay.conf` therefore pins `diagnostics.get_plist_metadata = "no"`. Upstream
+marks this option *Deprecated*, so a future pin bump could remove it — at which
+point the reader must be migrated to consume metadata from the D-Bus/MPRIS
+interface the service already connects to. **Re-verify this after every pin bump.**
+
 ## Source switching (stopping AirPlay)
 
 AirPlay cannot always be stopped by a single remote command, so the app uses a
@@ -109,5 +130,10 @@ the sender keeps its session open.
 - **AirPlay resumes immediately after switching away:** ensure the inhibit marker
   is writable (its directory exists) and that `get_play_state()` sees the marker;
   a read-only `/run` would defeat the fallback.
-- **No metadata / cover art:** unrelated to source switching — see the metadata
-  FIFO configuration in `lib/airplay_service/airplay.conf`.
+- **No metadata / cover art:** unrelated to source switching. On the 5.x
+  development branch this is almost always the plist-vs-classic metadata default:
+  ensure `diagnostics.get_plist_metadata = "no"` in
+  `lib/airplay_service/airplay.conf` (see
+  [Metadata delivery](#metadata-delivery-why-get_plist_metadata--no) above) so
+  metadata is written to the FIFO the app reads, then confirm the FIFO
+  configuration (`enabled`, `include_cover_art`, `pipe_name`).

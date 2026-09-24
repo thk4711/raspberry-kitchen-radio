@@ -51,9 +51,10 @@ backend (see [`adding-a-music-source.md`](adding-a-music-source.md)).
   art**, so instead of album art PiSonic shows a generated placeholder tile: a
   **Bluetooth glyph on a muted-blue rounded square** (rendered by
   `logo_fallback.render_bluetooth_tile`), centred like a station logo with the
-  title/artist text below it. The glyph is the official Bluetooth mark, drawn
-  from the public-domain `Bluetooth.svg` path with Pillow (no SVG rasteriser or
-  extra dependency on the image).
+  title/artist text below it. The glyph is the Bluetooth mark from
+  `radio_web/static/bluetooth-symbol.svg`, rasterised at build time into a PNG
+  under `lib/display/glyphs/` by `scripts/render-source-glyphs.py` and tinted at
+  runtime with Pillow (the appliance image ships no SVG rasteriser).
 - **Auto-switching:** PiSonic stops the previously playing source when the
   phone reports **playback** over AVRCP (`Status == "playing"`). Virtually all
   mainstream music/video apps do this. If you ever meet an app that streams

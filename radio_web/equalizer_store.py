@@ -34,6 +34,15 @@ DEFAULT_RUNTIME_PATH = "/run/radio/equalizer.rt"
 LOUDNESS_MIN_AMOUNT = 0.0
 LOUDNESS_MAX_AMOUNT = 10.0
 
+# Worst-case low-shelf boost (dB) loudness can add at low volume, mirroring
+# LOUDNESS_LOW_MAX_DB in radio_equalizer.c. Used to reserve preamp headroom so
+# the loudness "smile" never clips at its strongest (near silence).
+LOUDNESS_LOW_MAX_DB = 10.0
+
+# Preamp headroom range (dB). The automatic preamp is clamped into this range.
+PREAMP_MIN_DB = -24.0
+PREAMP_MAX_DB = 0.0
+
 
 class EqualizerBand(TypedDict):
     enabled: bool
@@ -69,7 +78,7 @@ def defaults() -> EqualizerSettings:
             for frequency in _DEFAULT_FREQUENCIES
         ],
         "loudness_enabled": False,
-        "loudness_amount": 5.0,
+        "loudness_amount": 0.0,
     }
 
 
@@ -100,6 +109,34 @@ def _number(value: object, label: str, minimum: float, maximum: float) -> float:
     return result
 
 
+def computed_preamp_db(settings: "EqualizerSettings") -> float:
+    """Return the automatic preamp (dB) that keeps the EQ chain from clipping.
+
+    The preamp is no longer user-editable: it is derived from the largest
+    positive boost the chain can apply so the summed level never exceeds 0 dB.
+    That worst-case boost is the maximum of:
+
+      * the largest positive gain among the *enabled* bands, and
+      * the loudness low-shelf boost at its strongest (near silence), scaled by
+        the loudness level: ``LOUDNESS_LOW_MAX_DB * amount / LOUDNESS_MAX_AMOUNT``.
+
+    The result is ``-boost`` clamped into ``[PREAMP_MIN_DB, PREAMP_MAX_DB]`` so a
+    flat EQ with no loudness needs no reduction (0 dB) and extreme boosts never
+    ask for more than the range allows.
+    """
+    boost = 0.0
+    if settings["enabled"]:
+        for band in settings["bands"]:
+            if band["enabled"] and band["gain_db"] > boost:
+                boost = float(band["gain_db"])
+        amount = float(settings["loudness_amount"])
+        if amount > LOUDNESS_MIN_AMOUNT:
+            loudness_boost = LOUDNESS_LOW_MAX_DB * (amount / LOUDNESS_MAX_AMOUNT)
+            if loudness_boost > boost:
+                boost = loudness_boost
+    return max(PREAMP_MIN_DB, min(PREAMP_MAX_DB, -boost))
+
+
 def validate_settings(submitted: Mapping[str, object]) -> EqualizerSettings:
     """Validate a flat HTML-form mapping and return canonical settings."""
     bands: List[EqualizerBand] = []
@@ -121,18 +158,25 @@ def validate_settings(submitted: Mapping[str, object]) -> EqualizerSettings:
                 "q": _number(submitted.get(prefix + "q", ""), f"Band {index} Q", 0.1, 10),
             }
         )
-    return {
+    loudness_amount = _number(
+        submitted.get("loudness_amount", ""),
+        "Loudness amount",
+        LOUDNESS_MIN_AMOUNT,
+        LOUDNESS_MAX_AMOUNT,
+    )
+    settings: EqualizerSettings = {
         "enabled": _boolean(submitted.get("eq_enabled", ""), "Equalizer"),
-        "preamp_db": _number(submitted.get("eq_preamp_db", ""), "Preamp", -24, 0),
+        # The preamp is set automatically (see computed_preamp_db); any submitted
+        # value is ignored so the field can be a read-only, informational display.
+        "preamp_db": 0.0,
         "bands": bands,
-        "loudness_enabled": _boolean(submitted.get("loudness_enabled", ""), "Loudness"),
-        "loudness_amount": _number(
-            submitted.get("loudness_amount", ""),
-            "Loudness amount",
-            LOUDNESS_MIN_AMOUNT,
-            LOUDNESS_MAX_AMOUNT,
-        ),
+        # Loudness has a single control now: the level. 0 turns it off, so the
+        # boolean is derived from the amount rather than a separate checkbox.
+        "loudness_enabled": loudness_amount > LOUDNESS_MIN_AMOUNT,
+        "loudness_amount": loudness_amount,
     }
+    settings["preamp_db"] = computed_preamp_db(settings)
+    return settings
 
 
 def serialize_equalizer(settings: EqualizerSettings) -> str:
@@ -251,7 +295,7 @@ def control_values(settings: EqualizerSettings, current_volume: float = 100.0) -
     """
     if not settings["enabled"]:
         return [0.0] * RUNTIME_CONTROL_VALUES
-    values: List[float] = [float(settings["preamp_db"])]
+    values: List[float] = [computed_preamp_db(settings)]
     for band in settings["bands"]:
         values.extend(
             (
@@ -264,7 +308,7 @@ def control_values(settings: EqualizerSettings, current_volume: float = 100.0) -
         )
     values.extend(
         (
-            1.0 if settings["loudness_enabled"] else 0.0,
+            1.0 if settings["loudness_amount"] > LOUDNESS_MIN_AMOUNT else 0.0,
             float(settings["loudness_amount"]),
             float(max(0.0, min(100.0, current_volume))),
         )

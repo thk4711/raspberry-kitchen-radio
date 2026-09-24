@@ -135,8 +135,11 @@ class DisplayRenderingMixin:
         """Render a placeholder art tile for a source with no cover/logo.
 
         For the Bluetooth source (which never carries cover art) this is a
-        dedicated Bluetooth-glyph tile in a calm blue. For every other source
-        it is a branded initials tile synthesised from the station name
+        dedicated Bluetooth-glyph tile in a calm blue, and for the USB source a
+        dedicated USB-glyph tile in a muted teal. Both glyphs are rasterised at
+        build time from the source SVGs (see ``logo_fallback`` and
+        ``scripts/render-source-glyphs.py``). For every other source it is a
+        branded initials tile synthesised from the station name
         (Workstream 6.3): a logoless radio station shows its initials.
 
         Uses the raw station name and a bold font sized to the tile so the
@@ -154,6 +157,8 @@ class DisplayRenderingMixin:
         size = max(1, min(self.logo_box.w, self.logo_box.h))
         if source == "bluetooth":
             return logo_fallback.render_bluetooth_tile(size, glyph_color=self.theme.text_color)
+        if source == "usb":
+            return logo_fallback.render_usb_tile(size, glyph_color=self.theme.text_color)
         fonts_dir = f"{self.module_location}/fonts"
         tile_font = self._load_font(
             f"{fonts_dir}/Roboto-Condensed-Bold.ttf",

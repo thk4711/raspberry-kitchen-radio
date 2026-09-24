@@ -18,11 +18,22 @@ from __future__ import annotations
 
 import colorsys
 import hashlib
+import os
 from typing import Optional, Tuple
 
 from PIL import Image, ImageDraw, ImageFont
 
 Color = Tuple[int, int, int]
+
+# Directory holding the pre-rasterised source glyph PNGs. The appliance image
+# ships no SVG rasteriser (only Pillow), so the two source symbols under
+# ``radio_web/static/`` are rasterised once on a build/dev host by
+# ``scripts/render-source-glyphs.py`` and committed here as white-on-transparent
+# PNGs. At runtime we load a PNG, tint it to the theme colour via its alpha
+# mask, and composite it onto the placeholder tile.
+_GLYPH_DIR = os.path.join(os.path.dirname(__file__), "glyphs")
+_USB_GLYPH = os.path.join(_GLYPH_DIR, "usb-symbol.png")
+_BLUETOOTH_GLYPH = os.path.join(_GLYPH_DIR, "bluetooth-symbol.png")
 
 # Placeholder tile colour for the Bluetooth source. Bluetooth A2DP/AVRCP carries
 # no cover art, so when a phone is connected the display would otherwise render
@@ -34,26 +45,12 @@ Color = Tuple[int, int, int]
 # rather than a random name-hashed hue.
 BLUETOOTH_TILE_COLOR: Color = (77, 107, 140)  # colorsys.hsv_to_rgb(212/360, 0.45, 0.55)
 
-# Official Bluetooth mark, transcribed from the public-domain SVG
-# (commons.wikimedia.org/wiki/File:Bluetooth.svg, viewBox 0 0 640 976,
-# single ``fill="none"`` stroked path, stroke-width 53). The path
-#   "m157 330 305 307 -147 178 V179 l147 170 -305 299"
-# decodes to this continuous polyline of absolute points:
-#   upper-left knee -> lower-right tip -> spine bottom -> spine top
-#   -> upper-right tip -> lower-left knee
-# The spine is the (315,815)<->(315,179) segment. Because it is just a stroked
-# polyline, Pillow's ``ImageDraw.line`` reproduces it exactly with no SVG
-# rasteriser (unavailable on the appliance) — we only scale it into the tile.
-_BT_VIEWBOX: Tuple[int, int] = (640, 976)
-_BT_STROKE: int = 53
-_BT_PATH: Tuple[Tuple[int, int], ...] = (
-    (157, 330),  # upper-left knee (path start)
-    (462, 637),  # lower-right tip
-    (315, 815),  # spine bottom
-    (315, 179),  # spine top
-    (462, 349),  # upper-right tip
-    (157, 648),  # lower-left knee
-)
+# Placeholder tile colour for the USB source. USB Audio Class delivers no cover
+# art either, so the USB source uses a dedicated USB-glyph tile. The colour is a
+# muted slate/teal from the same saturation/value family as the initials and
+# Bluetooth tiles (sat 0.45, val 0.55) at a cyan-teal hue (~192 deg) so it reads
+# as a sibling of the Bluetooth tile while staying distinct from it.
+USB_TILE_COLOR: Color = (77, 129, 140)  # colorsys.hsv_to_rgb(192/360, 0.45, 0.55)
 
 
 def initials(name: str, max_len: int = 2) -> str:
@@ -154,29 +151,28 @@ def render_initials_tile(
     return tile
 
 
-def render_bluetooth_tile(
+def _render_glyph_tile(
     size: int,
-    bg_color: Color = BLUETOOTH_TILE_COLOR,
-    glyph_color: Color = (255, 255, 255),
+    glyph_path: str,
+    bg_color: Color,
+    glyph_color: Color,
+    coverage: float = 0.72,
 ) -> Image.Image:
-    """Render an ``size`` x ``size`` RGBA tile with the Bluetooth glyph.
+    """Render a ``size`` x ``size`` RGBA tile with a pre-rasterised glyph.
 
-    Used as the placeholder art for the Bluetooth source, which never carries
-    cover art. The tile matches :func:`render_initials_tile` (a rounded square
-    with transparent corners) so the display composites and samples it exactly
-    like a real logo, but instead of name-derived initials it draws the official
-    Bluetooth mark.
-
-    The glyph is the public-domain ``Bluetooth.svg`` path (see :data:`_BT_PATH`)
-    scaled into the tile and stroked with :meth:`PIL.ImageDraw.line`. That SVG
-    is a single ``fill="none"`` stroked polyline, so this reproduces it exactly
-    with no SVG rasteriser (none is available on the appliance) and no font
-    dependency, staying crisp and deterministic at any tile size.
+    Draws the same rounded square as :func:`render_initials_tile`, then loads the
+    white-on-transparent PNG at ``glyph_path`` (produced from the source SVG by
+    ``scripts/render-source-glyphs.py``), tints it to ``glyph_color`` by keeping
+    its alpha as a mask, scales it to ``coverage`` of the tile preserving aspect
+    ratio, and composites it centred. Loading a committed PNG needs no SVG
+    rasteriser (none ships on the appliance) yet stays faithful to the SVG.
 
     Args:
         size: The tile's width and height in pixels.
-        bg_color: Tile background; defaults to :data:`BLUETOOTH_TILE_COLOR`.
-        glyph_color: Colour of the Bluetooth rune.
+        glyph_path: Path to a white-on-transparent RGBA glyph PNG.
+        bg_color: Tile background colour.
+        glyph_color: Colour the glyph is tinted to.
+        coverage: Fraction of the tile the glyph's longer side may occupy.
 
     Returns:
         An RGBA :class:`PIL.Image.Image` of ``size`` x ``size``.
@@ -187,34 +183,74 @@ def render_bluetooth_tile(
     radius = max(1, size // 8)
     draw.rounded_rectangle((0, 0, size - 1, size - 1), radius=radius, fill=bg_color + (255,))
 
-    # Scale the official SVG path into a centred region of the tile, preserving
-    # its (tall) aspect ratio. The glyph's own bounding box is computed from the
-    # path so the mark is centred no matter the vertices.
-    fill = glyph_color + (255,)
-    xs = [p[0] for p in _BT_PATH]
-    ys = [p[1] for p in _BT_PATH]
-    gx0, gx1 = min(xs), max(xs)
-    gy0, gy1 = min(ys), max(ys)
-    gw = gx1 - gx0
-    gh = gy1 - gy0
+    with Image.open(glyph_path) as img:
+        glyph = img.convert("RGBA")
 
-    # Leave a margin so the stroke (drawn centred on the path) never touches the
-    # rounded corners; ~72% of the tile is the drawable region.
-    avail = size * 0.72
+    # Scale the glyph to ``coverage`` of the tile, preserving aspect ratio.
+    avail = max(1, int(size * coverage))
+    gw, gh = glyph.size
     scale = min(avail / gw, avail / gh) if gw and gh else 1.0
-    # Centre the scaled bounding box in the tile.
-    off_x = (size - gw * scale) / 2.0 - gx0 * scale
-    off_y = (size - gh * scale) / 2.0 - gy0 * scale
-    points = [(x * scale + off_x, y * scale + off_y) for x, y in _BT_PATH]
+    nw = max(1, int(round(gw * scale)))
+    nh = max(1, int(round(gh * scale)))
+    glyph = glyph.resize((nw, nh), Image.Resampling.LANCZOS)
 
-    # Stroke width scales with the glyph, matching the SVG's 53/640 proportion.
-    width = max(1, int(round(_BT_STROKE * scale)))
+    # Tint: keep the glyph's alpha (coverage) but replace RGB with glyph_color,
+    # so the mark takes the theme colour regardless of the PNG's own colour.
+    alpha = glyph.split()[3]
+    tinted = Image.new("RGBA", glyph.size, glyph_color + (0,))
+    tinted.putalpha(alpha)
 
-    # One stroked polyline, exactly like the source SVG, with round joints.
-    draw.line(points, fill=fill, width=width, joint="curve")
-    # Round the two open path ends so they read soft on the small LCD (the SVG
-    # uses butt caps; rounded looks better at panel resolution).
-    r = width / 2.0
-    for px, py in (points[0], points[-1]):
-        draw.ellipse((px - r, py - r, px + r, py + r), fill=fill)
+    ox = (size - nw) // 2
+    oy = (size - nh) // 2
+    tile.paste(tinted, (ox, oy), tinted)
     return tile
+
+
+def render_bluetooth_tile(
+    size: int,
+    bg_color: Color = BLUETOOTH_TILE_COLOR,
+    glyph_color: Color = (255, 255, 255),
+) -> Image.Image:
+    """Render an ``size`` x ``size`` RGBA tile with the Bluetooth glyph.
+
+    Used as the placeholder art for the Bluetooth source, which never carries
+    cover art. The tile matches :func:`render_initials_tile` (a rounded square
+    with transparent corners) so the display composites and samples it exactly
+    like a real logo, but instead of name-derived initials it shows the
+    Bluetooth mark rasterised from ``radio_web/static/bluetooth-symbol.svg`` (see
+    :data:`_BLUETOOTH_GLYPH` and ``scripts/render-source-glyphs.py``).
+
+    Args:
+        size: The tile's width and height in pixels.
+        bg_color: Tile background; defaults to :data:`BLUETOOTH_TILE_COLOR`.
+        glyph_color: Colour of the Bluetooth rune.
+
+    Returns:
+        An RGBA :class:`PIL.Image.Image` of ``size`` x ``size``.
+    """
+    return _render_glyph_tile(size, _BLUETOOTH_GLYPH, bg_color, glyph_color)
+
+
+def render_usb_tile(
+    size: int,
+    bg_color: Color = USB_TILE_COLOR,
+    glyph_color: Color = (255, 255, 255),
+) -> Image.Image:
+    """Render an ``size`` x ``size`` RGBA tile with the USB glyph.
+
+    Used as the placeholder art for the USB Audio source, which delivers no
+    cover art. Like :func:`render_bluetooth_tile` it is a rounded square with
+    transparent corners so the display composites and samples it exactly like a
+    real logo, but it shows the USB trident rasterised from
+    ``radio_web/static/usb-symbol.svg`` (see :data:`_USB_GLYPH` and
+    ``scripts/render-source-glyphs.py``).
+
+    Args:
+        size: The tile's width and height in pixels.
+        bg_color: Tile background; defaults to :data:`USB_TILE_COLOR`.
+        glyph_color: Colour of the USB mark.
+
+    Returns:
+        An RGBA :class:`PIL.Image.Image` of ``size`` x ``size``.
+    """
+    return _render_glyph_tile(size, _USB_GLYPH, bg_color, glyph_color)

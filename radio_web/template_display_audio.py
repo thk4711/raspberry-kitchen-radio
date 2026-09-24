@@ -2,6 +2,7 @@
 
 from typing import Any, Dict, List, Mapping, Optional
 
+from . import equalizer_store
 from .template_common import (
     _esc,
     _flash_block,
@@ -29,6 +30,33 @@ def _checkbox(name: str, checked: bool, label: str) -> str:
     return (
         f'<label><input type="checkbox" name="{_esc(name)}" value="true"{mark}> '
         f"{_esc(label)}</label>"
+    )
+
+
+def _loudness_level_select(current: Any) -> str:
+    """Render the loudness-level ``<select>`` with integer options 0..max.
+
+    The persisted amount is a float (e.g. ``5.0``); the dropdown only offers the
+    whole integers in ``[LOUDNESS_MIN_AMOUNT, LOUDNESS_MAX_AMOUNT]``, so pick the
+    option nearest the stored value, clamped into range.
+    """
+    minimum = int(equalizer_store.LOUDNESS_MIN_AMOUNT)
+    maximum = int(equalizer_store.LOUDNESS_MAX_AMOUNT)
+    try:
+        selected_value = int(round(float(current)))
+    except (TypeError, ValueError):
+        selected_value = minimum
+    selected_value = max(minimum, min(maximum, selected_value))
+    options = "".join(
+        f'<option value="{value}"{" selected" if value == selected_value else ""}>'
+        f"{value}</option>"
+        for value in range(minimum, maximum + 1)
+    )
+    return (
+        '<select name="loudness_amount" '
+        'title="How strong the low-volume bass/treble boost is. 0 disables it; 10 is the '
+        'full Fletcher-Munson smile. The boost always tapers to nothing at full volume.">'
+        f"{options}</select>"
     )
 
 
@@ -187,28 +215,26 @@ def audio_hardware_page(
         '<div class="eq-flash" id="eq-flash" role="status" aria-live="polite"></div>'
         '<div class="eq-toolbar"><label class="switch-label"><input type="checkbox" '
         'name="eq_enabled" value="true"'
-        f'{" checked" if equalizer["enabled"] else ""}> Enable equalizer</label>'
-        '<label class="eq-preamp">Preamp Gain <input type="number" '
-        'title="Reduces the overall level before the filters to avoid clipping when you '
-        'boost bands. Defaults to -3 dB for headroom; lower it further (toward minus the '
-        'largest positive band gain) when boosting. 0 dB means no reduction." '
-        'name="eq_preamp_db" min="-24" max="0" '
-        f'step="0.1" value="{_esc(equalizer["preamp_db"])}"> dB</label>'
-        '<label class="switch-label eq-loudness"><input type="checkbox" '
-        'name="loudness_enabled" value="true" '
-        'title="Boosts bass and a little treble at low listening volumes and fades the '
-        'boost out as you turn up (Fletcher-Munson loudness compensation). It follows '
-        'the volume knob live and needs the equalizer enabled."'
-        f'{" checked" if equalizer["loudness_enabled"] else ""}> Loudness</label>'
-        '<label class="eq-loudness-amount">Loudness <input type="number" '
-        'title="How strong the low-volume bass/treble boost is. 0 disables it; 10 is the '
-        'full Fletcher-Munson smile. The boost always tapers to nothing at full volume." '
-        'name="loudness_amount" min="0" max="10" '
-        f'step="0.1" value="{_esc(equalizer["loudness_amount"])}"></label></div>'
-        '<p class="note eq-preamp-hint">Preamp Gain reduces the overall level before the '
-        "filters to avoid clipping when you boost bands. It defaults to -3 dB for headroom; "
-        "lower it further — toward about minus the largest positive band gain — when you "
-        "boost bands. 0 dB means no reduction.</p>"
+        f'{" checked" if equalizer["enabled"] else ""}> Enable equalizer</label></div>'
+        '<div class="eq-loudness-row">'
+        '<label class="eq-loudness-level">Loudness level '
+        f'{_loudness_level_select(equalizer["loudness_amount"])}'
+        '</label>'
+        '<span class="note eq-loudness-hint">Boosts bass and a little treble at low '
+        'listening volumes and fades out as you turn up (Fletcher-Munson loudness '
+        'compensation). It follows the volume knob live and needs the equalizer enabled. '
+        'Set the level to 0 to turn loudness off.</span>'
+        '</div>'
+        '<p class="eq-preamp" '
+        'title="Set automatically to prevent clipping from your enabled bands and '
+        'loudness level. It equals minus the largest boost in the chain, clamped to '
+        'the -24..0 dB range.">'
+        '<span class="eq-preamp-label">Preamp gain</span> '
+        f'<span class="eq-preamp-value" data-eq-preamp>{_esc(equalizer["preamp_db"])}</span>'
+        ' dB</p>'
+        '<p class="note eq-preamp-hint">Preamp gain is set automatically to reserve '
+        "headroom so your enabled bands and loudness level never clip. It equals about "
+        "minus the largest boost in the chain (0 dB when nothing is boosted).</p>"
         '<svg class="eq-graph" id="eq-graph" viewBox="0 0 900 320" role="img" '
         'aria-label="Equalizer frequency response from 20 hertz to 20 kilohertz"></svg>'
         '<div class="eq-band-head" aria-hidden="true"><span></span><span>On</span><span>Curve</span>'
@@ -269,7 +295,7 @@ def audio_hardware_page(
         "</form>"
         '<p><a href="/">Back to the dashboard</a></p>'
     )
-    return _page("Audio", body, script="/static/app.js?v=17")
+    return _page("Audio", body, script="/static/app.js?v=20")
 
 
 def audio_hardware_applied_page(

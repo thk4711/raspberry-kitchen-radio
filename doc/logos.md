@@ -146,14 +146,23 @@ stays valid. This means you can add a station first and drop in a real logo
 later. (All shipped presets have a real logo, so the tile is only seen for
 user-added logo-less stations.)
 
-The **Bluetooth** source is a special case of the same fallback: it never
-carries cover art, so instead of name-derived initials it renders a fixed
-**Bluetooth glyph on a muted-blue tile** (`render_bluetooth_tile`), keyed off the
-active source name in `DisplayController._fallback_logo()`. The glyph is the
-official Bluetooth mark: the public-domain `Bluetooth.svg` is a single stroked
-polyline, so its exact path is transcribed (`logo_fallback._BT_PATH`) and stroked
-with Pillow — reproducing the logo faithfully with no SVG rasteriser (none is on
-the appliance image) and no new dependency.
+The **Bluetooth** and **USB Audio** sources are special cases of the same
+fallback: they never carry cover art, so instead of name-derived initials they
+render a fixed source glyph on a muted-colour tile, keyed off the active source
+name in `DisplayController._fallback_logo()`:
+
+- **Bluetooth** → `render_bluetooth_tile` (Bluetooth mark on a muted-blue tile).
+- **USB Audio** → `render_usb_tile` (USB trident on a muted-teal tile).
+
+Both glyphs come from the committed SVGs under `radio_web/static/`
+(`bluetooth-symbol.svg`, `usb-symbol.svg`). Because the appliance image ships
+**no SVG rasteriser** (only Pillow), the SVGs are rasterised **once on a
+build/dev host** by [`scripts/render-source-glyphs.py`](../scripts/render-source-glyphs.py)
+into white-on-transparent PNGs under `lib/display/glyphs/` (committed, shipped
+verbatim by `radio-app.mk`'s `cp -a lib/`). At runtime `logo_fallback` loads the
+PNG, tints it to the theme colour via its alpha mask, and composites it centred
+on the tile — faithful to the SVG with no runtime SVG dependency. Re-run the
+script and re-commit the PNGs whenever a source SVG changes.
 
 ## Customizing the backdrop via `[ui]`
 

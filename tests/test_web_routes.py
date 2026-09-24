@@ -1642,8 +1642,19 @@ class TestAudioHardwareRoutes:
         assert 'value="apply_equalizer"' in body
         assert 'name="ajax" value=""' in body
         assert 'id="eq-flash"' in body
-        assert 'src="/static/app.js?v=17"' in body
-        assert 'name="eq_preamp_db" min="-24" max="0" step="0.1" value="-3.0"' in body
+        assert 'src="/static/app.js?v=20"' in body
+        # Preamp gain is now an automatic, plain-text read-out (no form field).
+        assert 'name="eq_preamp_db"' not in body
+        assert "data-eq-preamp>-3.0</span>" in equalizer_form
+        assert "Preamp gain" in equalizer_form
+        assert "Loudness level" in equalizer_form
+        # Enable equalizer comes first, then Loudness level, then Preamp gain.
+        assert (
+            equalizer_form.index("Enable equalizer")
+            < equalizer_form.index("Loudness level")
+            < equalizer_form.index("Preamp gain")
+        )
+        assert 'name="loudness_enabled"' not in body
         assert "Save and Apply updates the sound live without interrupting playback" in body
 
         script = (Path(routes.__file__).with_name("static") / "app.js").read_text(encoding="utf-8")
@@ -1750,13 +1761,13 @@ class TestAudioHardwareRoutes:
             key: str(value).lower() if isinstance(value, bool) else str(value)
             for key, value in equalizer_store.settings_as_form(equalizer_store.defaults()).items()
         }
-        # Out-of-range preamp (valid range is -24..0) is rejected by the store.
+        # Out-of-range loudness amount (valid range is 0..10) is rejected by the store.
         form.update(
             {
                 "op": "apply_equalizer",
                 "ajax": "1",
                 "csrf_token": session.csrf_token,
-                "eq_preamp_db": "99",
+                "loudness_amount": "99",
             }
         )
         req = self._ctx(

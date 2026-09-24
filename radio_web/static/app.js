@@ -71,15 +71,20 @@
     const curve = add("path", { class: "eq-curve" });
     const points = bands.map((band, index) => add("circle", { r: 8, fill: colors[index], class: "eq-point", tabindex: 0 }));
     const enabledControl = document.querySelector('[name="eq_enabled"]');
-    const preampControl = document.querySelector('[name="eq_preamp_db"]');
-    const loudnessControl = document.querySelector('[name="loudness_enabled"]');
+    const preampDisplay = document.querySelector('[data-eq-preamp]');
     const loudnessAmountControl = document.querySelector('[name="loudness_amount"]');
     const resetControl = document.querySelector('[value="restore_equalizer"]');
     const flatFrequencies = [60, 120, 250, 500, 1000, 2000, 4000, 8000, 12000, 16000];
     // Preview loudness at a representative low volume so the graph shows the
     // boost shape; on the device the boost tapers live with the volume knob.
-    // Keep these in sync with radio_equalizer.c.
+    // Keep these in sync with radio_equalizer.c and equalizer_store.py.
     const LOUDNESS_PREVIEW_VOLUME = 25;
+    const LOUDNESS_MAX_AMOUNT = 10;
+    // Preamp headroom range and the worst-case loudness low-shelf boost, mirroring
+    // equalizer_store.computed_preamp_db so the read-only field matches the server.
+    const LOUDNESS_LOW_MAX_DB = 10;
+    const PREAMP_MIN_DB = -24;
+    const PREAMP_MAX_DB = 0;
     const LOUDNESS_LOW = { frequency: 120, maxDb: 10, q: 0.7, type: "low_shelf" };
     const LOUDNESS_HIGH = { frequency: 10000, maxDb: 4, q: 0.7, type: "high_shelf" };
 
@@ -125,10 +130,13 @@
       const dr = 1 + a1 * c1 + a2 * c2, di = -a1 * s1 - a2 * s2;
       return 10 * Math.log10(Math.max(1e-12, (nr * nr + ni * ni) / (dr * dr + di * di)));
     }
+    function loudnessAmount() {
+      return Math.max(0, Math.min(LOUDNESS_MAX_AMOUNT, Number(loudnessAmountControl && loudnessAmountControl.value) || 0));
+    }
     function loudnessResponse(frequency) {
-      if (!enabledControl.checked || !loudnessControl || !loudnessControl.checked) return 0;
-      const amount = Math.max(0, Math.min(10, Number(loudnessAmountControl.value) || 0));
-      const scale = (amount / 10) * (1 - LOUDNESS_PREVIEW_VOLUME / 100);
+      const amount = loudnessAmount();
+      if (!enabledControl.checked || amount <= 0) return 0;
+      const scale = (amount / LOUDNESS_MAX_AMOUNT) * (1 - LOUDNESS_PREVIEW_VOLUME / 100);
       if (scale <= 0) return 0;
       const low = { enabled: true, type: LOUDNESS_LOW.type, frequency: LOUDNESS_LOW.frequency,
         gain: LOUDNESS_LOW.maxDb * scale, q: LOUDNESS_LOW.q };
@@ -136,10 +144,26 @@
         gain: LOUDNESS_HIGH.maxDb * scale, q: LOUDNESS_HIGH.q };
       return magnitude(low, frequency) + magnitude(high, frequency);
     }
+    // Mirror equalizer_store.computed_preamp_db: reserve headroom for the largest
+    // boost in the chain (enabled band gains + the worst-case loudness low shelf).
+    function computedPreamp(values) {
+      if (!enabledControl.checked) return 0;
+      let boost = 0;
+      values.forEach((value) => { if (value.enabled && value.gain > boost) boost = value.gain; });
+      const amount = loudnessAmount();
+      if (amount > 0) {
+        const loudnessBoost = LOUDNESS_LOW_MAX_DB * (amount / LOUDNESS_MAX_AMOUNT);
+        if (loudnessBoost > boost) boost = loudnessBoost;
+      }
+      return Math.max(PREAMP_MIN_DB, Math.min(PREAMP_MAX_DB, -boost));
+    }
     function redraw() {
       const values = bands.map(bandValues);
       const equalizerEnabled = enabledControl.checked;
-      const preamp = equalizerEnabled ? Number(preampControl.value) || 0 : 0;
+      const preamp = computedPreamp(values);
+      // The preamp is an automatic, informational read-out (plain text, not a
+      // form field): the server recomputes it, so we only mirror it here.
+      if (preampDisplay) preampDisplay.textContent = (Math.round(preamp * 10) / 10).toFixed(1);
       let path = "";
       for (let pixel = left; pixel <= right; pixel += 3) {
         const frequency = frequencyForX(pixel);
@@ -159,6 +183,25 @@
         points[index].setAttribute("aria-disabled", interactive ? "false" : "true");
         points[index].classList.toggle("enabled", interactive);
       });
+    }
+    // When the equalizer is disabled, gray out and disable the dependent
+    // controls (loudness level and the per-band inputs) so it is clear they
+    // only take effect with the equalizer on. The Enable checkbox and the
+    // Save/Apply/Reset buttons stay active so the user can still turn the
+    // equalizer off and save.
+    const eqCard = document.getElementById("parametric-equalizer");
+    function dependentFields() {
+      const dependents = [];
+      if (loudnessAmountControl) dependents.push(loudnessAmountControl);
+      bands.forEach((band) => {
+        band.querySelectorAll("input, select").forEach((field) => dependents.push(field));
+      });
+      return dependents;
+    }
+    function syncDependentState() {
+      const on = enabledControl.checked;
+      dependentFields().forEach((field) => { field.disabled = !on; });
+      if (eqCard) eqCard.classList.toggle("eq-disabled", !on);
     }
     function drag(index, event) {
       const rect = eqGraph.getBoundingClientRect();
@@ -180,19 +223,18 @@
       point.addEventListener("pointerup", () => point.removeEventListener("pointermove", move), { once: true });
     }));
     bands.forEach((band) => band.addEventListener("input", redraw));
-    enabledControl.addEventListener("input", redraw);
-    preampControl.addEventListener("input", redraw);
-    if (loudnessControl) loudnessControl.addEventListener("input", redraw);
-    if (loudnessAmountControl) loudnessAmountControl.addEventListener("input", redraw);
+    enabledControl.addEventListener("input", () => { syncDependentState(); redraw(); });
+    if (loudnessAmountControl) {
+      loudnessAmountControl.addEventListener("input", redraw);
+      loudnessAmountControl.addEventListener("change", redraw);
+    }
     // Reset the controls and graph immediately on pointer activation. The form
     // submission still performs the authoritative server-side reset/apply; this
     // prevents the old curve and dragged dot positions lingering while service
     // restarts are in progress.
     resetControl.addEventListener("click", () => {
       enabledControl.checked = false;
-      preampControl.value = "-3";
-      if (loudnessControl) loudnessControl.checked = false;
-      if (loudnessAmountControl) loudnessAmountControl.value = "5";
+      if (loudnessAmountControl) loudnessAmountControl.value = "0";
       bands.forEach((band, index) => {
         const get = (suffix) => band.querySelector(`[name$="_${suffix}"]`);
         get("enabled").checked = false;
@@ -201,6 +243,7 @@
         get("gain_db").value = "0";
         get("q").value = "1";
       });
+      syncDependentState();
       redraw();
     });
     // Progressive enhancement: submit the EQ form via fetch so the page never
@@ -226,7 +269,13 @@
       eqForm.addEventListener("submit", async (event) => {
         if (submitting) return;
         event.preventDefault();
+        // Disabled fields are omitted from FormData; the server needs every band
+        // value even when the equalizer is off, so momentarily re-enable the
+        // dependents while snapshotting the form, then restore the gray-out.
+        const on = enabledControl.checked;
+        dependentFields().forEach((field) => { field.disabled = false; });
         const body = new URLSearchParams(new FormData(eqForm));
+        if (!on) syncDependentState();
         body.set("op", pendingOp);
         body.set("ajax", "1");
         submitting = true;
@@ -246,8 +295,10 @@
           if (!response.ok || typeof payload.ok !== "boolean") throw new Error("bad response");
         } catch (_error) {
           // Fall back to a full submit (also handles a 403/redirect that is not JSON).
+          // Re-enable dependents so a disabled equalizer still posts every band.
           submitting = false;
           ajaxField.value = "";
+          dependentFields().forEach((field) => { field.disabled = false; });
           eqForm.submit();
           return;
         }
@@ -255,6 +306,7 @@
         showFlash(payload.message || (payload.ok ? "Done." : "Could not apply the equalizer."), payload.ok);
       });
     }
+    syncDependentState();
     redraw();
   }
   const wizard = document.getElementById("firmware-wizard");

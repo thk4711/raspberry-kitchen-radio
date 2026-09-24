@@ -157,27 +157,11 @@ def edit_config_txt(text: str, profile: audio_hardware_store.AudioProfile) -> st
 
 
 def _equalizer_controls(settings: equalizer_store.EqualizerSettings) -> str:
-    values = [settings["preamp_db"]]
-    for band in settings["bands"]:
-        values.extend(
-            (
-                1 if band["enabled"] else 0,
-                equalizer_store.FILTER_TYPE_IDS[band["type"]],
-                band["frequency"],
-                band["gain_db"],
-                band["q"],
-            )
-        )
-    # Loudness controls (enabled, amount, current volume). The static asound.conf
-    # is only the fallback used before the live runtime file exists, so seed the
-    # volume at full (100 -> no boost); the ADC loop then tapers it live.
-    values.extend(
-        (
-            1 if settings["loudness_enabled"] else 0,
-            settings["loudness_amount"],
-            100,
-        )
-    )
+    # Reuse the single source of truth for the LADSPA control values (automatic
+    # preamp, band fields, loudness). The static asound.conf is only the fallback
+    # used before the live runtime file exists, so seed the current volume at full
+    # (100 -> no loudness boost); the ADC loop then tapers it live.
+    values = equalizer_store.control_values(settings, current_volume=100.0)
     return "\n".join(f"                    {index} {value:g}" for index, value in enumerate(values))
 
 

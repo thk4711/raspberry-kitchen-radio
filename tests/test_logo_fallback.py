@@ -95,8 +95,8 @@ class TestRenderBluetoothTile:
 
     def test_uses_blue_background(self):
         tile = logo_fallback.render_bluetooth_tile(120)
-        # A point inside the rounded rect but away from the centred glyph is
-        # the blue tile background, not the white rune.
+        # A corner point inside the rounded rect but away from the centred glyph
+        # is the blue tile background, not the white rune.
         assert tile.getpixel((10, 10))[:3] == logo_fallback.BLUETOOTH_TILE_COLOR
 
     def test_has_opaque_and_transparent_pixels(self):
@@ -111,48 +111,11 @@ class TestRenderBluetoothTile:
         b = logo_fallback.render_bluetooth_tile(100)
         assert a.tobytes() == b.tobytes()
 
-    def test_has_vertical_spine(self):
-        # The central stem must be drawn (regression: an earlier polyline drew
-        # the two bows but omitted the vertical spine, leaving an "X"). Sample
-        # the actual spine column derived from the official path geometry.
-        size = 200
-        tile = logo_fallback.render_bluetooth_tile(size, glyph_color=(255, 255, 255))
-        xs = [p[0] for p in logo_fallback._BT_PATH]
-        ys = [p[1] for p in logo_fallback._BT_PATH]
-        gx0, gx1 = min(xs), max(xs)
-        gy0, gy1 = min(ys), max(ys)
-        scale = (size * 0.72) / (gy1 - gy0)  # tall glyph -> height-limited
-        off_x = (size - (gx1 - gx0) * scale) / 2.0 - gx0 * scale
-        off_y = (size - (gy1 - gy0) * scale) / 2.0 - gy0 * scale
-        spine_x = int(315 * scale + off_x)  # spine vertices are at x=315
-        # Every point down the spine's vertical extent is the white glyph.
-        for gy in (200, 350, 500, 650, 790):
-            py = int(gy * scale + off_y)
-            assert tile.getpixel((spine_x, py))[:3] == (255, 255, 255)
-
-    def test_bows_are_asymmetric_left_and_right(self):
-        # The official mark reaches right (tips) and left (knees) of the spine;
-        # both the upper-right and lower-left quadrants must contain glyph pixels.
-        size = 200
-        tile = logo_fallback.render_bluetooth_tile(size, glyph_color=(255, 255, 255))
-        white = (255, 255, 255)
-        upper_right = any(
-            tile.getpixel((x, y))[:3] == white
-            for x in range(size // 2, size)
-            for y in range(0, size // 2)
-        )
-        lower_left = any(
-            tile.getpixel((x, y))[:3] == white
-            for x in range(0, size // 2)
-            for y in range(size // 2, size)
-        )
-        assert upper_right and lower_left
-
     def test_draws_glyph_over_background(self):
         # The rune is drawn in glyph_color, so some pixels differ from the plain
         # background (i.e. the tile is not a flat blue square).
         tile = logo_fallback.render_bluetooth_tile(120, glyph_color=(255, 255, 255))
-        colors = {tile.getpixel((x, y))[:3] for x in range(0, 120, 4) for y in range(0, 120, 4)}
+        colors = {tile.getpixel((x, y))[:3] for x in range(0, 120, 2) for y in range(0, 120, 2)}
         assert (255, 255, 255) in colors
         assert logo_fallback.BLUETOOTH_TILE_COLOR in colors
 
@@ -162,4 +125,42 @@ class TestRenderBluetoothTile:
 
     def test_min_size_does_not_crash(self):
         tile = logo_fallback.render_bluetooth_tile(1)
+        assert tile.size == (1, 1)
+
+
+class TestRenderUsbTile:
+    def test_size_and_mode(self):
+        tile = logo_fallback.render_usb_tile(120)
+        assert tile.size == (120, 120)
+        assert tile.mode == "RGBA"
+
+    def test_uses_teal_background(self):
+        tile = logo_fallback.render_usb_tile(120)
+        # A corner point inside the rounded rect but away from the centred glyph
+        # is the teal tile background, not the white glyph.
+        assert tile.getpixel((10, 10))[:3] == logo_fallback.USB_TILE_COLOR
+
+    def test_has_opaque_and_transparent_pixels(self):
+        tile = logo_fallback.render_usb_tile(120)
+        alpha = tile.split()[3]
+        lo, hi = alpha.getextrema()
+        assert lo == 0 and hi == 255
+
+    def test_deterministic_bytes(self):
+        a = logo_fallback.render_usb_tile(100)
+        b = logo_fallback.render_usb_tile(100)
+        assert a.tobytes() == b.tobytes()
+
+    def test_draws_glyph_over_background(self):
+        tile = logo_fallback.render_usb_tile(120, glyph_color=(255, 255, 255))
+        colors = {tile.getpixel((x, y))[:3] for x in range(0, 120, 2) for y in range(0, 120, 2)}
+        assert (255, 255, 255) in colors
+        assert logo_fallback.USB_TILE_COLOR in colors
+
+    def test_explicit_bg_color_used(self):
+        tile = logo_fallback.render_usb_tile(60, bg_color=(10, 20, 30))
+        assert tile.getpixel((5, 30))[:3] == (10, 20, 30)
+
+    def test_min_size_does_not_crash(self):
+        tile = logo_fallback.render_usb_tile(1)
         assert tile.size == (1, 1)

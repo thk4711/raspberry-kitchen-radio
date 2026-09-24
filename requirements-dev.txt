@@ -47,3 +47,11 @@ numpy>=1.24
 Pillow>=10.0
 PyYAML>=6.0
 
+# Build/dev-time only: rasterises the source-symbol SVGs
+# (radio_web/static/{usb,bluetooth}-symbol.svg) into the committed PNG glyphs
+# under lib/display/glyphs/ via scripts/render-source-glyphs.py. The appliance
+# image ships NO SVG rasteriser, so cairosvg is never installed on the target;
+# only the pre-rendered PNGs ship.
+cairosvg>=2.7
+
+

@@ -8,19 +8,42 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Source glyphs rendered from SVG.** The USB and Bluetooth placeholder tiles
+  (shown when a source carries no cover art) now use glyphs derived from the
+  committed SVGs `radio_web/static/usb-symbol.svg` and
+  `radio_web/static/bluetooth-symbol.svg`. Because the appliance image ships no
+  SVG rasteriser, the new `scripts/render-source-glyphs.py` (dev/build-time,
+  using the new dev-only `cairosvg`) rasterises them into white-on-transparent
+  PNGs under `lib/display/glyphs/`, which are committed and shipped verbatim.
+  `logo_fallback` loads a PNG at runtime, tints it to the theme colour via its
+  alpha mask, and composites it centred on the tile. The **USB source now shows
+  a dedicated USB-trident glyph on a muted-teal tile** (`render_usb_tile`,
+  selected per source in `DisplayController._fallback_logo()`) instead of the
+  generic `"US"` initials tile it fell back to before.
 - **Loudness compensation for the parametric equalizer.** The Audio page's
-  equalizer form gained a **Loudness** toggle and a `0`–`10` amount control that
-  add a Fletcher-Munson "smile": a low shelf (~120 Hz, up to +10 dB) and a gentle
-  high shelf (~10 kHz, up to +4 dB) whose boost tracks the volume knob live and
-  tapers to `0 dB` at full volume. It lives inside the existing `radio_equalizer`
-  LADSPA plugin (so it is active while the equalizer is enabled) and rides the
-  same live `/run/radio/equalizer.rt` runtime file, so both the controls and the
-  volume-knob movement apply without interrupting playback. The runtime layout
-  grew three control floats (loudness enabled, amount, current volume) and its
-  magic was bumped `REA1`→`REA2`; `radio.py` pushes the current volume into the
-  runtime file from the ADC volume loop. Settings persist in `equalizer.ini`
-  (new `[loudness]` section) and survive A/B firmware updates. The graph previews
-  the loudness shape at a representative low volume.
+  equalizer form gained a **Loudness Level** control (`0`–`10`, where `0` is off)
+  that adds a Fletcher-Munson "smile": a low shelf (~120 Hz, up to +10 dB) and a
+  gentle high shelf (~10 kHz, up to +4 dB) whose boost tracks the volume knob live
+  and tapers to `0 dB` at full volume. There is no separate on/off switch — the
+  level is the control. It lives inside the existing `radio_equalizer` LADSPA
+  plugin (so it is active while the equalizer is enabled) and rides the same live
+  `/run/radio/equalizer.rt` runtime file, so both the control and the volume-knob
+  movement apply without interrupting playback. The runtime layout grew three
+  control floats (loudness enabled, amount, current volume) and its magic was
+  bumped `REA1`→`REA2`; `radio.py` pushes the current volume into the runtime file
+  from the ADC volume loop. Settings persist in `equalizer.ini` (new `[loudness]`
+  section) and survive A/B firmware updates. The graph previews the loudness shape
+  at a representative low volume.
+- **Automatic anti-clipping preamp for the equalizer.** The **Preamp Gain** field
+  is now computed and shown read-only instead of being user-editable. It reserves
+  headroom equal to about minus the largest boost in the chain — the biggest
+  positive gain among the enabled bands, or the loudness low-shelf boost,
+  whichever is greater — clamped to the `-24`…`0 dB` range, so boosted bands and
+  loudness never clip. A flat EQ with no loudness needs no reduction (`0 dB`). The
+  value updates live as bands and the loudness level change, both in the browser
+  preview and in the applied ALSA/runtime values. The read-only field is also
+  sized to fit its `-24`…`0 dB` range. See
+  [`doc/equalizer.md`](doc/equalizer.md#global-controls).
 - **Change the root/SSH password from the web interface.** The Device settings
   page gained a **Change root password** control directly below Enable SSH. It
   posts to a dedicated `/device/root-password` route (auth + CSRF), confirms the
@@ -77,6 +100,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   USB).
 
 ### Fixed
+- **AirPlay now-playing metadata and cover art restored on the shairport-sync
+  development branch.** The 5.x development branch defaults to AirPlay-2 *plist*
+  metadata (`diagnostics.get_plist_metadata = "yes"`), which shairport-sync routes
+  only to its D-Bus/MPRIS interface and never writes to the classic metadata FIFO
+  that [`AirplayMetadataProcessor`](lib/airplay_service/airplay_metadata_processor.py)
+  reads — so title/artist/album and artwork silently disappeared after the
+  4.3.7→5.6-dev pin change while audio kept playing. `airplay.conf` now pins
+  `diagnostics.get_plist_metadata = "no"`, which advertises the classic metadata
+  feature bits (15/16/17 instead of bit 50) so metadata flows through the FIFO as
+  before. Documented in [`doc/airplay.md`](doc/airplay.md) (the option is upstream-
+  *Deprecated*, so re-verify after every pin bump).
 - **Buildroot image build no longer fails on the pinned shairport-sync
   development commit.** Repointing the mainline package's `_VERSION`/`_SITE` from
   `buildroot/external/external.mk` proved unreliable: the mainline `.mk` is
@@ -371,13 +405,14 @@ controls, and the local web administration interface).
 
 ### Changed
 - **Bluetooth placeholder art.** When a Bluetooth phone is connected (no cover
-  art over A2DP/AVRCP), the display now renders the **official Bluetooth logo on
+  art over A2DP/AVRCP), the display now renders the **Bluetooth logo on
   a muted-blue tile** instead of the name-derived initials tile (which, with a
-  blank artist, showed a "?" on a violet chip). The glyph is the public-domain
-  `Bluetooth.svg` path transcribed and stroked with Pillow — faithful to the
-  official mark with no SVG rasteriser or new dependency
-  (`logo_fallback.render_bluetooth_tile`, selected per source in
-  `DisplayController._fallback_logo()`).
+  blank artist, showed a "?" on a violet chip). The glyph is rasterised at build
+  time from `radio_web/static/bluetooth-symbol.svg` into a committed PNG and
+  tinted with Pillow at runtime — faithful to the mark with no runtime SVG
+  rasteriser (`logo_fallback.render_bluetooth_tile`, selected per source in
+  `DisplayController._fallback_logo()`). Previously the glyph was a hand-
+  transcribed polyline stroked with Pillow.
 - `radio.py` startup progress now goes through `logging` instead of `print()`.
 - `pyproject.toml` declares `requires-python = ">=3.9"` and project metadata.
 - **Web administration — reorganised display/audio pages.** The web UI's

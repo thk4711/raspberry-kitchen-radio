@@ -42,7 +42,6 @@ def test_save_and_load_round_trip(managed):
 @pytest.mark.parametrize(
     ("field", "value"),
     [
-        ("eq_preamp_db", "1"),
         ("eq_band_1_frequency", "10"),
         ("eq_band_1_gain_db", "nan"),
         ("eq_band_1_q", "inf"),
@@ -68,15 +67,28 @@ def test_enabled_equalizer_wraps_default_and_serializes_all_controls():
     assert 'slave.pcm "radio_equalizer"' in rendered
     assert 'slave.pcm "hw:CARD=Headphones,DEV=0"' in rendered
     assert "sysdefault:CARD=Headphones" not in rendered
-    assert "                    0 -6" in rendered
+    # The preamp is automatic; _form() has no boosts or loudness, so it is 0 dB.
+    assert "                    0 0" in rendered
     assert "                    1 1" in rendered
     assert "                    2 3" in rendered
     assert "                    3 80" in rendered
 
 
+def test_enabled_equalizer_preamp_reserves_headroom_for_boost():
+    form = _form()
+    form["eq_band_5_enabled"] = "true"
+    form["eq_band_5_type"] = "bell"
+    form["eq_band_5_gain_db"] = "9"
+    settings = equalizer_store.validate_settings(form)
+    rendered = audio_hardware_apply.render_asound(
+        audio_hardware_store.PROFILES["headphones"], settings
+    )
+    # Preamp is minus the largest positive band gain.
+    assert "                    0 -9" in rendered
+
+
 def test_control_values_include_loudness_triple():
     form = _form()
-    form["loudness_enabled"] = "true"
     form["loudness_amount"] = "8"
     settings = equalizer_store.validate_settings(form)
     values = equalizer_store.control_values(settings, current_volume=30.0)
@@ -87,6 +99,68 @@ def test_control_values_include_loudness_triple():
     # Volume is clamped to 0..100.
     high = equalizer_store.control_values(settings, current_volume=250.0)
     assert high[equalizer_store.RUNTIME_CONTROL_VALUES - 1] == 100.0
+
+
+def test_loudness_amount_zero_disables_loudness():
+    # A level of 0 is equivalent to loudness off: the derived flag and the
+    # runtime "enabled" control are both cleared.
+    form = _form()
+    form["loudness_amount"] = "0"
+    settings = equalizer_store.validate_settings(form)
+    assert settings["loudness_enabled"] is False
+    values = equalizer_store.control_values(settings, current_volume=30.0)
+    assert values[equalizer_store.RUNTIME_CONTROL_VALUES - 3] == 0.0
+
+
+def test_computed_preamp_reserves_headroom():
+    form = _form()
+    # A flat, band-only EQ with no loudness and no boosts needs no reduction.
+    form["loudness_amount"] = "0"
+    for index in range(1, equalizer_store.MAX_BANDS + 1):
+        form[f"eq_band_{index}_enabled"] = "false"
+        form[f"eq_band_{index}_type"] = "bell"
+        form[f"eq_band_{index}_gain_db"] = "0"
+    flat = equalizer_store.validate_settings(form)
+    assert equalizer_store.computed_preamp_db(flat) == 0.0
+
+    # Loudness at full level reserves the low-shelf headroom (LOUDNESS_LOW_MAX_DB).
+    loud = dict(form)
+    loud["loudness_amount"] = "10"
+    assert (
+        equalizer_store.computed_preamp_db(equalizer_store.validate_settings(loud))
+        == -equalizer_store.LOUDNESS_LOW_MAX_DB
+    )
+
+    # A boosted enabled band reserves headroom equal to its gain.
+    boosted = dict(form)
+    boosted["eq_band_2_enabled"] = "true"
+    boosted["eq_band_2_gain_db"] = "12"
+    assert equalizer_store.computed_preamp_db(equalizer_store.validate_settings(boosted)) == -12.0
+
+    # The largest boost wins (band vs loudness).
+    both = dict(boosted)
+    both["loudness_amount"] = "10"
+    assert equalizer_store.computed_preamp_db(equalizer_store.validate_settings(both)) == -12.0
+
+
+def test_computed_preamp_off_when_equalizer_disabled():
+    form = _form()
+    form["eq_enabled"] = "false"
+    form["loudness_amount"] = "10"
+    form["eq_band_1_enabled"] = "true"
+    form["eq_band_1_gain_db"] = "15"
+    settings = equalizer_store.validate_settings(form)
+    # A disabled stage passes through untouched, so no preamp reduction applies.
+    assert equalizer_store.computed_preamp_db(settings) == 0.0
+
+
+def test_validate_sets_preamp_automatically():
+    form = _form()
+    form["loudness_amount"] = "10"
+    # Any submitted preamp is ignored; the stored value is the computed one.
+    form["eq_preamp_db"] = "0"
+    settings = equalizer_store.validate_settings(form)
+    assert settings["preamp_db"] == -equalizer_store.LOUDNESS_LOW_MAX_DB
 
 
 def test_loudness_round_trips_through_ini(managed):
@@ -111,7 +185,6 @@ def test_write_runtime_volume_tracks_knob_and_preserves_settings(managed, monkey
     rt = tmp_path / "run" / "equalizer.rt"
     monkeypatch.setenv("RADIO_EQUALIZER_RT", str(rt))
     form = _form()
-    form["loudness_enabled"] = "true"
     form["loudness_amount"] = "6"
     equalizer_store.save_equalizer(form)
     # A full EQ write seeds the file (volume defaults to 100 when absent).
@@ -183,7 +256,7 @@ def test_control_values_order_and_disabled_bypass():
     settings = equalizer_store.validate_settings(_form())
     values = equalizer_store.control_values(settings)
     assert len(values) == equalizer_store.RUNTIME_CONTROL_VALUES
-    assert values[0] == -6.0  # preamp
+    assert values[0] == 0.0  # automatic preamp (no boosts, no loudness -> 0 dB)
     assert values[1] == 1.0  # band 1 enabled
     assert values[2] == float(equalizer_store.FILTER_TYPE_IDS["high_pass"])
     assert values[3] == 80.0  # band 1 frequency

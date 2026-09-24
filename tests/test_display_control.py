@@ -781,6 +781,18 @@ def test_bluetooth_fallback_is_blue_glyph_tile(controller):
     assert tile.getpixel((2, tile.size[1] // 2))[:3] == logo_fallback.BLUETOOTH_TILE_COLOR
 
 
+def test_usb_fallback_is_teal_glyph_tile(controller):
+    # USB Audio carries no cover art; with a blank artist the placeholder must
+    # be the dedicated teal USB-glyph tile, not the "?" initials tile.
+    controller.update_metadata("", "", "", "0", state=True, art_mode="cover", source="usb")
+    tile = controller._fallback_logo()
+    assert tile.mode == "RGBA"
+    assert tile.size[0] == tile.size[1]
+    # A body pixel (inside the rounded rect, off the centred glyph) is the teal
+    # USB tile colour rather than a name-hashed initials-tile colour.
+    assert tile.getpixel((2, tile.size[1] // 2))[:3] == logo_fallback.USB_TILE_COLOR
+
+
 def test_non_bluetooth_fallback_still_uses_initials(controller):
     # A logoless radio station keeps its branded initials tile (WS6.3): its
     # body colour is the name-derived tile colour, not the Bluetooth blue.

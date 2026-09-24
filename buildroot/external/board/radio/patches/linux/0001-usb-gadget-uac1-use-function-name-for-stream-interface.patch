@@ -39,7 +39,7 @@ index d17690b60504..252b35026d73 100644
  	opts->req_number = UAC1_DEF_REQ_NUM;
  
 -	scnprintf(opts->function_name, sizeof(opts->function_name), "AC Interface");
-+	scnprintf(opts->function_name, sizeof(opts->function_name), "Raspberry Radio USB Audio");
++	scnprintf(opts->function_name, sizeof(opts->function_name), "PiSonic USB Audio");
  
  	scnprintf(opts->p_it_name, sizeof(opts->p_it_name), "Capture Input terminal");
  	scnprintf(opts->p_it_ch_name, sizeof(opts->p_it_ch_name), "Capture Channels");

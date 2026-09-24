@@ -213,17 +213,19 @@ Above the output settings and their Apply/Restore controls, a separate form
 provides a ten-band **parametric equalizer**. Enable or bypass the
 whole EQ, choose bell, low/high shelf, or low/high-pass for each band, and edit
 frequency, gain and Q. The logarithmic response graph updates immediately and
-bell/shelf points can be dragged. A preamp control supplies headroom for boosted
-bands, and an optional **loudness** control (with a `0`–`10` amount) adds a
+bell/shelf points can be dragged. An automatic preamp (shown as plain text)
+reserves headroom for boosted bands and loudness so nothing clips, and an optional
+**loudness level** (`0`–`10`, where `0` is off) adds a
 Fletcher-Munson bass/treble boost that tracks the volume knob live and tapers to
 nothing at full volume. **Save and Apply** updates the sound live — ordinary
-band, preamp and loudness changes are pushed to the
+band and loudness changes are pushed to the
 running LADSPA plugin without interrupting playback. Only enabling or disabling
 the whole equalizer regenerates the ALSA route and briefly restarts PiSonic
 application, MPD, AirPlay/Spotify, Bluetooth and the USB Audio bridge so every
 source reopens it.
-**Reset flat** disables the EQ and restores the preamp, all bands, and all graph
-dots to their flat defaults. Settings are stored in `/etc/radio/equalizer.ini`.
+**Reset flat** disables the EQ and restores every band and graph dot to their
+flat defaults (and clears the loudness level); the preamp read-out then follows
+automatically. Settings are stored in `/etc/radio/equalizer.ini`.
 See the dedicated [Parametric equalizer guide](equalizer.md) for filter choices,
 headroom, troubleshooting, persistence and developer architecture.
 
