@@ -592,7 +592,8 @@ def main(argv: Sequence[str] | None = None) -> int:
     else:
         print("= skipping build (--skip-build); reusing existing artifacts")
 
-    args.artifacts_dir.mkdir(parents=True, exist_ok=True)
+    if not args.dry_run:
+        args.artifacts_dir.mkdir(parents=True, exist_ok=True)
     clean_image = args.artifacts_dir / f"pisonic-{args.version}-sdcard.img.zip"
     clean_swu = args.artifacts_dir / f"pisonic-{args.version}.swu"
 
@@ -602,6 +603,9 @@ def main(argv: Sequence[str] | None = None) -> int:
                 f"--skip-build requires staged assets {clean_image.name} and "
                 f"{clean_swu.name} in {args.artifacts_dir}"
             )
+    elif args.dry_run:
+        print(f"+ stage newest pisonic-{args.version}-*-sdcard.img.zip -> {clean_image.name}")
+        print(f"+ stage newest pisonic-{args.version}-*.swu -> {clean_swu.name}")
     else:
         source_image = newest_match(
             args.artifacts_dir, args.version, IMAGE_STAMP_RE, "SD card image"
