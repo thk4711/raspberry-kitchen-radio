@@ -6,5 +6,6 @@
 #
 # <name>                 <type>  <mode>  <uid>  <gid>  <major> <minor> <start> <inc> <count>
 /etc/radio               d       755     601    601    -       -       -       -     -
+/etc/radio/artwork.ini   f       644     601    601    -       -       -       -     -
 /etc/radio/logos         d       755     601    601    -       -       -       -     -
 /var/lib/radio-web       d       755     601    601    -       -       -       -     -

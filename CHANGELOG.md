@@ -8,6 +8,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Opt-in online cover art for Bluetooth AVRCP tracks.** When enabled on the
+  Display page, PiSonic asynchronously uses artist/title/album metadata to find a
+  conservative MusicBrainz match and fetch a validated Cover Art Archive image
+  for the SPI display and web dashboard. The feature is disabled by default,
+  respects MusicBrainz identification and request pacing, uses a bounded
+  RAM-backed cache, and always retains the Bluetooth glyph for pending, offline,
+  ambiguous, or missing artwork. USB Audio remains unchanged because it has no
+  native track metadata. See [`doc/bluetooth.md`](doc/bluetooth.md#optional-online-cover-art).
 - **Source glyphs rendered from SVG.** The USB and Bluetooth placeholder tiles
   (shown when a source carries no cover art) now use glyphs derived from the
   committed SVGs `radio_web/static/usb-symbol.svg` and

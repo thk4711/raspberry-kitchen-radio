@@ -15,6 +15,7 @@ Artwork = Tuple[str, bytes]
 LOGO_DIR = logo_store.BUILTIN_LOGO_DIR
 RUNTIME_ARTWORK: Dict[str, str] = {
     "spotify": "/tmp/spotify_cover.jpg",
+    "bluetooth": "/tmp/bluetooth_cover.jpg",
     "airplay-jpg": "/tmp/shairport-image.jpg",
     "airplay-png": "/tmp/shairport-image.png",
 }

@@ -59,6 +59,39 @@ def test_source_flags_default_and_layer_managed_values(monkeypatch):
     }
 
 
+def test_online_artwork_resolver_requires_bluetooth_and_explicit_opt_in(monkeypatch):
+    radio = _import_radio(monkeypatch)
+    resolver = mock.Mock()
+    constructor = mock.Mock(return_value=resolver)
+    monkeypatch.setattr(radio, "OnlineArtworkResolver", constructor)
+
+    monkeypatch.setattr(
+        radio.artwork_store, "load_artwork", mock.Mock(return_value={"enabled": "false"})
+    )
+    assert radio._build_online_artwork_resolver({"bluetooth": True}) is None
+    constructor.assert_not_called()
+
+    monkeypatch.setattr(
+        radio.artwork_store, "load_artwork", mock.Mock(return_value={"enabled": "true"})
+    )
+    assert radio._build_online_artwork_resolver({"bluetooth": False}) is None
+    constructor.assert_not_called()
+
+    assert radio._build_online_artwork_resolver({"bluetooth": True}) is resolver
+    constructor.assert_called_once_with()
+
+
+def test_online_artwork_resolver_startup_failure_is_nonfatal(monkeypatch):
+    radio = _import_radio(monkeypatch)
+    monkeypatch.setattr(
+        radio.artwork_store, "load_artwork", mock.Mock(return_value={"enabled": "true"})
+    )
+    monkeypatch.setattr(
+        radio, "OnlineArtworkResolver", mock.Mock(side_effect=OSError("tmpfs unavailable"))
+    )
+    assert radio._build_online_artwork_resolver({"bluetooth": True}) is None
+
+
 def test_switch_button_and_volume_forward_to_collaborators(monkeypatch):
     radio, controller = _controller(monkeypatch)
     monkeypatch.setattr(radio.equalizer_store, "write_runtime_volume", lambda _v: None)

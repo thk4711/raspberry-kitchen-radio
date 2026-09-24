@@ -18,6 +18,9 @@ def data_tree(monkeypatch, tmp_path):
     (data / "radio" / "schema-version").write_text("1\n")
     (data / "radio" / "stations.ini").write_text("[one]\nname = Test\n")
     (data / "radio" / "equalizer.ini").write_text("[equalizer]\nenabled = true\npreamp_db = -3\n")
+    (data / "radio" / "artwork.ini").write_text(
+        "[online_artwork]\nenabled = true\nprovider = musicbrainz\n"
+    )
     (data / "network" / "wpa_supplicant.conf").write_text("secret-network\n")
     (data / "identity" / "root-password.hash").write_text("secret-hash\n")
     (data / "bluetooth" / "info").write_text("pairing-secret\n")
@@ -44,6 +47,7 @@ def test_backup_includes_selected_roots_and_excludes_update(data_tree):
         names = set(archive.getnames())
         assert "data/radio/stations.ini" in names
         assert "data/radio/equalizer.ini" in names
+        assert "data/radio/artwork.ini" in names
         assert "data/network/wpa_supplicant.conf" in names
         assert "data/identity/root-password.hash" in names
         assert "data/bluetooth/info" in names
@@ -58,7 +62,7 @@ def test_created_backup_passes_restore_validation(data_tree):
     data_backup.stage_restore(data_backup.BACKUP_PATH.read_bytes())
     ok, message, metadata = data_backup.inspect_restore()
     assert ok, message
-    assert metadata["files"] == 6
+    assert metadata["files"] == 7
 
 
 def _archive(member: tarfile.TarInfo, content: bytes = b"") -> bytes:

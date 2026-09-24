@@ -174,11 +174,14 @@ class DisplayRenderingMixin:
 
         This is everything on the frame *except* the text rows: the full-bleed
         cover or the radio backdrop with its centred logo, then the darkened
-        top/bottom chrome bands. Cached by ``(cover, md5, art_mode)`` so
-        animating frames redraw only the text over a copy of this layer.
+        top/bottom chrome bands. The cache also includes source/name because a
+        missing image generates a source-specific glyph or station initials.
         """
         img, cover_path, md5, art_mode = self._open_cover()
-        cache_key = (cover_path, md5, art_mode)
+        with self._state_lock:
+            source = self.metadata.get("source", "") or ""
+            raw_name = self.metadata.get("raw_name", "") or ""
+        cache_key = (cover_path, md5, art_mode, source, raw_name)
         if cache_key == self._art_cache_key and self._art_layer is not None:
             return self._art_layer
 

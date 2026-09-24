@@ -41,6 +41,8 @@ def artwork_descriptor(source: str, cover: str, fingerprint: str = "") -> Dict[s
         identifier = f"station:{basename}"
     elif source == "spotify" and cover == "/tmp/spotify_cover.jpg":
         identifier = "spotify"
+    elif source == "bluetooth" and cover == "/tmp/bluetooth_cover.jpg":
+        identifier = "bluetooth"
     elif source == "airplay" and cover in (
         "/tmp/shairport-image.jpg",
         "/tmp/shairport-image.png",

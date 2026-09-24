@@ -79,6 +79,7 @@ from bluetooth_service.bluetooth_service import BluetoothService
 from display.display_control import DisplayController
 from mpd_service.mpd_service import MPDService
 from music_source import MusicSource
+from online_artwork import OnlineArtworkResolver
 from spotify_service.spotify_service import SpotifyService
 from status_snapshot import (
     artwork_descriptor,
@@ -89,9 +90,24 @@ from status_snapshot import (
 from usb_audio_service.usb_audio_service import USBAudioService
 from utilities import MANAGED_CONFIG_DIR, UtilityLibrary
 
-from radio_web import audio_hardware_store, equalizer_store
+from radio_web import artwork_store, audio_hardware_store, equalizer_store
 
 utility = UtilityLibrary()
+
+
+def _build_online_artwork_resolver(
+    source_flags: Dict[str, bool],
+) -> Optional[OnlineArtworkResolver]:
+    """Construct the network worker only after an explicit Bluetooth opt-in."""
+    if not source_flags.get("bluetooth", True):
+        return None
+    if artwork_store.load_artwork().get("enabled") != "true":
+        return None
+    try:
+        return OnlineArtworkResolver()
+    except Exception as exc:
+        logger.error("Online artwork disabled after resolver startup failed: %s", exc)
+        return None
 
 
 class RadioController:
@@ -201,7 +217,8 @@ class RadioController:
         )
         _startup_logger.info("Loading BLUETOOTH")
         self.bluetooth = BluetoothService(
-            service=self.config.get("bluetooth", {}).get("dbus_service", "org.bluez")
+            service=self.config.get("bluetooth", {}).get("dbus_service", "org.bluez"),
+            artwork_resolver=_build_online_artwork_resolver(self.source_flags),
         )
         self.display = DisplayController()
         adc_conf = self.config["adc"]

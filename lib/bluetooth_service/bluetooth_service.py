@@ -15,9 +15,10 @@ is a pure *consumer* of the BlueZ D-Bus API:
 * ``set_play_state`` issues AVRCP ``Play`` / ``Pause`` so switching sources on
   the radio actually pauses the phone.
 
-A2DP/AVRCP carries no cover art, so :class:`Metadata` ``cover``/``md5`` stay
-empty; the display already renders text-only metadata (Spotify starts the same
-way). The D-Bus reconnect/backoff loop mirrors :class:`AirplayService` so a
+A2DP/AVRCP carries no cover art, so an optional online-artwork resolver can add
+it asynchronously from the track metadata. Until resolution succeeds,
+``cover``/``md5`` stay empty and the display renders its Bluetooth fallback.
+The D-Bus reconnect/backoff loop mirrors :class:`AirplayService` so a
 ``bluetoothd`` restart is transparent.
 """
 
@@ -28,6 +29,7 @@ from typing import Any, Optional
 
 import dbus
 from music_source import Metadata, MusicSource
+from online_artwork import ArtworkResolution, OnlineArtworkResolver, TrackIdentity
 
 logger = logging.getLogger(__name__)
 
@@ -43,11 +45,18 @@ class BluetoothService(MusicSource):
 
     Args:
         service: BlueZ D-Bus well-known name (override for tests).
+        artwork_resolver: Optional asynchronous resolver. ``None`` disables
+            online artwork lookup.
     """
 
-    def __init__(self, service: str = BLUEZ_SERVICE) -> None:
+    def __init__(
+        self,
+        service: str = BLUEZ_SERVICE,
+        artwork_resolver: Optional[OnlineArtworkResolver] = None,
+    ) -> None:
         self.name = "bluetooth"
         self.service = os.environ.get("RADIO_BLUETOOTH_DBUS_SERVICE", service)
+        self._artwork_resolver = artwork_resolver
         self._stop = threading.Event()
         self._lock = threading.RLock()
         # Cached D-Bus handles for the currently connected media player. They
@@ -55,6 +64,7 @@ class BluetoothService(MusicSource):
         # reconnect transparently rebinds.
         self._bus: Optional[Any] = None
         self._player_path: Optional[str] = None
+        self._track_identity: Optional[TrackIdentity] = None
         self.metadata = Metadata(name="", title="", cover="", md5="", state=False)
         self.dbus_thread = threading.Thread(
             target=self._dbus_worker, daemon=True, name="bluetooth-dbus"
@@ -86,6 +96,7 @@ class BluetoothService(MusicSource):
                     if self._bus is bus:
                         self._bus = None
                         self._player_path = None
+                self._clear_track()
             except dbus.DBusException as exc:
                 logger.warning("Bluetooth D-Bus unavailable; retrying: %s", exc)
             self._wait(delay)
@@ -110,8 +121,7 @@ class BluetoothService(MusicSource):
         with self._lock:
             self._player_path = path
         if path is None:
-            with self._lock:
-                self.metadata = Metadata(name="", title="", cover="", md5="", state=False)
+            self._clear_track()
             return
 
         props = dbus.Interface(bus.get_object(self.service, path), PROPERTIES_IFACE)
@@ -123,14 +133,65 @@ class BluetoothService(MusicSource):
 
         title = str(track.get("Title", "")) if track else ""
         artist = str(track.get("Artist", "")) if track else ""
+        album = str(track.get("Album", "")) if track else ""
+        track_identity = TrackIdentity.from_metadata(artist, title, album)
+        self._update_track(track_identity, artist, title, status == "playing")
+
+    def _update_track(
+        self,
+        track_identity: Optional[TrackIdentity],
+        artist: str,
+        title: str,
+        playing: bool,
+    ) -> None:
+        """Update text immediately and start lookup only for a changed track."""
         with self._lock:
+            previous_key = (
+                self._track_identity.cache_key if self._track_identity is not None else None
+            )
+            current_key = track_identity.cache_key if track_identity is not None else None
+            track_changed = previous_key != current_key
+            cover = "" if track_changed else self.metadata.cover
+            fingerprint = "" if track_changed else self.metadata.md5
+            self._track_identity = track_identity
             self.metadata = Metadata(
                 name=artist,
                 title=title,
-                cover="",
-                md5="",
-                state=(status == "playing"),
+                cover=cover,
+                md5=fingerprint,
+                state=playing,
             )
+        if not track_changed or self._artwork_resolver is None:
+            return
+        if track_identity is None:
+            self._artwork_resolver.cancel()
+        else:
+            self._artwork_resolver.request(track_identity, self._apply_artwork)
+
+    def _apply_artwork(self, resolution: ArtworkResolution) -> None:
+        """Apply a resolver result only while its normalized track is current."""
+        with self._lock:
+            if (
+                self._track_identity is None
+                or self._track_identity.cache_key != resolution.track_key
+            ):
+                return
+            self.metadata = Metadata(
+                name=self.metadata.name,
+                title=self.metadata.title,
+                cover=resolution.cover_path,
+                md5=resolution.fingerprint,
+                state=self.metadata.state,
+            )
+
+    def _clear_track(self) -> None:
+        """Clear disconnected-track state and invalidate any pending artwork."""
+        with self._lock:
+            had_track = self._track_identity is not None
+            self._track_identity = None
+            self.metadata = Metadata(name="", title="", cover="", md5="", state=False)
+        if had_track and self._artwork_resolver is not None:
+            self._artwork_resolver.cancel()
 
     # -- MusicSource contract --------------------------------------------------
 
@@ -173,5 +234,7 @@ class BluetoothService(MusicSource):
         return False
 
     def close(self) -> None:
-        """Stop the background D-Bus worker (used by tests / shutdown)."""
+        """Stop the background D-Bus and artwork workers."""
         self._stop.set()
+        if self._artwork_resolver is not None:
+            self._artwork_resolver.close()

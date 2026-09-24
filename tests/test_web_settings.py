@@ -5,7 +5,7 @@ import stat
 
 import pytest
 
-from radio_web import audio_store, config_store, display_store, validators
+from radio_web import artwork_store, audio_store, config_store, display_store, validators
 
 
 @pytest.fixture()
@@ -297,3 +297,47 @@ class TestAudioStore:
         audio_store.save_audio({"max_volume": "60"})
         text = open(audio_store.managed_audio_path()).read()
         assert text == "[volume]\nmax = 60\n"
+
+
+class TestArtworkStore:
+    def test_defaults_disabled_when_no_managed_file(self, managed):
+        assert artwork_store.load_artwork() == {
+            "enabled": "false",
+            "provider": "musicbrainz",
+        }
+
+    def test_enabled_roundtrip_uses_fixed_provider_and_mode(self, managed):
+        artwork_store.save_artwork({"enabled": "true"})
+
+        assert artwork_store.load_artwork()["enabled"] == "true"
+        assert open(artwork_store.managed_artwork_path()).read() == (
+            "[online_artwork]\nenabled = true\nprovider = musicbrainz\n"
+        )
+        assert stat.S_IMODE(os.stat(artwork_store.managed_artwork_path()).st_mode) == 0o644
+
+    def test_invalid_or_unsupported_file_fails_closed(self, managed):
+        open(artwork_store.managed_artwork_path(), "w").write(
+            "[online_artwork]\nenabled = true\nprovider = unreviewed\n"
+        )
+        assert artwork_store.load_artwork()["enabled"] == "false"
+
+        open(artwork_store.managed_artwork_path(), "w").write(
+            "[online_artwork]\nenabled = perhaps\nprovider = musicbrainz\n"
+        )
+        assert artwork_store.load_artwork()["enabled"] == "false"
+
+    def test_invalid_submission_writes_nothing(self, managed):
+        with pytest.raises(ValueError):
+            artwork_store.save_artwork({"enabled": "maybe"})
+        assert not os.path.exists(artwork_store.managed_artwork_path())
+
+    def test_backup_and_restore(self, managed):
+        artwork_store.save_artwork({"enabled": "false"})
+        original = open(artwork_store.managed_artwork_path()).read()
+        artwork_store.save_artwork({"enabled": "true"})
+        assert open(artwork_store.managed_backup_path()).read() == original
+
+        artwork_store.restore_builtin()
+        assert artwork_store.load_artwork() == artwork_store.DEFAULTS
+        assert not os.path.exists(artwork_store.managed_artwork_path())
+        assert not os.path.exists(artwork_store.managed_backup_path())

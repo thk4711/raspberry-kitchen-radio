@@ -19,6 +19,7 @@ PERSISTENT_PATHS = BOARD / "rootfs-overlay" / "usr" / "sbin" / "radio-persistent
 PERSISTENT_CONFIG = BOARD / "rootfs-overlay" / "usr" / "sbin" / "radio-persistent-config"
 PERSISTENT_BOOT = BOARD / "rootfs-overlay" / "usr" / "sbin" / "radio-persistent-boot"
 CHRONY_CONFIG = BOARD / "rootfs-overlay" / "etc" / "chrony.conf"
+ARTWORK_CONFIG = BOARD / "rootfs-overlay" / "etc" / "radio" / "artwork.ini"
 PERSISTENT_DOC = ROOT / "doc" / "persistent-data.md"
 
 
@@ -136,6 +137,20 @@ def test_seed_data_ownership_and_modes_match_the_privilege_boundary():
     assert "set_data_inode /update/config-backups mode 040700" in text
     assert "set_data_inode /update/history.json mode 0100600" in text
     assert 'chmod 0600 "$DATA_ROOT/network/wpa_supplicant.conf"' in text
+    assert "set_data_inode /radio/artwork.ini uid 601" in text
+    assert "set_data_inode /radio/artwork.ini gid 601" in text
+    assert "set_data_inode /radio/artwork.ini mode 0100644" in text
+
+
+def test_online_artwork_ships_disabled_and_is_seeded_as_managed_config():
+    assert ARTWORK_CONFIG.read_text(encoding="utf-8") == (
+        "[online_artwork]\nenabled = false\nprovider = musicbrainz\n"
+    )
+    device_table = (BOARD / "device_table.txt").read_text(encoding="utf-8")
+    assert "/etc/radio/artwork.ini   f       644     601    601" in device_table
+    assert 'cp -a "${TARGET_DIR}/etc/radio/." "$DATA_ROOT/radio/"' in POST_IMAGE.read_text(
+        encoding="utf-8"
+    )
 
 
 def test_mutable_device_state_is_excluded_from_update_manifest():
@@ -216,6 +231,7 @@ def test_persistent_data_reference_covers_layout_links_and_update_state():
         "/dev/mmcblk0p4",
         "/data/radio",
         "/data/radio/equalizer.ini",
+        "/data/radio/artwork.ini",
         "/data/radio/usb_audio.ini",
         "/data/radio/usb_audio_output.ini",
         "/data/network/wpa_supplicant.conf",

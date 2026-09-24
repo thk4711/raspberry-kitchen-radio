@@ -7,7 +7,7 @@ from pathlib import Path
 
 import pytest
 
-from radio_web import adc_store, audio_hardware_store, auth, routes, templates
+from radio_web import adc_store, artwork, audio_hardware_store, auth, routes, templates
 
 
 def _req(method, path, **kw):
@@ -193,6 +193,17 @@ class TestTemplates:
         assert ctype == "image/png"
         assert body.startswith(b"\x89PNG")
         assert ("Cache-Control", "public, max-age=86400") in headers
+
+    def test_artwork_route_serves_bluetooth_image(self, monkeypatch, tmp_path):
+        image = tmp_path / "bluetooth.jpg"
+        image.write_bytes(b"\xff\xd8\xff\xe0normalized")
+        monkeypatch.setitem(artwork.RUNTIME_ARTWORK, "bluetooth", str(image))
+        status, ctype, body, _headers = routes.resolve(
+            _req("GET", "/dashboard/artwork", query={"id": "bluetooth"})
+        )
+        assert status == 200
+        assert ctype == "image/jpeg"
+        assert body == b"\xff\xd8\xff\xe0normalized"
 
     def test_artwork_route_rejects_traversal(self):
         status, _ctype, _body, _headers = routes.resolve(
@@ -1453,6 +1464,10 @@ class TestSettingsRoutes:
         assert "Physical controls" not in body
         assert 'href="/debug/adc"' not in body
         assert 'form="display-settings"' in body
+        assert 'name="online_artwork_enabled"' in body
+        assert 'name="online_artwork_enabled" value="true" checked' not in body
+        assert "artist, title, and possibly album are sent to MusicBrainz" in body
+        assert "Disabling this option prevents those requests" in body
 
     def test_settings_post_bad_csrf_403(self, monkeypatch, tmp_path):
         req = self._authed(
@@ -1529,6 +1544,166 @@ class TestSettingsRoutes:
 
         loaded = display_store.load_display()
         assert loaded["rotate_180"] == "true"
+
+    def test_settings_post_persists_online_artwork_opt_in(self, monkeypatch, tmp_path):
+        sessions = auth.SessionStore()
+        session = sessions.create()
+        form = {
+            "op": "save",
+            "csrf_token": session.csrf_token,
+            "theme_preset": "default",
+            "animations": "true",
+            "online_artwork_enabled": "true",
+            "idle_timeout": "30",
+            "crossfade_ms": "150",
+            "clock_size": "24",
+            "osd_duration": "1.5",
+            "toast_duration": "1.6",
+        }
+        req = self._ctx(
+            monkeypatch,
+            tmp_path,
+            "POST",
+            "/settings",
+            sessions=sessions,
+            session=session,
+            form=form,
+        )
+        status, _c, _b, headers = routes.resolve(req)
+        assert status == 303
+        assert ("Location", "/settings?msg=saved") in headers
+
+        from radio_web import artwork_store
+
+        assert artwork_store.load_artwork()["enabled"] == "true"
+
+        get_req = self._ctx(
+            monkeypatch,
+            tmp_path,
+            "GET",
+            "/settings",
+            sessions=sessions,
+            session=session,
+        )
+        _status, _c, body, _h = routes.resolve(get_req)
+        assert 'name="online_artwork_enabled" value="true" checked' in body
+
+    def test_settings_post_unchecked_disables_online_artwork(self, monkeypatch, tmp_path):
+        from radio_web import artwork_store
+
+        monkeypatch.setattr("radio_web.config_store.MANAGED_CONFIG_DIR", str(tmp_path))
+        artwork_store.save_artwork({"enabled": "true"})
+        sessions = auth.SessionStore()
+        session = sessions.create()
+        form = {
+            "op": "save",
+            "csrf_token": session.csrf_token,
+            "theme_preset": "default",
+            "animations": "true",
+            "idle_timeout": "30",
+            "crossfade_ms": "150",
+            "clock_size": "24",
+            "osd_duration": "1.5",
+            "toast_duration": "1.6",
+        }
+        req = self._ctx(
+            monkeypatch,
+            tmp_path,
+            "POST",
+            "/settings",
+            sessions=sessions,
+            session=session,
+            form=form,
+        )
+        assert routes.resolve(req)[0] == 303
+        assert artwork_store.load_artwork()["enabled"] == "false"
+
+    def test_settings_restore_returns_online_artwork_to_disabled_default(
+        self, monkeypatch, tmp_path
+    ):
+        from radio_web import artwork_store
+
+        monkeypatch.setattr("radio_web.config_store.MANAGED_CONFIG_DIR", str(tmp_path))
+        artwork_store.save_artwork({"enabled": "false"})
+        artwork_store.save_artwork({"enabled": "true"})
+        sessions = auth.SessionStore()
+        session = sessions.create()
+        req = self._ctx(
+            monkeypatch,
+            tmp_path,
+            "POST",
+            "/settings",
+            sessions=sessions,
+            session=session,
+            form={"op": "restore", "csrf_token": session.csrf_token},
+        )
+
+        status, _ctype, _body, headers = routes.resolve(req)
+
+        assert status == 303
+        assert ("Location", "/settings?msg=restored") in headers
+        assert artwork_store.load_artwork()["enabled"] == "false"
+        assert not os.path.exists(artwork_store.managed_artwork_path())
+        assert not os.path.exists(artwork_store.managed_backup_path())
+
+    @pytest.mark.parametrize(
+        ("action_result", "expected_status", "expected_location", "expected_text"),
+        [
+            ((True, "restarted"), 303, "/settings?msg=applied", None),
+            ((False, "restart failed"), 200, None, "restart failed"),
+        ],
+    )
+    def test_settings_apply_persists_artwork_and_restarts_radio(
+        self,
+        monkeypatch,
+        tmp_path,
+        action_result,
+        expected_status,
+        expected_location,
+        expected_text,
+    ):
+        from radio_web import artwork_store
+
+        seen = []
+
+        def run_action(action, **kwargs):
+            seen.append((action, kwargs))
+            return action_result
+
+        monkeypatch.setattr("radio_web.actions.run_action", run_action)
+        sessions = auth.SessionStore()
+        session = sessions.create()
+        form = {
+            "op": "apply",
+            "csrf_token": session.csrf_token,
+            "theme_preset": "default",
+            "animations": "true",
+            "online_artwork_enabled": "true",
+            "idle_timeout": "30",
+            "crossfade_ms": "150",
+            "clock_size": "24",
+            "osd_duration": "1.5",
+            "toast_duration": "1.6",
+        }
+        req = self._ctx(
+            monkeypatch,
+            tmp_path,
+            "POST",
+            "/settings",
+            sessions=sessions,
+            session=session,
+            form=form,
+        )
+
+        status, _ctype, body, headers = routes.resolve(req)
+
+        assert status == expected_status
+        assert seen == [("restart_radio", {})]
+        assert artwork_store.load_artwork()["enabled"] == "true"
+        if expected_location is not None:
+            assert ("Location", expected_location) in headers
+        if expected_text is not None:
+            assert expected_text in body
 
     def test_settings_get_renders_panel_select(self, monkeypatch, tmp_path):
         req = self._authed(monkeypatch, tmp_path, "GET", "/settings")

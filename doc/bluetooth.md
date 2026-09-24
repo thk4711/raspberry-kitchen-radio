@@ -48,10 +48,12 @@ backend (see [`adding-a-music-source.md`](adding-a-music-source.md)).
   like every other source. Adjust volume with PiSonic's volume knob as usual.
 - **Metadata:** the display shows the **title and artist** reported by the phone
   over AVRCP (`org.bluez.MediaPlayer1`). Bluetooth A2DP/AVRCP carries **no cover
-  art**, so instead of album art PiSonic shows a generated placeholder tile: a
+  art**. PiSonic therefore immediately shows a generated placeholder tile: a
   **Bluetooth glyph on a muted-blue rounded square** (rendered by
   `logo_fallback.render_bluetooth_tile`), centred like a station logo with the
-  title/artist text below it. The glyph is the Bluetooth mark from
+  title/artist text below it. If the optional online lookup described below is
+  enabled, a confidently matched cover replaces that glyph asynchronously on
+  both the display and web dashboard. The glyph is the Bluetooth mark from
   `radio_web/static/bluetooth-symbol.svg`, rasterised at build time into a PNG
   under `lib/display/glyphs/` by `scripts/render-source-glyphs.py` and tinted at
   runtime with Pillow (the appliance image ships no SVG rasteriser).
@@ -61,6 +63,42 @@ backend (see [`adding-a-music-source.md`](adding-a-music-source.md)).
   audio but never reports AVRCP status, PiSonic will not auto-stop the other
   source — connect, then briefly pause/resume in the app, or select the source
   manually.
+
+## Optional online cover art
+
+The **Display** page can enable **Fetch missing Bluetooth cover art from
+MusicBrainz / Cover Art Archive**. It is disabled by default and takes effect
+after **Apply and restart radio**. A usable artist and title must be supplied by
+the phone/app over AVRCP, and the radio needs working internet access.
+
+When enabled, PiSonic sends the artist, title, and possibly album to MusicBrainz,
+selects only a high-confidence recording match, and downloads a bounded image
+from Cover Art Archive or its expected Internet Archive host. No account or API
+key is needed. Requests identify PiSonic with its version and project URL and
+are paced to no more than one MusicBrainz request per second. Ambiguous matches,
+missing artwork, provider errors, and offline operation leave the Bluetooth
+glyph in place and never interrupt audio.
+
+This is a privacy opt-in: the provider can observe the submitted track metadata,
+request time, and radio's public IP address. Disable the setting to prevent these
+artwork requests. Routine cache filenames are SHA-256 keys rather than track
+names, and PiSonic's default artwork error messages do not log artist, title, or
+album.
+
+Downloaded images are normalized JPEGs stored only in RAM-backed `/tmp`:
+
+- per-track cache: `/tmp/pisonic/artwork-cache/<sha256>.jpg`;
+- currently published image: `/tmp/bluetooth_cover.jpg`;
+- at most 32 positive files and 8 MiB total;
+- at most 128 in-memory negative entries; a definite no-match/no-cover is retried
+  after six hours, while transient failures use shorter backoff;
+- all files and entries disappear on reboot and are excluded from backup.
+
+Cover Art Archive availability does not imply that an image is freely licensed.
+Album artwork may remain copyrighted and subject to third-party terms. Anyone
+redistributing PiSonic commercially must review the current MusicBrainz, Cover
+Art Archive, and Internet Archive usage, identification, rate-limit, caching,
+and artwork-display terms rather than relying on this project's defaults.
 
 ## How it is built and wired (appliance image)
 
@@ -159,8 +197,26 @@ Common checks:
 - **No title/artist on the display:** the phone/app may not send AVRCP metadata;
   audio still plays. This also means PiSonic may not auto-stop the previous
   source (see the AVRCP note above).
+- **Bluetooth glyph never changes to a cover:** first confirm online artwork is
+  enabled on the Display page and the radio was restarted. Check that artist and
+  title are present, DNS works (`nslookup musicbrainz.org`), and the clock is
+  correct (`date`); a badly wrong clock causes HTTPS certificate validation to
+  fail. A low-confidence/ambiguous MusicBrainz result or a release with no Cover
+  Art Archive image intentionally keeps the glyph. Provider failures are retried
+  with backoff, so repeatedly restarting or toggling the setting is unnecessary.
+- **Inspect artwork errors without exposing listening history:** stop the service
+  and run `radio.py` in the foreground with `RADIO_LOG_LEVEL=ERROR` as described
+  in [`buildroot.md`](buildroot.md#logging-and-debugging). Startup and unexpected
+  artwork errors omit track text; controlled DNS/TLS/no-match/no-cover failures
+  may produce no line because the glyph and retry are normal fallback behavior.
+  Do not publish the now-playing status, screenshots, provider URLs, or any debug
+  output that a future provider/library version might add until you have reviewed
+  and redacted it.
+
+USB Audio is separate: USB Audio Class transports PCM audio and has no native
+artist/title metadata, so Bluetooth online cover lookup cannot operate for that
+source.
 
 See [`buildroot.md`](buildroot.md) for the full image reference and
 [`adding-a-music-source.md`](adding-a-music-source.md) for the `BluetoothService`
 implementation notes.
-

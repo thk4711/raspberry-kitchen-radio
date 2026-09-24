@@ -76,8 +76,9 @@ Read-only, no login required. Shows:
 - **Now playing** and the **active source**, from the player's status snapshot.
   The card also indicates whether that source is currently playing and refreshes
   itself in the background every five seconds without reloading the whole page.
-  It shows the configured station logo for Internet Radio or locally cached
-  album art for Spotify/AirPlay, with a placeholder when artwork is unavailable.
+  It shows the configured station logo for Internet Radio, locally cached album
+  art for Spotify/AirPlay, or an enabled and successfully matched Bluetooth
+  cover, with a placeholder when artwork is unavailable.
 - **Per-source state** (Internet Radio, AirPlay, Spotify, Bluetooth, USB Audio):
   whether each is enabled, running and currently active.
 
@@ -190,6 +191,17 @@ Display options are written to `/etc/radio/display.ini`. The file contains a
 `[display]` section (with `panel`, `width`, and `height`) layered over the
 shipped `display.conf`, and a `[ui]` section with the theme keys. They take
 effect after **Apply and restart PiSonic**.
+
+A separate **Bluetooth cover art** card offers the opt-in **Fetch missing
+Bluetooth cover art from MusicBrainz / Cover Art Archive** setting. It is
+disabled by default. Enabling it sends AVRCP artist, title, and possibly album
+metadata to MusicBrainz and downloads matched artwork from Cover Art Archive or
+Internet Archive; it therefore needs internet access. No account or API key is
+required. The Bluetooth glyph remains the fallback while a lookup is pending,
+offline, ambiguous, or has no cover. Apply/restart is required. See
+[`bluetooth.md`](bluetooth.md#optional-online-cover-art) for privacy, volatile
+cache limits, copyright/provider terms, and troubleshooting. This does not apply
+to USB Audio, which supplies no native track metadata.
 
 The display's low-level SPI bus and hardware chip-select are not web settings.
 They are configured in the shipped `[display]` section. The default
@@ -342,6 +354,7 @@ recovery when this interface is unreachable, and the full security notes — see
 | Timezone / NTP server (`/device`) | Applied on save; fully in effect after the next time sync / reboot. |
 | Device name (`/device`) | **Reboot** the device. |
 | Display (`/settings`) | **Restart PiSonic** — offered inline as "Apply and restart PiSonic". |
+| Bluetooth online cover art (`/settings`) | **Restart PiSonic** — saved with Display settings and disabled by default. |
 | Audio (`/audio-hardware`) | One **Apply changes** action: a maximum-volume-only change restarts the player; a sound-card or USB Audio mode change offers a device reboot after all settings are saved. |
 | WiFi / static IP (`/network`) | Applied immediately on a **try-then-auto-revert** basis; confirm to keep. |
 | Admin password / login | Immediate. |
@@ -361,6 +374,7 @@ survives firmware updates and rollback:
 | `/etc/radio/sources.ini` | Music-source on/off flags. | `0644` |
 | `/etc/radio/device.ini` | Device name, timezone, NTP server. | `0644` |
 | `/etc/radio/display.ini` | Display `[display]` panel selection (`panel`, `width`, `height`) and `[ui]` theme options (overrides `display.conf`). | `0644` |
+| `/etc/radio/artwork.ini` | Bluetooth online-artwork opt-in and fixed MusicBrainz provider. | `0644` |
 | `/etc/radio/audio.ini` | User-selected maximum-volume cap. | `0644` |
 | `/etc/radio/audio_hardware.ini` | Selected sound-card profile id (overrides the built-in `headphones` default). | `0644` |
 | `/etc/radio/equalizer.ini` | Parametric-EQ enable, preamp, filter types, frequencies, gains and Q values. | `0644` |
@@ -379,7 +393,7 @@ are documented in [Persistent data](persistent-data.md).
 
 The "Restore built-in" buttons remove the relevant override so the shipped
 defaults apply again. A `.bak` copy of the previous override is kept for
-stations/sources/device/display/audio edits.
+stations/sources/device/display/artwork/audio edits.
 
 ## Active `pisonic-config.txt` settings take priority once
 

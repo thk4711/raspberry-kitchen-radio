@@ -189,6 +189,9 @@ done
 set_data_inode /radio/schema-version uid 601
 set_data_inode /radio/schema-version gid 601
 set_data_inode /radio/schema-version mode 0100644
+set_data_inode /radio/artwork.ini uid 601
+set_data_inode /radio/artwork.ini gid 601
+set_data_inode /radio/artwork.ini mode 0100644
 for path in /network /network/wpa_supplicant.conf /identity \
 	/identity/dropbear /bluetooth /update /update/history.json \
 	/update/queue /update/config-backups /operations; do
@@ -241,4 +244,3 @@ dd if="$ENV_REDUND_IMAGE" of="${BINARIES_DIR}/sdcard.img" \
 
 echo "post-image.sh: built A/B sdcard.img and versioned SWUpdate artifact"
 exit 0
-

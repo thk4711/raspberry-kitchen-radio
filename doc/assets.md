@@ -20,11 +20,13 @@ Both are copied onto the Buildroot image as-is (`cp -a lib/.` in
 `buildroot/external/package/radio-app/radio-app.mk`) and loaded at runtime by
 the display and MPD services.
 
-> **No runtime network dependency.** Every logo (and font) is vendored — committed
-> to this repo and baked into the image — and read from local disk at runtime
-> (`/opt/pisonic/lib/...`). The running radio never fetches artwork
-> from the internet. The source URLs below are for **provenance and one-time
-> regeneration only**.
+> **No required runtime network dependency.** Every logo and font listed here is
+> vendored, baked into the image, and read from local disk at runtime
+> (`/opt/pisonic/lib/...`). The optional, disabled-by-default Bluetooth cover-art
+> feature is the sole exception: after an administrator opts in, it queries
+> MusicBrainz and downloads matched images from Cover Art Archive/Internet
+> Archive. The source URLs below remain for **provenance and one-time regeneration
+> only**.
 
 ## Provenance & licensing
 
@@ -55,6 +57,18 @@ preset with a blank/missing `logo=` renders a generated initials tile instead
 **Station logos** are broadcaster trademarks included only for identification of
 the preset stations (the DLF marks additionally carry a CC0 dedication on
 Commons). Replace them with your own stations' assets if you redistribute.
+
+### Runtime Bluetooth artwork
+
+Bluetooth cover images are not vendored and are not covered by the repository's
+MIT license. Cover Art Archive makes cover images available but does not grant
+copyright permission for every image; rights may remain with artists, labels, or
+designers. Runtime copies are normalized and held in the volatile, bounded
+`/tmp/pisonic/artwork-cache` cache (maximum 32 files and 8 MiB), then disappear
+on reboot. Commercial redistributors must independently review current
+MusicBrainz, Cover Art Archive, and Internet Archive terms, including
+identification, rate limits, caching, attribution, and display rights. See
+[`bluetooth.md`](bluetooth.md#optional-online-cover-art).
 
 ### SHA-256 checksums
 

@@ -1,0 +1,42 @@
+{
+  "recordings": [
+    {
+      "id": "33333333-3333-4333-8333-333333333331",
+      "score": 100,
+      "title": "Common Song",
+      "artist-credit": [{"name": "Example Artist"}],
+      "releases": [
+        {
+          "id": "33333333-3333-4333-8333-333333333332",
+          "title": "Various Hits",
+          "status": "Official",
+          "release-group": {
+            "id": "33333333-3333-4333-8333-333333333333",
+            "title": "Various Hits",
+            "primary-type": "Album",
+            "secondary-types": ["Compilation"]
+          }
+        }
+      ]
+    },
+    {
+      "id": "33333333-3333-4333-8333-333333333334",
+      "score": 96,
+      "title": "Common Song",
+      "artist-credit": [{"name": "Example Artist"}],
+      "releases": [
+        {
+          "id": "33333333-3333-4333-8333-333333333335",
+          "title": "Original Album",
+          "status": "Official",
+          "release-group": {
+            "id": "33333333-3333-4333-8333-333333333336",
+            "title": "Original Album",
+            "primary-type": "Album",
+            "secondary-types": []
+          }
+        }
+      ]
+    }
+  ]
+}

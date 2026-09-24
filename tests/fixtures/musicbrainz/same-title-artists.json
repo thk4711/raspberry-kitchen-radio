@@ -1,0 +1,42 @@
+{
+  "recordings": [
+    {
+      "id": "22222222-2222-4222-8222-222222222221",
+      "score": 100,
+      "title": "Halo",
+      "artist-credit": [{"name": "Texas"}],
+      "releases": [
+        {
+          "id": "22222222-2222-4222-8222-222222222222",
+          "title": "The Greatest Hits",
+          "status": "Official",
+          "release-group": {
+            "id": "22222222-2222-4222-8222-222222222223",
+            "title": "The Greatest Hits",
+            "primary-type": "Album",
+            "secondary-types": ["Compilation"]
+          }
+        }
+      ]
+    },
+    {
+      "id": "22222222-2222-4222-8222-222222222224",
+      "score": 99,
+      "title": "Halo",
+      "artist-credit": [{"name": "Beyonce"}],
+      "releases": [
+        {
+          "id": "22222222-2222-4222-8222-222222222225",
+          "title": "I Am... Sasha Fierce",
+          "status": "Official",
+          "release-group": {
+            "id": "22222222-2222-4222-8222-222222222226",
+            "title": "I Am... Sasha Fierce",
+            "primary-type": "Album",
+            "secondary-types": []
+          }
+        }
+      ]
+    }
+  ]
+}

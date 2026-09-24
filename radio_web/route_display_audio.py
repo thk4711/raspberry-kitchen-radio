@@ -5,6 +5,7 @@ from typing import Dict, List, Optional, Tuple
 
 from . import (
     actions,
+    artwork_store,
     audio_hardware_store,
     audio_store,
     auth,
@@ -26,7 +27,7 @@ from .route_common import (
 _SETTINGS_FLASHES = {
     "saved": "Settings saved.",
     "applied": "Radio restarted; settings applied.",
-    "restored": "Display settings reset to defaults.",
+    "restored": "Display and online artwork settings reset to defaults.",
 }
 
 # Theme presets surfaced in the <select>, as (value, label) pairs.
@@ -54,6 +55,7 @@ def _settings_page_response(
     page = templates.settings_page(
         display,
         req.session.csrf_token,
+        artwork=artwork_store.load_artwork(),
         presets=_THEME_PRESET_OPTIONS,
         message=message,
         error=error,
@@ -80,6 +82,7 @@ def _settings_post(req: Request) -> Response:
 
     if op == "restore":
         display_store.restore_builtin()
+        artwork_store.restore_builtin()
         return _redirect("/settings?msg=restored")
 
     # The form carries the display [display] panel field and [ui] theme fields;
@@ -102,8 +105,13 @@ def _settings_post(req: Request) -> Response:
     display_form["animations"] = req.form.get("animations", "")
     display_form["rotate_180"] = req.form.get("rotate_180", "")
 
+    artwork_form = {"enabled": req.form.get("online_artwork_enabled", "")}
+
     try:
+        display_store.validate_settings(display_form)
+        artwork_store.validate_settings(artwork_form)
         display_store.save_display(display_form)
+        artwork_store.save_artwork(artwork_form)
     except ValueError as exc:
         return _settings_page_response(
             req,

@@ -1,0 +1,32 @@
+{
+  "recordings": [
+    {
+      "id": "44444444-4444-4444-8444-444444444441",
+      "score": 100,
+      "title": "Midnight City (Remastered)",
+      "artist-credit": [{"name": "M83"}],
+      "releases": [{"id": "44444444-4444-4444-8444-444444444442", "title": "Album", "status": "Official"}]
+    },
+    {
+      "id": "44444444-4444-4444-8444-444444444443",
+      "score": 100,
+      "title": "Midnight City (Live)",
+      "artist-credit": [{"name": "M83"}],
+      "releases": [{"id": "44444444-4444-4444-8444-444444444444", "title": "Album", "status": "Official"}]
+    },
+    {
+      "id": "44444444-4444-4444-8444-444444444445",
+      "score": 100,
+      "title": "Midnight City (Radio Edit)",
+      "artist-credit": [{"name": "M83"}],
+      "releases": [{"id": "44444444-4444-4444-8444-444444444446", "title": "Album", "status": "Official"}]
+    },
+    {
+      "id": "44444444-4444-4444-8444-444444444447",
+      "score": 100,
+      "title": "Midnight City (Remix)",
+      "artist-credit": [{"name": "M83"}],
+      "releases": [{"id": "44444444-4444-4444-8444-444444444448", "title": "Album", "status": "Official"}]
+    }
+  ]
+}

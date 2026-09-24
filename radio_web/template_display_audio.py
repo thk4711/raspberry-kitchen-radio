@@ -64,6 +64,7 @@ def settings_page(
     display: Dict[str, str],
     csrf_token: str,
     *,
+    artwork: Optional[Mapping[str, str]] = None,
     presets: Optional[List[Any]] = None,
     message: Optional[str] = None,
     error: Optional[str] = None,
@@ -77,6 +78,7 @@ def settings_page(
     preset_options = presets or [("default", "Default")]
     animations_on = str(display.get("animations", "true")).lower() == "true"
     rotate_180_on = str(display.get("rotate_180", "false")).lower() == "true"
+    online_artwork_on = str((artwork or {}).get("enabled", "false")).lower() == "true"
     body = (
         "<h1>Display</h1>"
         '<p class="sub">A few safe display options. Changes take '
@@ -111,6 +113,13 @@ def settings_page(
         "<p><label>Preset toast duration (seconds)<br>"
         f'<input type="text" name="toast_duration" '
         f'value="{_esc(display.get("toast_duration", "1.6"))}"></label></p>'
+        "</div>"
+        '<div class="card"><h2>Bluetooth cover art</h2>'
+        f"<p>{_checkbox('online_artwork_enabled', online_artwork_on, 'Fetch missing Bluetooth cover art from MusicBrainz / Cover Art Archive')}</p>"
+        '<p class="note">When enabled, the artist, title, and possibly album are sent '
+        'to MusicBrainz. Artwork is downloaded from Cover Art Archive or Internet '
+        'Archive. No account or API key is required. Disabling this option prevents '
+        'those requests, and the Bluetooth glyph remains the fallback.</p>'
         "</div>"
         '<p class="btnrow">'
         '<button class="btn-primary" type="submit" form="display-settings" name="op" '

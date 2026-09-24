@@ -1,0 +1,18 @@
+{
+  "recordings": [
+    {
+      "id": "55555555-5555-4555-8555-555555555551",
+      "score": 99,
+      "title": "Duplicate Song",
+      "artist-credit": [{"name": "Example Artist"}],
+      "releases": [{"id": "55555555-5555-4555-8555-555555555552", "title": "Album", "status": "Official"}]
+    },
+    {
+      "id": "55555555-5555-4555-8555-555555555553",
+      "score": 100,
+      "title": "Duplicate Song",
+      "artist-credit": [{"name": "Example Artist"}],
+      "releases": [{"id": "55555555-5555-4555-8555-555555555554", "title": "Album", "status": "Official"}]
+    }
+  ]
+}

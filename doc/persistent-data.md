@@ -26,6 +26,7 @@ unless noted otherwise.
 | `/data/radio/sources.ini` | `/etc/radio/sources.ini` | Enabled music sources. |
 | `/data/radio/device.ini` | `/etc/radio/device.ini` | Device name, timezone, NTP source and SSH enablement. |
 | `/data/radio/display.ini` | `/etc/radio/display.ini` | Display preferences. |
+| `/data/radio/artwork.ini` | `/etc/radio/artwork.ini` | Opt-in for Bluetooth online cover-art lookup. Disabled by default. |
 | `/data/radio/audio.ini` | `/etc/radio/audio.ini` | Maximum-volume setting. |
 | `/data/radio/audio_hardware.ini` | `/etc/radio/audio_hardware.ini` | Selected sound-card profile. |
 | `/data/radio/equalizer.ini` | `/etc/radio/equalizer.ini` | Parametric equalizer, preamp and loudness-compensation settings. |
@@ -207,6 +208,8 @@ data unless it is backed up separately.
 | --- | --- |
 | `/run/firmware-update/*`, `/run/swupdate/*` | Current-boot locks, status, IPC sockets and installer log. Persistent result state is recorded separately. |
 | `/tmp/firmware-health.log`, `/tmp/radio-web.log`, `/tmp/radio-status.json`, `/tmp/radio-adc.json` | Diagnostics and live status are volatile by design. `/tmp` is tmpfs. |
+| `/tmp/pisonic/artwork-cache/<sha256>.jpg` | Opt-in Bluetooth cover cache: normalized images under hashed, metadata-free filenames; at most 32 files and 8 MiB total. |
+| `/tmp/bluetooth_cover.jpg` | Atomically published cover for the current Bluetooth track; replaced as tracks change and removed by reboot. |
 | `/var/log` | Symlink to `/tmp`; routine logging must not wear the SD card. |
 | MPD cache/state/stickers | Disposable playback cache, not user configuration. |
 | Live ALSA state | Hardware runtime state is regenerated, not copied between firmware slots. |
@@ -217,6 +220,13 @@ data unless it is backed up separately.
 Keeping caches, logs and generated implementation details out of the persistence
 surface avoids carrying stale firmware-owned state into a newer or rolled-back
 slot.
+
+Bluetooth's online-artwork preference is persistent in `artwork.ini`, but the
+artwork and lookup history are not. Up to 128 negative lookup results are held
+only in process memory; definite no-match/no-cover results expire after six
+hours, and all entries disappear when the player restarts. Artwork cache files
+are excluded from web backup/restore and firmware images, avoiding persistent
+listening-history storage and SD-card writes.
 
 The sole operational exception is the bounded, privacy-safe
 `/data/operations/summary.json` described above; it records recovery facts, not

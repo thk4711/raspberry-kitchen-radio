@@ -7,6 +7,7 @@ appliance or streaming speaker**.It feels like a device and not like a project. 
 no general-purpose desktop OS.
 
 - Bluetooth audio
+- Optional online cover art for Bluetooth tracks
 - Airplay 2
 - Spotify Connect
 - Internet radio
@@ -45,6 +46,17 @@ compensation** (a Fletcher-Munson bass/treble boost that tracks the volume knob
 live and fades out as you turn up). Ordinary adjustments apply live; enabling
 or bypassing the whole EQ briefly restarts the audio path. Settings survive
 firmware updates, trial boots, and automatic rollback.
+
+### Bluetooth cover art
+
+Bluetooth AVRCP supplies artist/title metadata but not image data. PiSonic can
+optionally use that metadata to find cover art through MusicBrainz and Cover Art
+Archive. The feature is disabled by default, needs internet access, and keeps the
+Bluetooth glyph as its immediate and offline fallback. Enabling it sends artist,
+title, and possibly album metadata to MusicBrainz; see
+[`doc/bluetooth.md`](doc/bluetooth.md#optional-online-cover-art) for privacy,
+copyright, provider-policy, cache, and troubleshooting details. USB Audio remains
+unchanged because USB Audio Class provides no native track metadata.
 
 ### Appliance reliability
 

@@ -290,10 +290,12 @@ class DisplayController(DisplayRenderingMixin):
         self._transient = TransientState(clock=lambda: monotonic())
 
         # Cache of the composed static art layer (background + logo/cover +
-        # scrims). It only changes when the cover/md5/mode changes, so animating
-        # (scrolling-text) frames just redraw text over a copy of this cached
-        # layer instead of re-fitting art / recomputing the dominant colour.
-        self._art_cache_key: Tuple[Optional[str], Optional[str], Optional[str]] = (None, None, None)
+        # scrims). Its key also includes fallback inputs (source/name), while
+        # animating frames redraw text over a copy of this cached layer instead
+        # of re-fitting art / recomputing the dominant colour.
+        self._art_cache_key: Tuple[
+            Optional[str], Optional[str], Optional[str], Optional[str], Optional[str]
+        ] = (None, None, None, None, None)
         self._art_layer: Optional[Image.Image] = None
 
         # Adaptive-shadow bookkeeping (round panel only). The round layout draws

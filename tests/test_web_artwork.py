@@ -15,6 +15,13 @@ def test_runtime_artwork(monkeypatch, tmp_path):
     assert artwork.load("spotify") == ("image/jpeg", JPEG)
 
 
+def test_bluetooth_artwork(monkeypatch, tmp_path):
+    image = tmp_path / "bluetooth.jpg"
+    image.write_bytes(JPEG)
+    monkeypatch.setitem(artwork.RUNTIME_ARTWORK, "bluetooth", str(image))
+    assert artwork.load("bluetooth") == ("image/jpeg", JPEG)
+
+
 def test_station_logo_must_be_configured(monkeypatch, tmp_path):
     (tmp_path / "logo.png").write_bytes(PNG)
     monkeypatch.setattr(artwork, "LOGO_DIR", str(tmp_path))

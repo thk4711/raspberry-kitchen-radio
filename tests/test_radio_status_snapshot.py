@@ -80,9 +80,21 @@ class TestArtworkDescriptor:
             == "airplay-png"
         )
 
+    def test_bluetooth_artwork_uses_fingerprint_version(self):
+        first = status_snapshot.artwork_descriptor(
+            "bluetooth", "/tmp/bluetooth_cover.jpg", "cover-v1"
+        )
+        second = status_snapshot.artwork_descriptor(
+            "bluetooth", "/tmp/bluetooth_cover.jpg", "cover-v2"
+        )
+        assert first["id"] == "bluetooth"
+        assert first["version"] != second["version"]
+        assert "/tmp/" not in json.dumps(first)
+
     def test_unknown_or_traversal_artwork_is_omitted(self):
         assert status_snapshot.artwork_descriptor("mpd", "../../secret.png") == {}
         assert status_snapshot.artwork_descriptor("spotify", "/tmp/other.jpg") == {}
+        assert status_snapshot.artwork_descriptor("bluetooth", "/tmp/other.jpg") == {}
 
 
 class TestWriteSnapshot:
