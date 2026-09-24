@@ -1,6 +1,6 @@
 [project]
 name = "pisonic"
-version = "0.3.1"
+version = "0.4.0"
 description = "Buildroot appliance that turns a Raspberry Pi into an internet radio / streaming device."
 readme = "README.md"
 license = { file = "LICENSE" }

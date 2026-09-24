@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-09-24
+
 ### Added
 - **Opt-in online cover art for Bluetooth AVRCP tracks.** When enabled on the
   Display page, PiSonic asynchronously uses artist/title/album metadata to find a
@@ -85,6 +87,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   validation.
 
 ### Changed
+- **Faster appliance startup.** U-Boot now uses `bootdelay=0`, removing the
+  unnecessary boot-menu pause while retaining normal A/B slot selection and
+  rollback behaviour.
+- **USB Audio identifies as PiSonic.** The USB gadget product name now matches
+  the renamed project when shown by a connected host.
 - **Replaced the vendored `lib/ADS1x15` ADS1115 driver with a small
   first-party driver, `lib/ads1115.py`.** The old third-party library
   (`Adafruit_ADS1x15.py` + `Adafruit_I2C.py`, ~800 lines) implemented ADS1015
@@ -97,7 +104,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `from ads1115 import ADS1115`; ADC calibration constants in `radio.conf`
   (`[adc]`) are unchanged (readings stay in millivolts at the ±6.144 V range).
 
-  specific commit in `buildroot/external/external.mk`) instead of the mainline
+- **AirPlay moved to a pinned shairport-sync development revision.** PiSonic
+  builds commit `78eb528bac5a8fd8cc4cfe5b5023cce43fb063a6` instead of the mainline
   stable release, enabling experimental remote-control support for AirPlay 2
   clients. This is a major jump (4.3.7 → 5.6-dev); revalidate `airplay.conf` and
   the D-Bus interface on-target after bumping the pin.
@@ -135,6 +143,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   after switching, run `make shairport-sync-dirclean` on the build host and
   remove any stale `output/build/shairport-sync-4.3.7/` /
   `output/build/shairport-sync-<commit>/` directories from earlier attempts.
+
+### Reproducible build inputs
+- Buildroot `2026.05.2`, commit
+  `72d9d4fa636a371ef9eb99c92a735ce9f6d829d5`.
+- go-librespot `v0.9.0`, vendored source archive SHA-256
+  `9e4e1ab1871267ba5cace600a7b3025681b5177195ce9a246e5c91e63b021328`.
+- shairport-sync development revision
+  `78eb528bac5a8fd8cc4cfe5b5023cce43fb063a6` (immutable Git commit used through
+  `SHAIRPORT_SYNC_OVERRIDE_SRCDIR`; no source archive is generated).
+- nqptp `1.2.4`, source archive SHA-256
+  `1df1d5edd5b713010d6495b3abca4c1cf4ad8fa6029df0abeb9e4de8e0eb707a`.
 
 ## [0.3.1] - 2026-09-21
 
