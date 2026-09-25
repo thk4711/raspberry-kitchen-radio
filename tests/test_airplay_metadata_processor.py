@@ -104,6 +104,14 @@ class TestProcessLine:
         proc.process_line(line, pipe)
         assert proc.meta_data["track"] == "My Song"
 
+    def test_core_album_update_sets_album(self):
+        proc = AirplayMetadataProcessor()
+        album_b64 = base64.b64encode(b"My Album").decode()
+        line = f"<item><type>{_hex('core')}</type><code>{_hex('asal')}</code><length>8</length>"
+        pipe = io.StringIO(f'<data encoding="base64">\n{album_b64}</data>\n')
+        proc.process_line(line, pipe)
+        assert proc.meta_data["album"] == "My Album"
+
     def test_flush_marker_returns_accumulated_metadata(self):
         proc = AirplayMetadataProcessor()
         proc.meta_data["track"] = "Cached Track"

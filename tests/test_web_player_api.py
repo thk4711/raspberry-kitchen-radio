@@ -47,6 +47,7 @@ def test_metadata_is_public_and_projects_only_safe_snapshot_fields(monkeypatch):
             "now_playing": {
                 "name": "Artist",
                 "title": "Track",
+                "album": "Album",
                 "state": False,
                 "cover": "/tmp/private-cover.jpg",
                 "stream_url": "https://secret.example/stream",
@@ -72,6 +73,7 @@ def test_metadata_is_public_and_projects_only_safe_snapshot_fields(monkeypatch):
         "metadata": {
             "name": "Artist",
             "title": "Track",
+            "album": "Album",
             "artwork": {
                 "id": "spotify",
                 "version": "abc123",
@@ -107,7 +109,7 @@ def test_metadata_reports_unavailable_snapshot_with_stable_schema(monkeypatch):
         "power": None,
         "active_source": None,
         "playing": None,
-        "metadata": {"name": "", "title": "", "artwork": {}},
+        "metadata": {"name": "", "title": "", "album": "", "artwork": {}},
         "sources": {},
     }
 

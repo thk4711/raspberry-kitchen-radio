@@ -122,6 +122,7 @@ class AirplayService(MusicSource):
                                     cover=new.get("filename", ""),
                                     md5=new.get("md5", ""),
                                     state=self.metadata.state,
+                                    album=new.get("album", ""),
                                 )
             except OSError as exc:
                 logger.warning("AirPlay metadata FIFO unavailable; retrying: %s", exc)

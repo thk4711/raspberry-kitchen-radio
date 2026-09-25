@@ -167,6 +167,7 @@ class BluetoothService(MusicSource):
             artist,
             title,
             self._transport_is_playing(objects, path),
+            album,
         )
 
     def _update_track(
@@ -175,6 +176,7 @@ class BluetoothService(MusicSource):
         artist: str,
         title: str,
         playing: bool,
+        album: str = "",
     ) -> None:
         """Update text immediately and start lookup only for a changed track."""
         with self._lock:
@@ -192,6 +194,7 @@ class BluetoothService(MusicSource):
                 cover=cover,
                 md5=fingerprint,
                 state=playing,
+                album=album,
             )
         if not track_changed or self._artwork_resolver is None:
             return
@@ -214,6 +217,7 @@ class BluetoothService(MusicSource):
                 cover=resolution.cover_path,
                 md5=resolution.fingerprint,
                 state=self.metadata.state,
+                album=self.metadata.album,
             )
 
     def _clear_track(self) -> None:

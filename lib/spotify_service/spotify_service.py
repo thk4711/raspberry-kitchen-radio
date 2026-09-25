@@ -145,9 +145,11 @@ class SpotifyService(MusicSource):
                 artist_names = None
                 track_name = None
             if isinstance(artist_names, list) and isinstance(track_name, str):
+                album_name = track.get("album_name") if isinstance(track, dict) else None
                 with self._metadata_lock:
                     self.metadata.name = " ".join(str(item) for item in artist_names)
                     self.metadata.title = track_name
+                    self.metadata.album = album_name if isinstance(album_name, str) else ""
                     self.metadata.state = not (json_data.get("paused") or json_data.get("stopped"))
 
                 # Update album cover only if it has changed.

@@ -55,11 +55,16 @@ def test_read_metadata_updates_track_and_play_state(monkeypatch, tmp_path):
     monkeypatch.setattr(
         spotify_service.utility,
         "request_json",
-        mock.Mock(return_value={"track": {"artist_names": ["A", "B"], "name": "Song"}}),
+        mock.Mock(
+            return_value={
+                "track": {"artist_names": ["A", "B"], "name": "Song", "album_name": "Album"}
+            }
+        ),
     )
     service.read_metadata_once()
     assert service.metadata.name == "A B"
     assert service.metadata.title == "Song"
+    assert service.metadata.album == "Album"
     assert service.get_play_state() is True
 
 

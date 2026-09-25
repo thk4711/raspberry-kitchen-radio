@@ -21,6 +21,7 @@
     if (player.playing !== null && typeof player.playing !== "boolean") return false;
     if (typeof player.metadata.name !== "string" ||
         typeof player.metadata.title !== "string" ||
+        typeof player.metadata.album !== "string" ||
         !isObject(player.metadata.artwork)) return false;
     return Object.values(player.sources).every(
       (entry) => isObject(entry) && typeof entry.playing === "boolean",
@@ -93,11 +94,18 @@
       "[data-player-source]": typeof player.active_source === "string" ? player.active_source : "",
       "[data-player-name]": typeof metadata.name === "string" ? metadata.name : "",
       "[data-player-title]": typeof metadata.title === "string" ? metadata.title : "",
+      "[data-player-album]": typeof metadata.album === "string" ? metadata.album : "",
     };
     Object.entries(values).forEach(([selector, value]) => {
       const element = region.querySelector(selector);
       if (element) element.textContent = value;
     });
+
+    const albumLabel = region.querySelector("[data-player-album-label]");
+    const albumValue = region.querySelector("[data-player-album]");
+    const hasAlbum = typeof metadata.album === "string" && metadata.album !== "";
+    if (albumLabel) albumLabel.hidden = !hasAlbum;
+    if (albumValue) albumValue.hidden = !hasAlbum;
 
     const artworkContainer = region.querySelector("[data-player-artwork]");
     const artworkImage = region.querySelector("[data-player-artwork-image]");

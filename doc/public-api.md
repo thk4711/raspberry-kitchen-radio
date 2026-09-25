@@ -40,6 +40,7 @@ Example response (`200 OK`):
   "metadata": {
     "name": "Artist",
     "title": "Track",
+    "album": "Album",
     "artwork": {
       "id": "spotify",
       "version": "abc123",
@@ -63,6 +64,7 @@ Fields:
 | `playing` | Active source playback state, or `null` when unknown. |
 | `metadata.name` | Current display name, such as an artist, station, or source name. |
 | `metadata.title` | Current track or stream title. |
+| `metadata.album` | Current album name, or `""` when the source provides none. |
 | `metadata.artwork` | Safe artwork descriptor, or `{}` when no artwork is available. The relative `url` can be fetched from the same PiSonic host. |
 | `sources` | Available source IDs and their last observed `playing` state. |
 

@@ -114,6 +114,7 @@ def public_status(player: Dict[str, Any]) -> Dict[str, Any]:
         "metadata": {
             "name": _safe_text(now_playing.get("name")),
             "title": _safe_text(now_playing.get("title")),
+            "album": _safe_text(now_playing.get("album")),
             "artwork": _safe_artwork(now_playing.get("artwork")),
         },
         "sources": sources,

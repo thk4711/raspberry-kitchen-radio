@@ -106,6 +106,7 @@ def test_reads_metadata_from_connected_player(monkeypatch):
         metadata = service.get_metadata()
         assert metadata.name == "Band"
         assert metadata.title == "Song"
+        assert metadata.album == "LP"
         assert metadata.cover == ""
         assert metadata.md5 == ""
         assert metadata.state is True

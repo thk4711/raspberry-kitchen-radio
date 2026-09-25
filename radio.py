@@ -446,6 +446,7 @@ class RadioController:
             now_playing = {
                 "name": metadata.name,
                 "title": metadata.title,
+                "album": metadata.album,
                 "state": bool(metadata.state),
                 "artwork": artwork_descriptor(
                     active_name,

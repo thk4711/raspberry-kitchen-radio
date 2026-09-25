@@ -31,6 +31,7 @@ class Metadata(BaseModel):
     cover: str  # path to a cover-art image file (or "" for none)
     md5: str  # hash of the cover; the display skips redraw when unchanged
     state: bool  # True while this source is actively playing
+    album: str = ""  # album name when the source provides it (or "" for none)
 
     def snapshot(self) -> "Metadata":
         """Return a deep copy suitable for passing between worker threads."""
