@@ -1,13 +1,14 @@
 <p align="center">
   <img src="radio_web/static/PiSonic-Logo.svg" alt="PiSonic Logo" width="200"/>
 </p>
+PiSonic turns a Raspberry Pi 3A+ into a **standalone audio
+appliance or streaming speaker**.
+It feels like a device and not like a project - 
+but you exactly know what software is running. 
+No data is  transfered anywhere without you knowing about it. 
+No unsave firmware that never gets updated.
 
-PiSonic turns a Raspberry Pi 3A+ into a **standalone internet audio
-appliance or streaming speaker**.It feels like a device and not like a project. It Boots straight into playback
-no general-purpose desktop OS.
-
-- Bluetooth audio
-- Optional online cover art for Bluetooth tracks
+- Bluetooth audio with optional online cover art for Bluetooth tracks
 - Airplay 2
 - Spotify Connect
 - Internet radio
@@ -19,14 +20,7 @@ no general-purpose desktop OS.
 - Tactile buttons and volume potentiometer support
 - Public playback-control and now-playing API
 - Rectangular or round SPI display support
-- very small memory and storage footprint
-
-### Five audio sources
-
-Internet radio presets, an AirPlay receiver, Spotify Connect, Bluetooth A2DP,
-and a USB Audio Class receiver that makes the appliance appear as a stereo USB sound
-card. All five share one output path, so the volume knob and equalizer apply
-uniformly.
+- Very small memory and storage footprint
 
 > **USB wiring:** VBUS must not be connected — see
 > [`doc/hardware.md`](doc/hardware.md#usb-audio-gadget-wiring).
@@ -34,62 +28,43 @@ uniformly.
 ### Web administration
 
 A password-protected web interface on port 8080 lets you edit presets and
-enabled sources; configure WiFi, static IP, hostname, device name, time,
-display, audio output, and maximum volume; view player, network, Bluetooth, and
-system status; back up and restore device data; and install or roll back
-firmware. Its public dashboard also provides Previous, Play, Pause, and Next
+enabled sources; configure networking, hostname, time zone,
+display, audio output, bluetooth, and view system status; back up and restore device data,
+update firmware. Its public dashboard also provides Previous, Play, Pause, and Next
 controls.
 
 ### Public playback API
 
 Clients on the trusted LAN can read now-playing metadata and control playback
 through a small JSON API on port 8080. The API deliberately requires no password,
-session, or CSRF token, so every device that can reach PiSonic can control it.
+so every device that can reach PiSonic can control it.
 Do not expose the web service to an untrusted network or the internet. See the
-[`public API reference`](doc/public-api.md) for endpoints, schemas, examples,
-response codes, and source-specific limitations.
+[`public API reference`](doc/public-api.md) for endpoints, schemas, examples, response codes, and source-specific limitations.
 
 ### Sound tuning
 
 A built-in **ten-band parametric equalizer** in the web interface, with per-band
 frequency, gain, Q, and filter type. It also offers optional **loudness
-compensation** (a Fletcher-Munson bass/treble boost that tracks the volume knob
-live and fades out as you turn up). Ordinary adjustments apply live; enabling
-or bypassing the whole EQ briefly restarts the audio path. Settings survive
-firmware updates, trial boots, and automatic rollback.
-
-### Bluetooth cover art
-
-Bluetooth AVRCP supplies artist/title metadata but not image data. PiSonic can
-optionally use that metadata to find cover art through MusicBrainz and Cover Art
-Archive. The feature is disabled by default, needs internet access, and keeps the
-Bluetooth glyph as its immediate and offline fallback. Enabling it sends artist,
-title, and possibly album metadata to MusicBrainz; see
-[`doc/bluetooth.md`](doc/bluetooth.md#optional-online-cover-art) for privacy,
-copyright, provider-policy, cache, and troubleshooting details. USB Audio remains
-unchanged because USB Audio Class provides no native track metadata.
+compensation** .
 
 ### Appliance reliability
 
 - Persistent configuration and user data on a shared data partition.
-- Fast DHCP reconnect: the last confirmed WiFi address is restored immediately
-  after association while DHCP validates and renews it in the background.
+- Fast boot
 - Safe A/B firmware updates with health-checked trial boots and automatic
   rollback when a trial firmware is unhealthy.
 - Service restart and watchdog support for unattended use.
 
 ## Typical use cases
 
-- A kitchen, workshop, or bedside internet radio with physical controls.
-  (PiSonic works anywhere a compact networked speaker fits.)
-- A compact AirPlay, Spotify Connect, Bluetooth, or USB Audio speaker.
-- A local audio appliance that can be administered from a phone or laptop.
+- A kitchen, workshop, or desk audio device with physical controls.
+- A compact AirPlay, Spotify Connect, Bluetooth, or USB Audio active speakers.
 - A hackable embedded audio project with extensible music-source backends.
 
 ## Hardware
 
 The appliance image targets the **Raspberry Pi 3A+** This device is still affordable and more than adequat for this purpose.
-Other Pi models are not supported. 
+Other Pi models are not supported right now. 
 
 A typical build uses:
 
@@ -128,16 +103,14 @@ The usual first setup flow is:
    small FAT boot partition and edit the existing `pisonic-config.txt` with a plain
    text editor. Uncomment and set your WiFi SSID and password. You can also set
    the hostname, a unique root password, timezone, country, display options, and
-   source flags. The generic image has no reusable login: root password access
-   is locked, and SSH cannot be enabled until a non-placeholder password is
-   explicitly provisioned.
-
+   source flags.
+   
    Provisioning is one-shot: after applying active settings, the appliance comments
    their lines out in `pisonic-config.txt`. To apply a boot setting again, edit its
    value on the boot partition, remove the leading `#`, and reboot. The full key
    reference is in
    [`doc/buildroot.md`](doc/buildroot.md#provisioning-a-prebuilt-image-from-the-sd-card-pisonic-configtxt).
-
+   
 3. **Boot the device.**
 
    Insert the SD card into the Raspberry Pi 3A+ and power it on. The appliance
@@ -154,17 +127,15 @@ The usual first setup flow is:
    The interface uses plain HTTP, so use it only on a trusted LAN (see
    [`doc/web-interface.md`](doc/web-interface.md#reaching-the-interface)).
 
-5. **Select the sound card.**
+5. **Select the sound card and configure display.**
 
    Open the **Audio** page in the web interface and select the DAC / amplifier
    board used by your build. Save the setting and reboot if prompted. The
    built-in headphone output is the safe default. Supported sound cards and
    wiring maps are documented in [`doc/sound-devices.md`](doc/sound-devices.md)
-   ([color-coded pinout](https://thk4711.github.io/pisonic/sound-devices.html)).
+   ([color-coded pinout](https://thk4711.github.io/pisonic/sound-devices.html)). On the **Display** page you can select your SPI display type and orientation.
 
-After that, use the web interface for stations, music sources, display settings,
-network settings, equalizer tuning, backups, and firmware maintenance. SSH is
-disabled by default.
+After that, use the web interface for stations, music sources, network settings, equalizer tuning, firmware maintenance. SSH is disabled by default.
 
 ## Firmware updates
 
@@ -177,19 +148,6 @@ Packages are **unsigned**: obtain them through a trusted channel and update only
 on a trusted LAN. The full upload, activation, rollback, and recovery procedure —
 and the complete security notes — are in
 [`doc/firmware-updates.md`](doc/firmware-updates.md).
-
-## Technical overview
-
-`radio.py` runs a `RadioController` that ties together the playback backends, the
-display, and the analog controls. Every backend implements the same small
-[`MusicSource`](lib/music_source.py) interface, so the controller can treat
-internet radio, AirPlay, Spotify Connect, Bluetooth, and USB Audio as
-interchangeable sources.
-
-The media backends — shairport-sync, nqptp, go-librespot, BlueZ/bluez-alsa, and
-the ALSA `alsaloop`/libsamplerate USB bridge — are compiled from source into the
-Buildroot appliance image. For the service layout, audio routing, and update
-architecture, see the documentation below.
 
 ## Documentation
 
