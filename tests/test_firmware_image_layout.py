@@ -114,7 +114,8 @@ def test_image_builder_creates_both_slots_and_seed_data():
     assert "schema-version" in text
     assert "history.json" in text
     assert "for path in /radio /radio/logos /update/upload" in text
-    assert "/network/wpa_supplicant.conf /identity" in text
+    assert "/network/wpa_supplicant.conf /network-cache /identity" in text
+    assert "set_data_inode /network-cache mode 040700" in text
 
 
 def test_slot_owned_kernel_and_stable_loader_assets_are_assembled_in_their_layers():

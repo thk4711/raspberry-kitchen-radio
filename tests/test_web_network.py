@@ -98,15 +98,23 @@ def wifi_paths(monkeypatch, tmp_path):
     static = tmp_path / "wlan-static.env"
     marker = tmp_path / "wlan-rollback-pending"
     country = tmp_path / "wifi-country"
+    lease_cache = tmp_path / "wlan-last-lease.env"
     monkeypatch.setattr(network_apply, "WPA_CONF", str(wpa))
     monkeypatch.setattr(network_apply, "WPA_PREV", str(wpa) + ".prev")
     monkeypatch.setattr(network_store, "STATIC_IP_FILE", str(static))
     monkeypatch.setattr(network_store, "ROLLBACK_MARKER", str(marker))
     monkeypatch.setattr(network_store, "WIFI_COUNTRY_FILE", str(country))
+    monkeypatch.setattr(network_apply, "LEASE_CACHE", str(lease_cache))
     # Never actually restart WiFi or spawn a watcher in unit tests.
     monkeypatch.setattr(network_apply, "_restart_wifi", lambda: True)
     monkeypatch.setattr(network_apply, "_arm_watcher", lambda seconds: None)
-    return {"wpa": wpa, "static": static, "marker": marker, "country": country}
+    return {
+        "wpa": wpa,
+        "static": static,
+        "marker": marker,
+        "country": country,
+        "lease_cache": lease_cache,
+    }
 
 
 class TestNetworkApply:
@@ -131,6 +139,7 @@ class TestNetworkApply:
         assert target.read_text() == "new\n"
 
     def test_apply_writes_wpa_and_marker(self, wifi_paths):
+        wifi_paths["lease_cache"].write_text("IP='192.0.2.10'\n")
         ok, _ = network_apply.apply_wifi(self._base(), rollback_seconds=30)
         assert ok is True
         text = wifi_paths["wpa"].read_text()
@@ -138,6 +147,7 @@ class TestNetworkApply:
         assert "key_mgmt=WPA-PSK" in text
         assert wifi_paths["marker"].exists()
         assert wifi_paths["country"].read_text().strip() == "DE"
+        assert not wifi_paths["lease_cache"].exists()
 
     def test_apply_static_writes_env(self, wifi_paths):
         config = self._base()

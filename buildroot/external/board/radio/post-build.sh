@@ -215,8 +215,5 @@ mkdir -p "${TARGET_DIR}/mnt/firmware-other-ro"
 if [ -f "${TARGET_DIR}/etc/udhcpc-wlan.script" ]; then
 	chmod 0755 "${TARGET_DIR}/etc/udhcpc-wlan.script"
 fi
-if [ -f "${TARGET_DIR}/var/lib/wlan-last-lease.env" ]; then
-	chmod 0600 "${TARGET_DIR}/var/lib/wlan-last-lease.env"
-fi
 
 exit 0

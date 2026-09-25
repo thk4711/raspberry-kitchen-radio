@@ -41,6 +41,7 @@ BOOT_MNT=/mnt/boot
 CONFIG_NAME=pisonic-config.txt
 LOG=/tmp/provision-from-boot.log
 WPA_CONF=/etc/wpa_supplicant.conf
+LEASE_CACHE=/data/network-cache/wlan-last-lease.env
 SSH_DISABLE_FLAG=/run/provision-disable-ssh
 DEVICE_CONFIG=/etc/radio/device.ini
 # Marker written when the SD card set the hostname, so the web UI can lock the
@@ -55,7 +56,7 @@ WIFI_COUNTRY_FILE=/etc/radio/wifi-country
 # Static-IP handoff: provision-from-boot validates the ip_* keys and writes this
 # env file; S41wlan reads it at bring-up and applies a static address instead of
 # DHCP. Absent -> DHCP (today's behaviour). Shares the same shape as
-# /var/lib/wlan-last-lease.env (IP/PREFIX/
+# /data/network-cache/wlan-last-lease.env (IP/PREFIX/
 # ROUTER/DNS) so S41wlan can reuse its apply logic.
 WLAN_STATIC_FILE=/etc/radio/wlan-static.env
 ROOT_HASH_FILE=/data/identity/root-password.hash
@@ -217,6 +218,7 @@ apply_wifi() {
 		echo "    key_mgmt=WPA-PSK"
 		echo "}"
 	} > "$tmp" 2>/dev/null && mv "$tmp" "$wpa_target" && chmod 0600 "$wpa_target"; then
+		rm -f "$LEASE_CACHE"
 		mark_consumed wifi_ssid wifi_psk
 		log "wifi: wrote $wpa_target (via $WPA_CONF) for ssid=$ssid"
 	else
@@ -565,4 +567,3 @@ umount "$BOOT_MNT" 2>/dev/null || true
 
 log "done"
 exit 0
-

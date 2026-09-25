@@ -148,7 +148,7 @@ DATA_IMAGE="${BINARIES_DIR}/data.ext4"
 DATA_ROOT="$(mktemp -d)"
 trap 'rm -rf "${ROOTPATH_TMP:-}" "$DATA_ROOT"' EXIT
 
-mkdir -p "$DATA_ROOT/radio/logos" "$DATA_ROOT/network"
+mkdir -p "$DATA_ROOT/radio/logos" "$DATA_ROOT/network" "$DATA_ROOT/network-cache"
 mkdir -p "$DATA_ROOT/identity/dropbear" "$DATA_ROOT/bluetooth"
 mkdir -p "$DATA_ROOT/operations"
 mkdir -p "$DATA_ROOT/update/upload" "$DATA_ROOT/update/queue"
@@ -192,12 +192,13 @@ set_data_inode /radio/schema-version mode 0100644
 set_data_inode /radio/artwork.ini uid 601
 set_data_inode /radio/artwork.ini gid 601
 set_data_inode /radio/artwork.ini mode 0100644
-for path in /network /network/wpa_supplicant.conf /identity \
+for path in /network /network/wpa_supplicant.conf /network-cache /identity \
 	/identity/dropbear /bluetooth /update /update/history.json \
 	/update/queue /update/config-backups /operations; do
 	set_data_inode "$path" uid 0
 	set_data_inode "$path" gid 0
 done
+set_data_inode /network-cache mode 040700
 set_data_inode /update/upload mode 040750
 set_data_inode /update/backup-restore mode 040770
 set_data_inode /update/queue mode 040700

@@ -1,3 +1,8 @@
 # Required by /usr/sbin/provision-from-boot for the pisonic-config.txt
 # root_password=... setting.
 CONFIG_CHPASSWD=y
+# Serialize DHCP event hooks with WiFi shutdown/reconfiguration.
+CONFIG_FLOCK=y
+# S41wlan binds its optimistic DHCP cache to the associated WiFi SSID without
+# storing that identifier in plaintext.
+CONFIG_SHA256SUM=y

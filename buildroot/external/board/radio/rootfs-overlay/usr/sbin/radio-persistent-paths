@@ -12,6 +12,7 @@ fi
 
 mkdir -p "$DATA/radio/logos"
 mkdir -p "$DATA/network"
+mkdir -p "$DATA/network-cache"
 mkdir -p "$DATA/identity/dropbear"
 mkdir -p "$DATA/bluetooth"
 mkdir -p "$DATA/operations"
@@ -38,6 +39,10 @@ chown 0:0 "$DATA/operations"
 chmod 0755 "$DATA/operations"
 chmod 0644 "$DATA/operations/summary.json" 2>/dev/null || true
 chmod 0600 "$DATA/identity/root-password.hash" 2>/dev/null || true
+chown 0:0 "$DATA/network-cache"
+chmod 0700 "$DATA/network-cache"
+chown 0:0 "$DATA/network-cache/wlan-last-lease.env" 2>/dev/null || true
+chmod 0600 "$DATA/network-cache/wlan-last-lease.env" 2>/dev/null || true
 # Publish only a non-secret capability bit to the unprivileged web service. The
 # password hash remains root-only; S50dropbear independently validates it.
 if [ -s "$DATA/identity/root-password.hash" ]; then

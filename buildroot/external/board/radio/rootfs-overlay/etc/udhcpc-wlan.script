@@ -1,44 +1,112 @@
 #!/bin/sh
+# shellcheck disable=SC2154 # Lease fields are supplied in udhcpc's environment.
 # udhcpc event script for wlan0 with lease caching.
 # It keeps DHCP authoritative, but persists the last good lease so S41wlan can
 # optimistically apply it early on the next boot.
 
-CACHE=/var/lib/wlan-last-lease.env
-RESOLV_CONF=/etc/resolv.conf
-LOG=/tmp/S41wlan.log
+CACHE="${RADIO_WLAN_LEASE_CACHE:-/data/network-cache/wlan-last-lease.env}"
+RESOLV_CONF="${RADIO_RESOLV_CONF:-/etc/resolv.conf}"
+LOG="${S41WLAN_LOG:-/tmp/S41wlan.log}"
+WPA_IFACE="${interface:-wlan0}"
+LEASE_LOCK="${RADIO_WLAN_LEASE_LOCK:-/run/wlan-lease.lock}"
+
+# S41wlan takes the same lock while stopping the old client and flushing its
+# address, preventing a late renewal hook from reinstalling stale state.
+exec 9> "$LEASE_LOCK" || exit 1
+flock 9 || exit 1
 
 log() {
 	printf 'S41wlan-dhcp: %s\n' "$*" >> "$LOG"
 }
 
 prefix_from_netmask() {
-	# Convert dotted decimal netmask to prefix length. Keep common fast paths, then
-	# fall back to a small awk implementation if needed.
 	case "$1" in
-		255.255.255.255) echo 32 ;;
-		255.255.255.252) echo 30 ;;
-		255.255.255.248) echo 29 ;;
-		255.255.255.240) echo 28 ;;
-		255.255.255.224) echo 27 ;;
-		255.255.255.192) echo 26 ;;
-		255.255.255.128) echo 25 ;;
-		255.255.255.0)   echo 24 ;;
-		255.255.254.0)   echo 23 ;;
-		255.255.252.0)   echo 22 ;;
-		255.255.248.0)   echo 21 ;;
-		255.255.240.0)   echo 20 ;;
-		255.255.224.0)   echo 19 ;;
-		255.255.192.0)   echo 18 ;;
-		255.255.128.0)   echo 17 ;;
-		255.255.0.0)     echo 16 ;;
+		0.0.0.0)         echo 0 ;;
+		128.0.0.0)       echo 1 ;;
+		192.0.0.0)       echo 2 ;;
+		224.0.0.0)       echo 3 ;;
+		240.0.0.0)       echo 4 ;;
+		248.0.0.0)       echo 5 ;;
+		252.0.0.0)       echo 6 ;;
+		254.0.0.0)       echo 7 ;;
 		255.0.0.0)       echo 8 ;;
-		*) echo 24 ;;
+		255.128.0.0)     echo 9 ;;
+		255.192.0.0)     echo 10 ;;
+		255.224.0.0)     echo 11 ;;
+		255.240.0.0)     echo 12 ;;
+		255.248.0.0)     echo 13 ;;
+		255.252.0.0)     echo 14 ;;
+		255.254.0.0)     echo 15 ;;
+		255.255.0.0)     echo 16 ;;
+		255.255.128.0)   echo 17 ;;
+		255.255.192.0)   echo 18 ;;
+		255.255.224.0)   echo 19 ;;
+		255.255.240.0)   echo 20 ;;
+		255.255.248.0)   echo 21 ;;
+		255.255.252.0)   echo 22 ;;
+		255.255.254.0)   echo 23 ;;
+		255.255.255.0)   echo 24 ;;
+		255.255.255.128) echo 25 ;;
+		255.255.255.192) echo 26 ;;
+		255.255.255.224) echo 27 ;;
+		255.255.255.240) echo 28 ;;
+		255.255.255.248) echo 29 ;;
+		255.255.255.252) echo 30 ;;
+		255.255.255.254) echo 31 ;;
+		255.255.255.255) echo 32 ;;
+		*) return 1 ;;
 	esac
 }
 
-shell_quote() {
-	# Single-quote a value for safe .env sourcing.
-	printf "%s" "$1" | sed "s/'/'\\''/g; 1s/^/'/; \$s/\$/'/"
+valid_ipv4() {
+	value=$1
+	case "$value" in
+		''|*[!0-9.]*|.*|*.|*..*) return 1 ;;
+	esac
+	oldifs=$IFS
+	IFS=.
+	# shellcheck disable=SC2086 # deliberate split into four IPv4 octets.
+	set -- $value
+	IFS=$oldifs
+	[ "$#" -eq 4 ] || return 1
+	for octet in "$@"; do
+		case "$octet" in
+			''|*[!0-9]*) return 1 ;;
+		esac
+		[ "$octet" -le 255 ] || return 1
+	done
+}
+
+safe_ipv4_list() {
+	result=""
+	for address in $1; do
+		valid_ipv4 "$address" || continue
+		result="${result}${result:+ }${address}"
+	done
+	printf '%s\n' "$result"
+}
+
+safe_domain_list() {
+	result=""
+	for name in $1; do
+		case "$name" in
+			''|*[!A-Za-z0-9._-]*) continue ;;
+		esac
+		result="${result}${result:+ }${name}"
+	done
+	printf '%s\n' "$result"
+}
+
+associated_ssid_hash() {
+	ssid="$(iw dev "$WPA_IFACE" link 2>/dev/null | sed -n 's/^[[:space:]]*SSID: //p' | sed -n '1p')"
+	[ -n "$ssid" ] || return 1
+	hash_line="$(printf '%s' "$ssid" | sha256sum)" || return 1
+	hash=${hash_line%% *}
+	case "$hash" in
+		''|*[!0-9a-f]*) return 1 ;;
+	esac
+	[ "${#hash}" -eq 64 ] || return 1
+	printf '%s\n' "$hash"
 }
 
 write_resolv_conf() {
@@ -58,38 +126,95 @@ write_resolv_conf() {
 	done
 }
 
+clear_rejected_lease() {
+	ip -4 addr flush dev "$interface" scope global 2>> "$LOG" || true
+	ip route del default dev "$interface" 2>/dev/null || true
+	if [ -e "$RESOLV_CONF" ]; then
+		tmp="${RESOLV_CONF}.tmp.$$"
+		grep -vE "# ${interface}\$" "$RESOLV_CONF" > "$tmp" 2>/dev/null || true
+		cat "$tmp" > "$RESOLV_CONF"
+		rm -f "$tmp"
+	fi
+	rm -f "$CACHE" "${CACHE}.tmp.$$"
+}
+
 configure_lease() {
-	prefix="$(prefix_from_netmask "$subnet")"
-	log "DHCP $1: ip=$ip/$prefix router=$router dns=$dns"
+	if ! valid_ipv4 "$ip"; then
+		log "DHCP $1 ignored invalid address '$ip'"
+		return 1
+	fi
+	if [ -z "$subnet" ]; then
+		subnet=255.255.255.0
+		prefix=24
+		log "DHCP $1 supplied no netmask; using /24"
+	else
+		prefix="$(prefix_from_netmask "$subnet")" || {
+			log "DHCP $1 ignored invalid netmask '$subnet'"
+			return 1
+		}
+	fi
+	safe_broadcast=""
+	[ -z "$broadcast" ] || ! valid_ipv4 "$broadcast" || safe_broadcast=$broadcast
+	safe_router="$(safe_ipv4_list "$router")"
+	safe_dns="$(safe_ipv4_list "$dns")"
+	safe_domains="$(safe_domain_list "${search:-$domain}")"
+	ssid_hash="$(associated_ssid_hash 2>/dev/null || true)"
+	log "DHCP $1: ip=$ip/$prefix router=$safe_router dns=$safe_dns"
+
+	cache_tmp=""
+	if [ -n "$ssid_hash" ]; then
+		mkdir -p "$(dirname "$CACHE")"
+		chmod 0700 "$(dirname "$CACHE")"
+		umask 077
+		cache_tmp="${CACHE}.tmp.$$"
+		{
+			printf "IP='%s'\n" "$ip"
+			printf "SUBNET='%s'\n" "$subnet"
+			printf "PREFIX='%s'\n" "$prefix"
+			printf "BROADCAST='%s'\n" "$safe_broadcast"
+			printf "ROUTER='%s'\n" "$safe_router"
+			printf "DNS='%s'\n" "$safe_dns"
+			printf "DOMAIN='%s'\n" "$safe_domains"
+			printf "SSID_HASH='%s'\n" "$ssid_hash"
+		} > "$cache_tmp"
+		chmod 0600 "$cache_tmp"
+	else
+		log "DHCP $1 could not identify the associated WiFi network; not caching lease"
+		rm -f "$CACHE"
+	fi
+
+	# A normal renewal commonly returns byte-for-byte identical configuration.
+	# Do not flush a live address in that case, because doing so interrupts active
+	# streams for no networking benefit.
+	if [ -n "$cache_tmp" ] && [ -f "$CACHE" ] && cmp -s "$cache_tmp" "$CACHE" \
+		&& ip -o -4 addr show dev "$interface" 2>/dev/null \
+			| grep -Fq " inet ${ip}/${prefix} "; then
+		rm -f "$cache_tmp"
+		log "DHCP $1 confirmed unchanged lease"
+		return 0
+	fi
 
 	# Replace the optimistic cached address if present. Flush only global IPv4
 	# addresses on this interface; leave link-local/IPv6 alone.
 	ip -4 addr flush dev "$interface" scope global 2>> "$LOG" || true
-	if [ -n "$broadcast" ]; then
-		ip addr add "$ip/$prefix" broadcast "$broadcast" dev "$interface" 2>> "$LOG" || true
+	if [ -n "$safe_broadcast" ]; then
+		ip addr add "$ip/$prefix" broadcast "$safe_broadcast" dev "$interface" 2>> "$LOG" || true
 	else
 		ip addr add "$ip/$prefix" dev "$interface" 2>> "$LOG" || true
 	fi
 
 	ip route del default dev "$interface" 2>/dev/null || true
-	for r in $router; do
+	for r in $safe_router; do
 		ip route add default via "$r" dev "$interface" 2>> "$LOG" || true
 		break
 	done
 
+	dns=$safe_dns
+	search=$safe_domains
+	domain=""
 	write_resolv_conf
 
-	mkdir -p "$(dirname "$CACHE")"
-	{
-		printf 'IP=%s\n' "$(shell_quote "$ip")"
-		printf 'SUBNET=%s\n' "$(shell_quote "$subnet")"
-		printf 'PREFIX=%s\n' "$(shell_quote "$prefix")"
-		printf 'BROADCAST=%s\n' "$(shell_quote "$broadcast")"
-		printf 'ROUTER=%s\n' "$(shell_quote "$router")"
-		printf 'DNS=%s\n' "$(shell_quote "$dns")"
-		printf 'DOMAIN=%s\n' "$(shell_quote "${search:-$domain}")"
-	} > "$CACHE.tmp"
-	mv "$CACHE.tmp" "$CACHE"
+	[ -z "$cache_tmp" ] || mv "$cache_tmp" "$CACHE"
 }
 
 case "$1" in
@@ -101,8 +226,12 @@ case "$1" in
 		# startup failure. DHCP bound/renew will replace it once the server answers.
 		log "DHCP deconfig ignored; keeping any optimistic cached address"
 		;;
-	leasefail|nak)
+	leasefail)
 		log "DHCP $1"
+		;;
+	nak)
+		log "DHCP NAK; removing rejected optimistic lease"
+		clear_rejected_lease
 		;;
 esac
 

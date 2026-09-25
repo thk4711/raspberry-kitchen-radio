@@ -27,6 +27,7 @@ logger = logging.getLogger("radio_web.network_apply")
 WPA_CONF = os.environ.get("RADIO_WPA_CONF", "/etc/wpa_supplicant.conf")
 WPA_PREV = WPA_CONF + ".prev"
 WLAN_INIT_SCRIPT = os.environ.get("RADIO_WLAN_INIT", "/etc/init.d/S41wlan")
+LEASE_CACHE = os.environ.get("RADIO_WLAN_LEASE_CACHE", "/data/network-cache/wlan-last-lease.env")
 
 _RESTART_TIMEOUT_SECONDS = 30.0
 # How often the watcher polls for association + an IP while on trial.
@@ -159,6 +160,10 @@ def apply_wifi(config: Dict[str, str], rollback_seconds: int = 0) -> Tuple[bool,
         _remove(network_store.STATIC_IP_FILE)
     if cleaned["country"]:
         _atomic_write(network_store.WIFI_COUNTRY_FILE, cleaned["country"] + "\n", 0o644)
+
+    # A lease from the previous WLAN must never make a failed WiFi trial appear
+    # successful. DHCP will repopulate the cache after the new network binds.
+    _remove(LEASE_CACHE)
 
     # 3. Drop the pending marker with a deadline, restart WiFi, arm the watcher.
     deadline = time.time() + seconds

@@ -41,6 +41,8 @@ def data_tree(monkeypatch, tmp_path):
 def test_backup_includes_selected_roots_and_excludes_update(data_tree):
     (data_tree / "operations").mkdir()
     (data_tree / "operations" / "summary.json").write_text('{"schema":1}\n')
+    (data_tree / "network-cache").mkdir()
+    (data_tree / "network-cache" / "wlan-last-lease.env").write_text("IP='192.0.2.10'\n")
     ok, message = data_backup.create_backup()
     assert ok, message
     with tarfile.open(data_backup.BACKUP_PATH, "r:gz") as archive:
@@ -53,6 +55,7 @@ def test_backup_includes_selected_roots_and_excludes_update(data_tree):
         assert "data/bluetooth/info" in names
         assert not any(name.startswith("data/update") for name in names)
         assert not any(name.startswith("data/operations") for name in names)
+        assert not any(name.startswith("data/network-cache") for name in names)
         manifest = json.load(archive.extractfile("manifest.json"))
     assert manifest["included_roots"] == list(data_backup.INCLUDED_ROOTS)
 
