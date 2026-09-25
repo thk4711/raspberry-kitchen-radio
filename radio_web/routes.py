@@ -67,6 +67,13 @@ def _dashboard(_req: Request) -> Response:
     return _ok(templates.dashboard(status))
 
 
+def _status(_req: Request) -> Response:
+    status = system_status.collect()
+    player = status.get("player")
+    status["player"] = public_status(player if isinstance(player, dict) else {})
+    return _ok(templates.status_page(status))
+
+
 def _artwork(req: Request) -> Response:
     """Return the active artwork selected by its constrained snapshot ID."""
     identifier = req.query.get("id", "")
@@ -169,6 +176,7 @@ def _logout_post(req: Request) -> Response:
 
 ROUTES: Dict[Tuple[str, str], Handler] = {
     ("GET", "/"): _dashboard,
+    ("GET", "/status"): _status,
     ("GET", "/dashboard/artwork"): _artwork,
     ("GET", "/healthz"): _healthz,
     ("GET", "/api/v1/player"): _player_get,

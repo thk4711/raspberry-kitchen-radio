@@ -158,6 +158,8 @@ def _now_playing_card(player: Dict[str, Any]) -> str:
         fallback_inner = "♪"
     unavailable_hidden = " hidden" if available else ""
     details_hidden = "" if available else " hidden"
+    album = metadata.get("album") or ""
+    album_hidden = "" if album else " hidden"
     return (
         '<div class="card now-playing"><div class="now-playing-content">'
         '<div class="now-playing-media">'
@@ -177,8 +179,10 @@ def _now_playing_card(player: Dict[str, Any]) -> str:
         f"<dt>Power</dt><dd>{power_badge}</dd>"
         f"<dt>Playback</dt><dd>{playback_badge}</dd>"
         f'<dt>Active source</dt><dd data-player-source>{_esc(active_source)}</dd>'
-        f'<dt>Station / app</dt><dd data-player-name>{_esc(metadata.get("name"))}</dd>'
+        f'<dt>Station / Artist</dt><dd data-player-name>{_esc(metadata.get("name"))}</dd>'
         f'<dt>Track</dt><dd data-player-title>{_esc(metadata.get("title"))}</dd>'
+        f'<dt data-player-album-label{album_hidden}>Album</dt>'
+        f'<dd data-player-album{album_hidden}>{_esc(album)}</dd>'
         "</dl></div></div></div>"
     )
 
@@ -216,31 +220,50 @@ def _sources_card(status: Dict[str, Any]) -> str:
     )
 
 
+def _setup_warning(status: Dict[str, Any]) -> str:
+    incomplete = status.get("provisioning", [])
+    if not incomplete:
+        return ""
+    labels = ", ".join(_esc(value) for value in incomplete)
+    return (
+        '<div class="setup-warning" role="alert"><strong>Setup incomplete.</strong> '
+        f"Configure {labels} in <code>pisonic-config.txt</code> on the SD card. "
+        "Known example credentials are rejected."
+        "</div>"
+    )
+
+
 def dashboard(status: Dict[str, Any]) -> str:
-    """Render the public dashboard page from sanitized status values.
+    """Render the public "Now playing" page from sanitized status values.
 
     Every dynamic value is HTML-escaped. Playback metadata and controls use the
     passwordless public player API; administration remains authenticated separately.
     """
     host = _esc(status.get("hostname") or "PiSonic")
-    incomplete = status.get("provisioning", [])
-    setup_warning = ""
-    if incomplete:
-        labels = ", ".join(_esc(value) for value in incomplete)
-        setup_warning = (
-            '<div class="setup-warning" role="alert"><strong>Setup incomplete.</strong> '
-            f"Configure {labels} in <code>pisonic-config.txt</code> on the SD card. "
-            "Known example credentials are rejected."
-            "</div>"
-        )
     body = (
         f"<h1>{host}</h1>"
-        '<p class="sub">Playback dashboard</p>'
-        f"{setup_warning}"
+        f"{_setup_warning(status)}"
         '<div class="dashboard-grid">'
         '<div id="now-playing" class="now-playing-region">'
         f"{_now_playing_card(status.get('player', {}))}"
         "</div>"
+        "</div>"
+    )
+    return _page("Now playing", body, script="/static/app.js?v=5")
+
+
+def status_page(status: Dict[str, Any]) -> str:
+    """Render the "Status" page with source, system, and Bluetooth cards.
+
+    Every dynamic value is HTML-escaped. Source states use the passwordless
+    public player API; administration remains authenticated separately.
+    """
+    host = _esc(status.get("hostname") or "PiSonic")
+    body = (
+        f"<h1>{host}</h1>"
+        '<p class="sub">Device status</p>'
+        f"{_setup_warning(status)}"
+        '<div class="dashboard-grid">'
         f"{_sources_card(status)}"
         f"{_system_card(status)}"
         f"{_bluetooth_card(status)}"
@@ -248,7 +271,7 @@ def dashboard(status: Dict[str, Any]) -> str:
         '<p class="note">Logs and this status are stored in volatile memory '
         "(tmpfs) and are cleared on reboot.</p>"
     )
-    return _page("PiSonic", body, script="/static/app.js?v=5")
+    return _page("Status", body, script="/static/app.js?v=5")
 
 
 def not_found() -> str:

@@ -119,6 +119,8 @@ const elements = {
   "[data-player-source]": element(),
   "[data-player-name]": element(),
   "[data-player-title]": element(),
+  "[data-player-album]": element(),
+  "[data-player-album-label]": element(),
   "[data-player-artwork]": element(),
   "[data-player-artwork-image]": element(),
   "[data-player-artwork-fallback]": element(),
@@ -157,6 +159,7 @@ let player = {
   metadata: {
     name: "Artist",
     title: "Track",
+    album: "Album",
     artwork: { id: "spotify", version: "abc", url: "/dashboard/artwork?id=spotify&v=abc" },
   },
   sources: { spotify: { playing: true } },
@@ -180,6 +183,11 @@ const settle = () => new Promise((resolve) => setTimeout(resolve, 0));
   assert.strictEqual(metadataCalls, 1, "dashboard must fetch metadata immediately");
   assert.strictEqual(elements["[data-player-name]"].textContent, "Artist");
   assert.strictEqual(elements["[data-player-title]"].textContent, "Track");
+  assert.strictEqual(elements["[data-player-album]"].textContent, "Album");
+  assert.strictEqual(elements["[data-player-album]"].hidden, false,
+    "album value must be visible when an album is present");
+  assert.strictEqual(elements["[data-player-album-label]"].hidden, false,
+    "album label must be visible when an album is present");
   assert.strictEqual(elements["[data-player-artwork-image]"].attributes.src,
     "/dashboard/artwork?id=spotify&v=abc");
   assert.strictEqual(sourceState.textContent, "Active");

@@ -11,7 +11,8 @@ import re
 from typing import Any, Optional
 
 _NAV_ITEMS = (
-    ("PiSonic", "/", "Dashboard"),
+    ("Now playing", "/", "Now playing"),
+    ("Status", "/status", "Status"),
     ("Radio stations", "/stations", "Stations"),
     ("Music sources", "/sources", "Sources"),
     ("Display", "/settings", "Display"),

@@ -75,6 +75,19 @@ def test_control_disabled_states_follow_player_availability_and_state():
     )
 
 
+def test_album_row_shown_only_when_album_present():
+    with_album = _player(playing=True)
+    with_album["metadata"] = {"name": "Artist", "title": "Track", "album": "Album", "artwork": {}}
+    html = template_dashboard._now_playing_card(with_album)
+    assert "<dt data-player-album-label>Album</dt>" in html
+    assert "<dd data-player-album>Album</dd>" in html
+
+    without_album = _player(playing=True)
+    html = template_dashboard._now_playing_card(without_album)
+    assert "<dt data-player-album-label hidden>Album</dt>" in html
+    assert "<dd data-player-album hidden></dd>" in html
+
+
 def test_javascript_uses_public_api_json_and_separate_request_state():
     source = APP_JS.read_text(encoding="utf-8")
 

@@ -50,7 +50,12 @@ class TestRoutes:
         assert "Artist" in body
         assert "data-player-name" in body
         assert "/tmp/private.jpg" not in body
-        assert 'data-player-source-state="spotify"' in body
+
+        # The source-state table lives on the separate Status page.
+        status, _ctype, status_body, _headers = routes.resolve(_req("GET", "/status"))
+        assert status == 200
+        assert 'data-player-source-state="spotify"' in status_body
+        assert "/tmp/private.jpg" not in status_body
 
     def test_healthz_route(self):
         status, ctype, body, _hdrs = routes.resolve(_req("GET", "/healthz"))
@@ -146,15 +151,27 @@ class TestTemplates:
     def test_dashboard_contains_sections(self):
         html = templates.dashboard(self._status())
         assert "Now playing" in html
-        assert "Sources" in html
-        assert "System" in html
-        assert "0.1.0" in html
-        assert "Internet Radio" in html
         assert 'class="dashboard-grid"' in html
         assert 'class="admin-links"' not in html
         assert 'id="now-playing"' in html
         assert 'src="/static/app.js?v=5"' in html
         assert "Playing" in html
+        # Status-only cards live on the separate Status page now.
+        assert "sources-card" not in html
+        assert "system-card" not in html
+        assert "bluetooth-card" not in html
+
+    def test_status_page_contains_sections(self):
+        html = templates.status_page(self._status())
+        assert "sources-card" in html
+        assert "system-card" in html
+        assert "bluetooth-card" in html
+        assert "0.1.0" in html
+        assert "Internet Radio" in html
+        assert 'class="dashboard-grid"' in html
+        assert 'src="/static/app.js?v=5"' in html
+        # The now-playing card belongs to the separate Now playing page.
+        assert 'id="now-playing"' not in html
 
     def test_dashboard_shows_incomplete_provisioning_without_values(self):
         html = templates.dashboard(
@@ -165,7 +182,7 @@ class TestTemplates:
         assert "pisonic-config.txt" in html
 
     def test_dashboard_shows_bluetooth_adapter_info(self):
-        html = templates.dashboard(self._status())
+        html = templates.status_page(self._status())
         # Read-only informational block only: name/state, no controls.
         assert "Bluetooth" in html
         assert "Discoverable" in html
@@ -173,7 +190,7 @@ class TestTemplates:
         assert 'action="/bluetooth"' not in html
 
     def test_dashboard_bluetooth_unavailable_message(self):
-        html = templates.dashboard(self._status(bluetooth={"available": False}))
+        html = templates.status_page(self._status(bluetooth={"available": False}))
         assert "Bluetooth adapter status is unavailable" in html
 
     def test_now_playing_indicates_not_playing(self):
@@ -297,7 +314,7 @@ class TestTemplates:
 
     def test_dashboard_escapes_injected_values(self):
         status = self._status(wifi={"ssid": "<script>x</script>", "ip": None, "signal_dbm": None})
-        html = templates.dashboard(status)
+        html = templates.status_page(status)
         assert "<script>x</script>" not in html
         assert "&lt;script&gt;" in html
 
@@ -323,7 +340,7 @@ class TestTemplates:
         assert "Player status unavailable" in html
 
     def test_volatile_label_present(self):
-        html = templates.dashboard(self._status())
+        html = templates.status_page(self._status())
         assert "volatile memory" in html
 
     def test_login_page_has_form_and_notice(self):

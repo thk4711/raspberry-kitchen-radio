@@ -7,6 +7,7 @@ from .template_dashboard import (
     forbidden,
     method_not_allowed,
     not_found,
+    status_page,
 )
 from .template_device_maintenance import (
     confirm_page,
@@ -42,4 +43,5 @@ __all__ = [
     "setup_page",
     "sources_page",
     "stations_page",
+    "status_page",
 ]

@@ -25,7 +25,7 @@ address and to loopback (`127.0.0.1`). Open one of:
   [`buildroot.md`](buildroot.md)).
 - `http://<device-ip>:8080` — using the device's IP address.
 
-Not sure of the address? The **Dashboard** (below) shows the WiFi IP once you
+Not sure of the address? The **Status** page (below) shows the WiFi IP once you
 are connected, or check your router's client list. The Pi 3A+ is WiFi-only (no
 Ethernet), so the interface is only reachable from your local network; it is
 never exposed to the internet.
@@ -51,11 +51,11 @@ never exposed to the internet.
    rate-limited. Use **Log out** to end the session. Sessions are held in memory
    and are cleared on reboot or when PiSonic restarts.
 
-The **Dashboard is public** and includes playback controls; every
-editing/maintenance page requires login. Its live metadata and controls deliberately
-use the passwordless public API without sending the administrator session cookie, so
-normal dashboard use exercises the same interface available to other devices on the
-trusted LAN.
+The **Now playing** and **Status** pages are public and Now playing includes
+playback controls; every editing/maintenance page requires login. Their live
+metadata and controls deliberately use the passwordless public API without
+sending the administrator session cookie, so normal use exercises the same
+interface available to other devices on the trusted LAN.
 
 ### Forgot the admin password?
 
@@ -68,13 +68,14 @@ rm -f /etc/radio/admin.secret
 
 ## The pages
 
-The Dashboard links to each admin page (Edit stations · Music sources · Display
-· Audio · WiFi &amp; network · Device settings · Maintenance). Firmware management
-is linked from Maintenance.
+The navigation links to the **Now playing** and **Status** pages and to each
+admin page (Edit stations · Music sources · Display · Audio · WiFi &amp; network
+· Device settings · Maintenance). Firmware management is linked from Maintenance.
 
-### Dashboard (`/`)
+### Now playing (`/`)
 
-No login required. Shows:
+No login required. This is the page shown when you first open the web interface.
+Shows:
 
 - **Now playing** and the **active source**, read through `GET /api/v1/player`.
   The card also indicates whether that source is currently playing and refreshes
@@ -87,8 +88,23 @@ No login required. Shows:
   They are disabled while player status is unavailable or the physical power
   switch is off. Commands act on the current source and failures are shown in
   the card without reloading the page.
+
+### Status (`/status`)
+
+No login required. Shows the read-only device status:
+
 - **Per-source state** (Internet Radio, AirPlay, Spotify, Bluetooth, USB Audio):
   whether each is enabled, running and currently active.
+- **System status:** hostname, app version, uptime, CPU temperature, memory and
+  root-filesystem usage, WiFi IP/SSID/signal, and the player heartbeat age.
+- **Bluetooth status (read-only):** the adapter's visible name (it follows the
+  device name, set under **Device settings**), whether it is powered, and whether
+  it is currently discoverable. There are no Bluetooth controls: when nothing is
+  connected PiSonic is discoverable and pairs with no PIN automatically, so no
+  manual pairing action is needed (see [`bluetooth.md`](bluetooth.md)).
+
+If the player is down or a metric is unavailable, that field simply shows a
+placeholder — the page always renders.
 
 ### ADC debug & calibration (`/debug/adc`)
 
@@ -103,16 +119,6 @@ endpoints, and both power-switch positions. Saving writes `/etc/radio/adc.ini`;
 choose **Save and restart PiSonic** to apply it immediately. Live data uses an
 authenticated, same-origin WebSocket and automatically reconnects after a player
 or WiFi interruption.
-- **System status:** hostname, app version, uptime, CPU temperature, memory and
-  root-filesystem usage, WiFi IP/SSID/signal, and the player heartbeat age.
-- **Bluetooth status (read-only):** the adapter's visible name (it follows the
-  device name, set under **Device settings**), whether it is powered, and whether
-  it is currently discoverable. There are no Bluetooth controls: when nothing is
-  connected PiSonic is discoverable and pairs with no PIN automatically, so no
-  manual pairing action is needed (see [`bluetooth.md`](bluetooth.md)).
-
-If the player is down or a metric is unavailable, that field simply shows a
-placeholder — the dashboard always renders.
 
 ### Public playback API (`/api/v1/player`)
 
