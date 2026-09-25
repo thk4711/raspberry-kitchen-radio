@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.1] - 2026-09-25
+
 ### Added
 - **Public playback API and dashboard transport controls.** Trusted-LAN clients
   can read a stable now-playing schema and send Play, Pause, Previous, and Next
@@ -36,6 +38,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Bluetooth source arbitration now follows the matching A2DP transport instead
   of AVRCP's global media status, which can report playback while a phone sends
   its audio through AirPlay.
+
+### Reproducible build inputs
+- Buildroot `2026.05.2`, commit
+  `72d9d4fa636a371ef9eb99c92a735ce9f6d829d5`.
+- go-librespot `v0.9.0`, vendored source archive SHA-256
+  `9e4e1ab1871267ba5cace600a7b3025681b5177195ce9a246e5c91e63b021328`.
+- shairport-sync development revision
+  `78eb528bac5a8fd8cc4cfe5b5023cce43fb063a6` (immutable Git commit used through
+  `SHAIRPORT_SYNC_OVERRIDE_SRCDIR`; no source archive is generated).
+- nqptp `1.2.4`, source archive SHA-256
+  `1df1d5edd5b713010d6495b3abca4c1cf4ad8fa6029df0abeb9e4de8e0eb707a`.
 
 ## [0.4.0] - 2026-09-24
 

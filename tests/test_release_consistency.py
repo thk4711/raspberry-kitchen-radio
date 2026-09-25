@@ -52,7 +52,7 @@ def _repository(tmp_path, version="1.2.3", release_date="2026-09-15"):
 
 
 def test_repository_release_is_consistent():
-    assert checker.check_release_consistency(ROOT) == "0.4.0"
+    assert checker.check_release_consistency(ROOT) == "0.4.1"
 
 
 def test_version_and_changelog_parsers_reject_ambiguity(tmp_path):

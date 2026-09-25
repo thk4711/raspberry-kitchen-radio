@@ -54,7 +54,7 @@ def _build(tmp_path, checker, rootfs_data=b"root filesystem\n"):
 
 
 def test_project_version_is_strict_and_unambiguous(tmp_path):
-    assert swu.project_version(VERSION_FILE) == "0.4.0"
+    assert swu.project_version(VERSION_FILE) == "0.4.1"
     invalid = tmp_path / "version.py"
     invalid.write_text('__version__ = "1.2"\n', encoding="utf-8")
     with pytest.raises(ValueError, match="exactly one"):
@@ -75,18 +75,18 @@ def test_release_metadata_generator_uses_version_and_hardware_contract(tmp_path)
         "persistent_schema": swu.PERSISTENT_SCHEMA,
         "schema": 1,
         "repository_commit": "unknown",
-        "version": "0.4.0",
+        "version": "0.4.1",
     }
 
 
 def test_archive_order_metadata_and_payload_integrity(tmp_path, checker):
     rootfs, artifact = _build(tmp_path, checker)
-    assert artifact.name == "pisonic-0.4.0.swu"
+    assert artifact.name == "pisonic-0.4.1.swu"
     members = swu.read_cpio(artifact)
     assert [name for name, _ in members] == ["sw-description", "rootfs.ext4.gz"]
     manifest = members[0][1].decode()
     payload = members[1][1]
-    assert 'version = "0.4.0";' in manifest
+    assert 'version = "0.4.1";' in manifest
     assert swu.HARDWARE_REVISION in manifest
     assert manifest.count('filename = "rootfs.ext4.gz";') == 2
     assert manifest.count(f"size = {len(payload)};") == 2
@@ -129,7 +129,7 @@ def test_checker_failure_prevents_publication(tmp_path):
     rootfs.write_bytes(b"rootfs")
     with pytest.raises(Exception):
         swu.build_archive(rootfs, TEMPLATE, VERSION_FILE, tmp_path, 1024, checker)
-    assert not (tmp_path / "pisonic-0.4.0.swu").exists()
+    assert not (tmp_path / "pisonic-0.4.1.swu").exists()
 
 
 def test_checker_receives_hardware_revision_override(tmp_path, monkeypatch):
