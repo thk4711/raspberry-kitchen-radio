@@ -277,7 +277,10 @@ class UtilityLibrary:
             content_type = response.headers.get("Content-Type", "")
             media_type = content_type.split(";", 1)[0].strip().lower()
             if media_type == "application/json":
-                return response.json()
+                result = response.json()
+                # Preserve a successful JSON null response as bytes so callers
+                # can distinguish it from a failed request.
+                return response.content if result is None else result
             return response.content
 
         except (requests.RequestException, ValueError) as e:

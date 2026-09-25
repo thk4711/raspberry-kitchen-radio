@@ -121,4 +121,24 @@ def test_metadata_returns_snapshot_and_set_play_state_handles_failures(monkeypat
     assert service.set_play_state(True) is True
     assert service.set_play_state(False) is False
     assert service.set_play_state(True) is False
+    assert request.call_args_list == [
+        mock.call("http://radio:3678/player/resume", method="POST"),
+        mock.call("http://radio:3678/player/pause", method="POST"),
+        mock.call("http://radio:3678/player/resume", method="POST"),
+    ]
     assert service.play_index(1) is False
+
+
+def test_track_navigation_uses_pinned_player_endpoints(monkeypatch, tmp_path):
+    service = _service(tmp_path)
+    request = mock.Mock(side_effect=[object(), object(), None])
+    monkeypatch.setattr(spotify_service.utility, "make_request", request)
+
+    assert service.next_track() is True
+    assert service.previous_track() is True
+    assert service.next_track() is False
+    assert request.call_args_list == [
+        mock.call("http://radio:3678/player/next", method="POST"),
+        mock.call("http://radio:3678/player/prev", method="POST"),
+        mock.call("http://radio:3678/player/next", method="POST"),
+    ]

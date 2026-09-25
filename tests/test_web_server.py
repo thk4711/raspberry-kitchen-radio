@@ -91,7 +91,8 @@ class TestServer:
         assert resp.status == 200
         assert resp.headers.get("Content-Type", "").startswith("text/javascript")
         body = resp.read()
-        assert b'fetch("/dashboard/now-playing"' in body
+        assert b'fetch("/api/v1/player"' in body
+        assert b'credentials: "omit"' in body
         assert b'querySelectorAll(".maintenance-dialog")' in body
         assert b"dialog.showModal()" in body
         assert b"new XMLHttpRequest()" in body
@@ -137,19 +138,11 @@ class TestServer:
             assert b"101 Switching Protocols" in response
             assert b"Sec-WebSocket-Accept: " + expected in response
 
-
-def test_websocket_text_frame_short_payload():
-    frame = server._websocket_text_frame("hello")
-    assert frame == b"\x81\x05hello"
-
-    def test_now_playing_fragment(self, running_server):
+    def test_obsolete_now_playing_fragment_is_not_served(self, running_server):
         host, port = running_server
-        resp = _get(host, port, "/dashboard/now-playing")
-        assert resp.status == 200
-        assert resp.headers.get("Cache-Control") == "no-store"
-        body = resp.read().decode("utf-8")
-        assert 'class="card now-playing"' in body
-        assert "<!DOCTYPE html>" not in body
+        with pytest.raises(urllib.error.HTTPError) as exc:
+            _get(host, port, "/dashboard/now-playing")
+        assert exc.value.code == 404
 
     def test_unknown_path_404(self, running_server):
         host, port = running_server
@@ -174,11 +167,13 @@ def test_websocket_text_frame_short_payload():
 
     def test_oversized_body_rejected(self, running_server):
         host, port = running_server
-        big = b"a" * (server.MAX_REQUEST_BODY + 1)
-        req = urllib.request.Request(f"http://{host}:{port}/", data=big, method="POST")
-        with pytest.raises(urllib.error.HTTPError) as exc:
-            urllib.request.urlopen(req, timeout=5)  # noqa: S310
-        assert exc.value.code == 413
+        request = (
+            f"POST / HTTP/1.1\r\nHost: {host}:{port}\r\n"
+            f"Content-Length: {server.MAX_REQUEST_BODY + 1}\r\nConnection: close\r\n\r\n"
+        )
+        with socket.create_connection((host, port), timeout=5) as sock:
+            sock.sendall(request.encode())
+            assert sock.recv(1024).startswith(b"HTTP/1.1 413 ")
 
     def test_unhandled_route_error_returns_500(self, running_server, monkeypatch):
         monkeypatch.setattr(
@@ -190,6 +185,11 @@ def test_websocket_text_frame_short_payload():
             _get(host, port, "/")
         assert exc.value.code == 500
         assert exc.value.read() == b"internal server error"
+
+
+def test_websocket_text_frame_short_payload():
+    frame = server._websocket_text_frame("hello")
+    assert frame == b"\x81\x05hello"
 
 
 class TestLanListener:

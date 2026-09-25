@@ -3,28 +3,212 @@
 
   const region = document.getElementById("now-playing");
 
-  let requestInFlight = false;
+  let refreshRequest = null;
+  let controlRequestInFlight = false;
+  let controlMessage = "";
+  let controlFailed = false;
 
-  async function refreshNowPlaying() {
-    if (!region || requestInFlight || document.hidden) return;
-    requestInFlight = true;
+  function isObject(value) {
+    return value !== null && typeof value === "object" && !Array.isArray(value);
+  }
+
+  function isPlayerPayload(player) {
+    if (!isObject(player) || typeof player.available !== "boolean" ||
+        typeof player.stale !== "boolean" || !isObject(player.metadata) ||
+        !isObject(player.sources)) return false;
+    if (player.power !== null && typeof player.power !== "boolean") return false;
+    if (player.active_source !== null && typeof player.active_source !== "string") return false;
+    if (player.playing !== null && typeof player.playing !== "boolean") return false;
+    if (typeof player.metadata.name !== "string" ||
+        typeof player.metadata.title !== "string" ||
+        !isObject(player.metadata.artwork)) return false;
+    return Object.values(player.sources).every(
+      (entry) => isObject(entry) && typeof entry.playing === "boolean",
+    );
+  }
+
+  function setBadge(element, text, enabled) {
+    if (!element) return;
+    element.textContent = text;
+    element.className = `badge ${enabled ? "on" : "off"}`;
+  }
+
+  function renderPlayer(player, unavailableMessage = "") {
+    if (!region) return;
+    const available = player.available === true;
+    const powerOn = player.power === true;
+    const playing = typeof player.playing === "boolean" ? player.playing : null;
+    const metadata = isObject(player.metadata) ? player.metadata : {};
+    const artwork = isObject(metadata.artwork) ? metadata.artwork : {};
+    const artworkUrl = typeof artwork.url === "string" &&
+      artwork.url.startsWith("/dashboard/artwork?") ? artwork.url : "";
+
+    const stale = region.querySelector("[data-player-stale]");
+    const unavailable = region.querySelector("[data-player-unavailable]");
+    const details = region.querySelector("[data-player-details]");
+    if (stale) stale.hidden = !available || player.stale !== true;
+    if (unavailable) {
+      unavailable.hidden = available;
+      unavailable.textContent = unavailableMessage ||
+        "Player status unavailable — the radio process may be starting or stopped.";
+    }
+    if (details) details.hidden = !available;
+
+    const power = region.querySelector("[data-player-power]");
+    if (player.power === true) setBadge(power, "on", true);
+    else if (player.power === false) setBadge(power, "off", false);
+    else setBadge(power, "Unknown", false);
+    setBadge(
+      region.querySelector("[data-player-playing]"),
+      playing === true ? "Playing" : playing === false ? "Not playing" : "Unknown",
+      playing === true,
+    );
+
+    const values = {
+      "[data-player-source]": typeof player.active_source === "string" ? player.active_source : "",
+      "[data-player-name]": typeof metadata.name === "string" ? metadata.name : "",
+      "[data-player-title]": typeof metadata.title === "string" ? metadata.title : "",
+    };
+    Object.entries(values).forEach(([selector, value]) => {
+      const element = region.querySelector(selector);
+      if (element) element.textContent = value;
+    });
+
+    const artworkContainer = region.querySelector("[data-player-artwork]");
+    const artworkImage = region.querySelector("[data-player-artwork-image]");
+    const artworkFallback = region.querySelector("[data-player-artwork-fallback]");
+    if (artworkContainer) artworkContainer.hidden = !available || !artworkUrl;
+    if (artworkFallback) artworkFallback.hidden = available && Boolean(artworkUrl);
+    if (artworkImage) {
+      if (available && artworkUrl) {
+        artworkImage.setAttribute("src", artworkUrl);
+        artworkImage.setAttribute("alt", `Artwork for ${metadata.name || "now playing"}`);
+      } else {
+        artworkImage.removeAttribute("src");
+        artworkImage.setAttribute("alt", "");
+      }
+    }
+
+    region.querySelectorAll("[data-playback-action]").forEach((button) => {
+      let enabled = available && powerOn;
+      if (button.dataset.playbackAction === "play" && playing === true) enabled = false;
+      if (button.dataset.playbackAction === "pause" && playing === false) enabled = false;
+      button.dataset.playbackEnabled = String(enabled);
+    });
+    const controlStatus = region.querySelector(".playback-control-status");
+    if (controlStatus) {
+      controlStatus.dataset.defaultMessage = !available
+        ? "Playback controls unavailable."
+        : !powerOn ? "Playback controls disabled while power is off." : "";
+    }
+
+    const sources = player.sources;
+    document.querySelectorAll("[data-player-source-state]").forEach((element) => {
+      const source = element.dataset.playerSourceState;
+      const entry = isObject(sources[source]) ? sources[source] : {};
+      if (!available) {
+        element.textContent = "—";
+        element.className = "";
+      } else if (source === player.active_source && entry.playing === true) {
+        setBadge(element, "Active", true);
+      } else if (entry.playing === true) {
+        setBadge(element, "Playing", true);
+      } else {
+        setBadge(element, "Ready", false);
+      }
+    });
+    syncPlaybackControls();
+  }
+
+  function syncPlaybackControls() {
+    if (!region) return;
+    region.querySelectorAll("[data-playback-action]").forEach((button) => {
+      button.disabled = controlRequestInFlight || button.dataset.playbackEnabled !== "true";
+    });
+    const status = region.querySelector(".playback-control-status");
+    if (!status) return;
+    status.textContent = controlMessage || status.dataset.defaultMessage || "";
+    status.classList.toggle("error", controlFailed);
+  }
+
+  async function refreshNowPlaying(force = false) {
+    if (!region || (document.hidden && !force)) return;
+    if (refreshRequest) {
+      await refreshRequest;
+      if (!force) return;
+    }
+    refreshRequest = (async () => {
+      try {
+        const response = await fetch("/api/v1/player", {
+          cache: "no-store",
+          credentials: "omit",
+          headers: { Accept: "application/json" },
+        });
+        if (!response.ok) throw new Error("metadata request failed");
+        const player = await response.json();
+        if (!isPlayerPayload(player)) throw new Error("invalid metadata response");
+        renderPlayer(player);
+      } catch (_error) {
+        renderPlayer(
+          { available: false, stale: true, power: null, active_source: null,
+            playing: null, metadata: {}, sources: {} },
+          "Player metadata API unavailable.",
+        );
+      }
+    })();
     try {
-      const response = await fetch("/dashboard/now-playing", {
-        cache: "no-store",
-        credentials: "same-origin",
-        headers: { Accept: "text/html" },
-      });
-      if (!response.ok) return;
-      const markup = await response.text();
-      if (markup && markup !== region.innerHTML) region.innerHTML = markup;
-    } catch (_error) {
-      // Keep the last known state and quietly retry on the next interval.
+      await refreshRequest;
     } finally {
-      requestInFlight = false;
+      refreshRequest = null;
+    }
+  }
+
+  async function sendPlaybackCommand(action, label) {
+    const paths = {
+      previous: "/api/v1/player/previous",
+      play: "/api/v1/player/play",
+      pause: "/api/v1/player/pause",
+      next: "/api/v1/player/next",
+    };
+    const path = paths[action];
+    if (!path || controlRequestInFlight) return;
+
+    controlRequestInFlight = true;
+    controlFailed = false;
+    controlMessage = `Sending ${label.toLowerCase()} command...`;
+    syncPlaybackControls();
+    try {
+      const response = await fetch(path, {
+        method: "POST",
+        credentials: "omit",
+        headers: { "Content-Type": "application/json", Accept: "application/json" },
+        body: JSON.stringify({}),
+      });
+      let payload = {};
+      try { payload = await response.json(); } catch (_error) { /* handled below */ }
+      if (!response.ok || payload.ok !== true) {
+        controlFailed = true;
+        controlMessage = payload.message || "The playback command failed.";
+        return;
+      }
+      controlMessage = "";
+      await refreshNowPlaying(true);
+    } catch (_error) {
+      controlFailed = true;
+      controlMessage = "The playback command could not reach the radio.";
+    } finally {
+      controlRequestInFlight = false;
+      syncPlaybackControls();
     }
   }
 
   if (region) {
+    region.addEventListener("click", (event) => {
+      const button = event.target.closest("[data-playback-action]");
+      if (!button || !region.contains(button) || button.disabled) return;
+      sendPlaybackCommand(button.dataset.playbackAction, button.getAttribute("aria-label") || "playback");
+    });
+    refreshNowPlaying(true);
     window.setInterval(refreshNowPlaying, 5000);
     document.addEventListener("visibilitychange", () => {
       if (!document.hidden) refreshNowPlaying();

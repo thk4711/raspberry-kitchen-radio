@@ -6,6 +6,7 @@ without running the full, hardware-heavy ``RadioController.__init__``.
 """
 
 import sys
+import threading
 import types
 from unittest import mock
 
@@ -25,6 +26,7 @@ def _controller(monkeypatch, config):
     """Build a RadioController shell (no __init__) with a given config dict."""
     radio = _import_radio(monkeypatch)
     controller = radio.RadioController.__new__(radio.RadioController)
+    controller._state_lock = threading.RLock()
     controller.config = config
     return radio, controller
 

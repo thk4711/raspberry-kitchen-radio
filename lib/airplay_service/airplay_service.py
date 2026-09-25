@@ -16,9 +16,9 @@ INHIBIT_FILE = "/run/airplay-inhibited"
 # shairport-sync D-Bus identifiers. The RemoteControl interface carries both the
 # read-only PlayerState property and the playback command methods. On the stable
 # branch these commands work only for classic AirPlay senders (they are backed by
-# DACP); the development branch adds experimental AirPlay 2 support. When a
-# command is unavailable we always fall back to the local inhibit marker so a
-# source switch is still guaranteed. See doc/airplay.md.
+# DACP); the development branch routes the same methods over AirPlay 2. Its
+# ``Available`` property only describes DACP and must not gate method calls. See
+# doc/airplay.md.
 SHAIRPORT_BUS_NAME = "org.gnome.ShairportSync"
 SHAIRPORT_OBJECT_PATH = "/org/gnome/ShairportSync"
 REMOTE_CONTROL_IFACE = "org.gnome.ShairportSync.RemoteControl"
@@ -166,23 +166,6 @@ class AirplayService(MusicSource):
                     self.properties_interface = None
             return ""
 
-    def _remote_control_available(self) -> bool:
-        """True when shairport reports a live remote-control channel.
-
-        ``Available`` is driven by the sender advertising a DACP remote-control
-        server. Classic AirPlay senders do; AirPlay 2 senders do so only with the
-        development branch and are not guaranteed. A missing/false value means the
-        command would be a no-op, so callers use the inhibit fallback instead.
-        """
-        with self._lock:
-            interface = self.properties_interface
-        if interface is None:
-            return False
-        try:
-            return bool(interface.Get(REMOTE_CONTROL_IFACE, "Available"))
-        except dbus.DBusException:
-            return False
-
     def _send_remote_command(self, command: str) -> bool:
         """Invoke a RemoteControl method by name; return True if it was sent.
 
@@ -229,22 +212,32 @@ class AirplayService(MusicSource):
         Stopping is best-effort remote control (Pause) plus a guaranteed local
         inhibit fallback, so the source switch happens even when the sender
         cannot be paused remotely. Starting clears the inhibit marker and issues
-        Play when a remote-control channel is available. Returns True once the
-        requested state has been applied locally (the marker is authoritative).
+        a remote play command. Returns True once the requested state has been
+        applied locally (the marker is authoritative).
         """
         if state:
             self._set_inhibited(False)
-            if self._remote_control_available():
-                self._send_remote_command("Play")
+            # Some AirPlay 2 senders ignore the explicit Play command but honour
+            # PlayPause. Only use the toggle for an observed Paused state so a
+            # stale or repeated Play request cannot stop an active stream.
+            command = "PlayPause" if self._player_state() == "Paused" else "Play"
+            self._send_remote_command(command)
             return True
         # Stop: try to pause the sender, but always inhibit locally so routing
         # stops regardless of whether the remote command was honoured.
-        if self._remote_control_available():
-            self._send_remote_command("Pause")
+        self._send_remote_command("Pause")
         return self._set_inhibited(True)
 
     def play_index(self, index: int) -> bool:
         return False
+
+    def next_track(self) -> bool:
+        """Request the next sender track."""
+        return self._send_remote_command("Next")
+
+    def previous_track(self) -> bool:
+        """Request the previous sender track."""
+        return self._send_remote_command("Previous")
 
     def close(self) -> None:
         self._stop.set()

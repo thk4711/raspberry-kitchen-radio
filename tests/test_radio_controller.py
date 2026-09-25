@@ -5,6 +5,7 @@ import threading
 import types
 from unittest import mock
 
+import pytest
 from music_source import Metadata
 
 
@@ -127,6 +128,146 @@ def test_volume_change_pushes_loudness_volume_and_survives_failure(monkeypatch):
         mock.Mock(side_effect=OSError("tmpfs missing")),
     )
     controller.handle_volume_change(50)  # does not raise
+
+
+def test_playback_actions_dispatch_to_active_source_and_refresh_status(monkeypatch):
+    _radio, controller = _controller(monkeypatch)
+    source = mock.Mock()
+    source.name = "spotify"
+    source.set_play_state.return_value = True
+    source.next_track.return_value = True
+    source.previous_track.return_value = True
+    controller.active_service = source
+    controller.services = [{"name": "spotify", "service": source, "state": False}]
+    controller.update_metadata = mock.Mock()
+    controller._write_status_snapshot = mock.Mock()
+
+    assert controller.handle_playback_action("play").code == "accepted"
+    assert controller.services[0]["state"] is True
+    assert controller.handle_playback_action("pause").code == "accepted"
+    assert controller.services[0]["state"] is False
+    assert controller.handle_playback_action("next").code == "accepted"
+    result = controller.handle_playback_action("previous")
+
+    assert result.ok is True
+    assert result.source == "spotify"
+    assert source.set_play_state.call_args_list == [mock.call(True), mock.call(False)]
+    source.next_track.assert_called_once_with()
+    source.previous_track.assert_called_once_with()
+    assert controller.update_metadata.call_count == 4
+    assert controller._write_status_snapshot.call_count == 4
+
+
+@pytest.mark.parametrize("action", ["play", "pause", "next", "previous"])
+def test_playback_action_rejects_unknown_action_and_power_off(monkeypatch, action):
+    _radio, controller = _controller(monkeypatch)
+    controller.mpd.name = "mpd"
+    controller.services = [{"name": "mpd", "service": controller.mpd, "state": True}]
+    controller.update_metadata = mock.Mock()
+    controller._write_status_snapshot = mock.Mock()
+
+    unknown = controller.handle_playback_action("stop")
+    controller.power_switch = False
+    powered_off = controller.handle_playback_action(action)
+
+    assert (unknown.ok, unknown.code, unknown.source) == (False, "unknown_action", "")
+    assert (powered_off.ok, powered_off.code, powered_off.source) == (
+        False,
+        "power_off",
+        "mpd",
+    )
+    controller.mpd.set_play_state.assert_not_called()
+    controller.mpd.next_track.assert_not_called()
+    controller.mpd.previous_track.assert_not_called()
+    controller.update_metadata.assert_not_called()
+    controller._write_status_snapshot.assert_not_called()
+
+
+@pytest.mark.parametrize(("action", "expected_state"), [("play", True), ("pause", False)])
+def test_playback_action_refreshes_snapshot_after_optimistic_state(
+    monkeypatch, action, expected_state
+):
+    _radio, controller = _controller(monkeypatch)
+    source = mock.Mock()
+    source.name = "spotify"
+    source.set_play_state.return_value = True
+    controller.active_service = source
+    controller.services = [{"name": "spotify", "service": source, "state": not expected_state}]
+    events = []
+    controller.update_metadata = mock.Mock(side_effect=lambda: events.append("metadata"))
+    controller._write_status_snapshot = mock.Mock(
+        side_effect=lambda: events.append(("snapshot", controller.services[0]["state"]))
+    )
+
+    result = controller.handle_playback_action(action)
+
+    assert result.ok is True
+    assert events == ["metadata", ("snapshot", expected_state)]
+
+
+def test_playback_action_bounds_backend_failures(monkeypatch):
+    _radio, controller = _controller(monkeypatch)
+    controller.mpd.name = "mpd"
+    controller.services = [{"name": "mpd", "service": controller.mpd, "state": True}]
+    controller.update_metadata = mock.Mock()
+    controller._write_status_snapshot = mock.Mock()
+
+    controller.mpd.next_track.return_value = False
+    failed = controller.handle_playback_action("next")
+    controller.mpd.previous_track.side_effect = RuntimeError("offline")
+    errored = controller.handle_playback_action("previous")
+    controller.mpd.set_play_state.return_value = None
+    invalid = controller.handle_playback_action("pause")
+
+    assert (failed.ok, failed.code) == (False, "command_failed")
+    assert (errored.ok, errored.code) == (False, "internal_error")
+    assert (invalid.ok, invalid.code) == (False, "internal_error")
+    assert controller.services[0]["state"] is True
+    controller.update_metadata.assert_not_called()
+    controller._write_status_snapshot.assert_not_called()
+
+
+def test_playback_action_commands_source_under_controller_lock(monkeypatch):
+    _radio, controller = _controller(monkeypatch)
+
+    class Guard:
+        entered = False
+
+        def __enter__(self):
+            self.entered = True
+
+        def __exit__(self, *_args):
+            self.entered = False
+
+    guard = Guard()
+    source = mock.Mock()
+    source.name = "airplay"
+    source.next_track.side_effect = lambda: guard.entered
+    controller._state_lock = guard
+    controller.active_service = source
+    controller.services = [{"name": "airplay", "service": source, "state": True}]
+    controller.update_metadata = mock.Mock()
+    controller._write_status_snapshot = mock.Mock()
+
+    assert controller.handle_playback_action("next").ok is True
+
+
+def test_control_server_lifecycle_uses_controller_dispatch(monkeypatch):
+    radio, controller = _controller(monkeypatch)
+    server = mock.Mock()
+    constructor = mock.Mock(return_value=server)
+    monkeypatch.setattr(radio, "PlaybackControlServer", constructor)
+    controller._control_server = None
+
+    controller._start_control_server()
+
+    constructor.assert_called_once_with(controller.handle_playback_action)
+    server.start.assert_called_once_with()
+    assert controller._control_server is server
+
+    controller._stop_control_server()
+    server.close.assert_called_once_with()
+    assert controller._control_server is None
 
 
 def test_update_metadata_selects_radio_and_cover_art_modes(monkeypatch):

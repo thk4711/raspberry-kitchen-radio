@@ -40,9 +40,15 @@ class _GoodSource(MusicSource):
         return True
 
     def set_play_state(self, desired_state: bool) -> bool:
-        return desired_state
+        return True
 
     def play_index(self, index: int) -> bool:
+        return True
+
+    def next_track(self) -> bool:
+        return True
+
+    def previous_track(self) -> bool:
         return True
 
     def get_metadata(self) -> Metadata:
@@ -59,6 +65,12 @@ class _BadStateSource(MusicSource):
     def play_index(self, index: int) -> bool:
         return True
 
+    def next_track(self) -> bool:
+        return True
+
+    def previous_track(self) -> bool:
+        return True
+
     def get_metadata(self) -> Metadata:
         return _make_metadata()
 
@@ -73,16 +85,38 @@ class _ImplicitNoneSource(MusicSource):
     def play_index(self, index: int) -> bool:
         return True
 
+    def next_track(self) -> bool:
+        return True
+
+    def previous_track(self) -> bool:
+        return True
+
     def get_metadata(self) -> Metadata:
         return None  # implicit-None style; violates the contract
+
+
+class _MissingTrackNavigationSource(MusicSource):
+    def get_play_state(self) -> bool:
+        return True
+
+    def set_play_state(self, desired_state: bool) -> bool:
+        return True
+
+    def play_index(self, index: int) -> bool:
+        return True
+
+    def get_metadata(self) -> Metadata:
+        return _make_metadata()
 
 
 class TestMusicSourceContract:
     def test_conforming_subclass_works(self):
         src = _GoodSource()
         assert src.get_play_state() is True
-        assert src.set_play_state(False) is False
+        assert src.set_play_state(False) is True
         assert src.play_index(1) is True
+        assert src.next_track() is True
+        assert src.previous_track() is True
         assert isinstance(src.get_metadata(), Metadata)
 
     def test_annotations_do_not_add_runtime_wrappers(self):
@@ -92,3 +126,7 @@ class TestMusicSourceContract:
     def test_boundary_is_responsible_for_validation(self):
         src = _ImplicitNoneSource()
         assert src.get_metadata() is None
+
+    def test_track_navigation_is_required(self):
+        with pytest.raises(TypeError):
+            _MissingTrackNavigationSource()

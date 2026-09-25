@@ -42,6 +42,9 @@ class Request:
             wins). Empty for GET.
         query: Parsed query-string fields (last value wins). Used by GET
             handlers to surface a PRG flash message (e.g. ``?msg=saved``).
+        media_type: Lower-case request media type without parameters. Empty
+            when the Content-Type header is missing or ambiguous.
+        body: Raw bounded request body.
         client_ip: Remote address, used as the rate-limit key.
         session: The validated session, or ``None`` when unauthenticated.
         sessions: The shared session store (so login/logout can mutate it).
@@ -53,6 +56,8 @@ class Request:
     form: Dict[str, str] = field(default_factory=dict)
     files: Dict[str, UploadedFile] = field(default_factory=dict)
     query: Dict[str, str] = field(default_factory=dict)
+    media_type: str = ""
+    body: bytes = b""
     client_ip: str = ""
     session: Optional[Session] = None
     sessions: Optional[auth.SessionStore] = None

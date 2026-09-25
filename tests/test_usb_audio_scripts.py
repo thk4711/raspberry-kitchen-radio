@@ -57,8 +57,10 @@ def test_gadget_teardown_removes_hid_function():
 
 def test_hid_helper_maps_keys_and_is_best_effort():
     text = HID.read_text()
-    # Play/Pause bit and a release write, guarded on the device being writable.
+    # Consumer-control bits and a release write, guarded on the device being writable.
     assert "playpause) byte='\\x01'" in text
+    assert "next) byte='\\x02'" in text
+    assert "previous) byte='\\x04'" in text
     assert 'HID_DEVICE="${RADIO_USB_AUDIO_HID_DEVICE:-/dev/hidg0}"' in text
     assert '[ -w "$HID_DEVICE" ] || exit 0' in text
     # Press then release (0x00) so the host sees a single keypress.

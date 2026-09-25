@@ -6,9 +6,11 @@ annotated and values are validated where the controller integrates a backend:
 
 * :class:`Metadata` is the pydantic model returned by ``get_metadata`` and
   rendered on the display (see the field comments below).
-``get_metadata`` must return a :class:`Metadata`; ``get_play_state``,
-``set_play_state`` and ``play_index`` return ``bool``. See
-``doc/adding-a-music-source.md`` for a worked example.
+* ``get_metadata`` must return a :class:`Metadata`; ``get_play_state`` and all
+  playback commands return ``bool``. A command result is ``True`` when the
+  command was accepted or dispatched, including a successful Pause command.
+
+See ``doc/adding-a-music-source.md`` for a worked example.
 """
 
 from abc import ABC, abstractmethod
@@ -39,7 +41,7 @@ class Metadata(BaseModel):
 class MusicSource(ABC):
     """Abstract base class for every playback backend.
 
-    Subclasses (MPD, AirPlay, Spotify Connect, …) implement the four abstract
+    Subclasses (MPD, AirPlay, Spotify Connect, …) implement the six abstract
     methods below so the :class:`~radio.RadioController` can treat them
     interchangeably. Implementations are statically annotated; the controller
     validates values at the integration boundary so errors name the backend and
@@ -55,16 +57,22 @@ class MusicSource(ABC):
 
     @abstractmethod
     def set_play_state(self, desired_state: bool) -> bool:
-        """
-        Set the play state of the music source.
-        """
+        """Request Play or Pause and return whether the command was accepted."""
         pass
 
     @abstractmethod
     def play_index(self, index: int) -> bool:
-        """
-        Play a specific track or playlist by index.
-        """
+        """Play an item by index and return whether the command was accepted."""
+        pass
+
+    @abstractmethod
+    def next_track(self) -> bool:
+        """Request the next track and return whether the command was accepted."""
+        pass
+
+    @abstractmethod
+    def previous_track(self) -> bool:
+        """Request the previous track and return whether the command was accepted."""
         pass
 
     @abstractmethod

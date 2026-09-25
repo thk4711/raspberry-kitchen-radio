@@ -262,6 +262,10 @@ class Handler(BaseHTTPRequestHandler):
         query = {
             key: values[-1] for key, values in parse_qs(raw_query, keep_blank_values=True).items()
         }
+        content_types = self.headers.get_all("Content-Type", failobj=[])
+        media_type = (
+            content_types[0].split(";", 1)[0].strip().lower() if len(content_types) == 1 else ""
+        )
         client_ip = self.client_address[0] if self.client_address else ""
         return routes.Request(
             method=method,
@@ -269,6 +273,8 @@ class Handler(BaseHTTPRequestHandler):
             form=form,
             files=files,
             query=query,
+            media_type=media_type,
+            body=body,
             client_ip=client_ip,
             session=session,
             sessions=SESSIONS,
@@ -380,7 +386,15 @@ class Handler(BaseHTTPRequestHandler):
                 return
             body = self._read_body()
             if body is None:
-                self._send(413, "text/plain; charset=utf-8", "request body too large")
+                if path.startswith("/api/"):
+                    self._send_json(
+                        413,
+                        "request_too_large",
+                        "The request body is too large.",
+                        source="",
+                    )
+                else:
+                    self._send(413, "text/plain; charset=utf-8", "request body too large")
                 return
             req = self._build_request(method, path, body)
             if method == "GET" and path == "/debug/adc/ws":
@@ -398,12 +412,15 @@ class Handler(BaseHTTPRequestHandler):
             logger.exception("Unhandled error while serving %s %s", method, self.path)
             try:
                 self.close_connection = True
-                self._send(
-                    500,
-                    "text/plain; charset=utf-8",
-                    "internal server error",
-                    [("Connection", "close")],
-                )
+                if urlsplit(self.path).path.startswith("/api/"):
+                    self._send_json(500, "internal_error", "Internal server error.", source="")
+                else:
+                    self._send(
+                        500,
+                        "text/plain; charset=utf-8",
+                        "internal server error",
+                        [("Connection", "close")],
+                    )
             except (BrokenPipeError, ConnectionResetError, OSError):
                 pass
 
@@ -462,6 +479,9 @@ class Handler(BaseHTTPRequestHandler):
 
     def do_POST(self) -> None:  # noqa: N802
         self._handle("POST")
+
+    def do_OPTIONS(self) -> None:  # noqa: N802
+        self._handle("OPTIONS")
 
 
 class _Server(ThreadingHTTPServer):

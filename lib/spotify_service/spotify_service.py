@@ -204,12 +204,15 @@ class SpotifyService(MusicSource):
         Returns:
             bool: True if the request was sent successfully, False otherwise.
         """
+        return self._send_player_command("resume" if state else "pause")
+
+    def _send_player_command(self, command: str) -> bool:
+        """POST one command to the pinned go-librespot player API."""
         try:
-            endpoint = "play" if state else "pause"
-            result = utility.make_request(f"{self.spotify_url}/player/{endpoint}", method="POST")
+            result = utility.make_request(f"{self.spotify_url}/player/{command}", method="POST")
             return result is not None
         except Exception as e:
-            logger.error(f"Unable to set Spotify play state: {e}")
+            logger.error(f"Unable to send Spotify {command} command: {e}")
             return False
 
     def play_index(self, index: int) -> bool:
@@ -222,3 +225,11 @@ class SpotifyService(MusicSource):
             bool: Always False (Spotify has no button-selectable presets).
         """
         return False
+
+    def next_track(self) -> bool:
+        """Request the next Spotify track."""
+        return self._send_player_command("next")
+
+    def previous_track(self) -> bool:
+        """Request the previous Spotify track."""
+        return self._send_player_command("prev")

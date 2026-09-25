@@ -13,8 +13,9 @@ import logging
 import os
 import sys
 import threading
+from dataclasses import dataclass
 from time import sleep
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Literal, Optional
 
 # Handle --version as early as possible, before importing hardware-only modules
 # (RPi.GPIO etc.) so it works on any host. Resolve the version from the bundled
@@ -80,6 +81,7 @@ from display.display_control import DisplayController
 from mpd_service.mpd_service import MPDService
 from music_source import MusicSource
 from online_artwork import OnlineArtworkResolver
+from playback_control_server import PlaybackControlServer
 from spotify_service.spotify_service import SpotifyService
 from status_snapshot import (
     artwork_descriptor,
@@ -93,6 +95,24 @@ from utilities import MANAGED_CONFIG_DIR, UtilityLibrary
 from radio_web import artwork_store, audio_hardware_store, equalizer_store
 
 utility = UtilityLibrary()
+
+PlaybackResultCode = Literal[
+    "accepted",
+    "power_off",
+    "command_failed",
+    "unknown_action",
+    "internal_error",
+]
+
+
+@dataclass(frozen=True)
+class PlaybackResult:
+    """Bounded result returned by controller playback commands."""
+
+    ok: bool
+    code: PlaybackResultCode
+    message: str
+    source: str
 
 
 def _build_online_artwork_resolver(
@@ -150,6 +170,7 @@ class RadioController:
                 self.config.setdefault(section, {}).update(values)
 
         self._state_lock = threading.RLock()
+        self._control_server: Optional[PlaybackControlServer] = None
         # Music-source feature flags. Managed by the web
         # UI at /etc/radio/sources.ini; a missing file/key means "enabled" so a
         # fresh image behaves exactly as before. Disabled sources are neither
@@ -460,10 +481,11 @@ class RadioController:
         """
         logger.debug(f"Switch number {switch_number} state changed to: {new_state}")
         if switch_number == 1:
-            self.power_switch = new_state
-            self.display.toggle_backlight(new_state)
-            self.active_service.set_play_state(new_state)
-            self.update_metadata()
+            with self._state_lock:
+                self.power_switch = new_state
+                self.display.toggle_backlight(new_state)
+                self.active_service.set_play_state(new_state)
+                self.update_metadata()
             if self.AMP_PIN is not None:
                 GPIO.output(self.AMP_PIN, new_state)
         else:
@@ -478,20 +500,21 @@ class RadioController:
         """
         logger.debug(f"Button {button_number} pressed")
         if 1 <= button_number <= 6:
-            self.active_service = self.mpd
-            self.mpd.play_index(button_number)
-            # Immediately stop the other sources instead of waiting for the next
-            # arbitration tick. This matters for sources whose stop is best-effort
-            # remote control (AirPlay, USB): pressing a preset reliably switches
-            # away even if that source's sender keeps its stream open.
-            self._stop_other_services("mpd")
-            # Surface a brief preset toast naming the station on the display.
-            try:
-                station = self.mpd.stations[button_number - 1]["name"]
-                self.display.show_toast(station)
-            except Exception as e:
-                logger.error(f"Unable to show preset toast: {e}")
-            self.update_metadata()
+            with self._state_lock:
+                self.active_service = self.mpd
+                self.mpd.play_index(button_number)
+                # Immediately stop the other sources instead of waiting for the next
+                # arbitration tick. This matters for sources whose stop is best-effort
+                # remote control (AirPlay, USB): pressing a preset reliably switches
+                # away even if that source's sender keeps its stream open.
+                self._stop_other_services("mpd")
+                # Surface a brief preset toast naming the station on the display.
+                try:
+                    station = self.mpd.stations[button_number - 1]["name"]
+                    self.display.show_toast(station)
+                except Exception as e:
+                    logger.error(f"Unable to show preset toast: {e}")
+                self.update_metadata()
         else:
             logger.warning(f"unknown button {button_number} press detected")
 
@@ -512,6 +535,60 @@ class RadioController:
         except Exception as e:
             logger.error(f"Unable to show volume OSD: {e}")
         self._update_loudness_volume(volume)
+
+    def handle_playback_action(self, action: str) -> PlaybackResult:
+        """Dispatch a playback action to the active source."""
+        commands = {
+            "play": lambda source: source.set_play_state(True),
+            "pause": lambda source: source.set_play_state(False),
+            "next": lambda source: source.next_track(),
+            "previous": lambda source: source.previous_track(),
+        }
+        command = commands.get(action)
+        if command is None:
+            return PlaybackResult(False, "unknown_action", "Unknown playback action", "")
+
+        with self._state_lock:
+            source = self.active_service
+            source_name = getattr(source, "name", "")
+            if not self.power_switch:
+                return PlaybackResult(False, "power_off", "Power switch is off", source_name)
+
+            try:
+                accepted = command(source)
+            except Exception as exc:
+                logger.error("Unable to %s %s: %s", action, source_name or "active source", exc)
+                return PlaybackResult(
+                    False, "internal_error", "Playback command raised an error", source_name
+                )
+
+            if not isinstance(accepted, bool):
+                logger.error(
+                    "%s.%s returned %s, expected bool",
+                    source_name or "active source",
+                    action,
+                    type(accepted).__name__,
+                )
+                return PlaybackResult(
+                    False,
+                    "internal_error",
+                    "Playback command returned an invalid result",
+                    source_name,
+                )
+            if not accepted:
+                return PlaybackResult(
+                    False, "command_failed", "Playback command was rejected", source_name
+                )
+
+            if action in ("play", "pause"):
+                for entry in self.services:
+                    if entry["service"] is source:
+                        entry["state"] = action == "play"
+                        break
+            self.update_metadata()
+            self._write_status_snapshot()
+
+        return PlaybackResult(True, "accepted", "Playback command accepted", source_name)
 
     def _update_loudness_volume(self, volume: int) -> None:
         """Push the current volume into the EQ runtime file for loudness tracking.
@@ -616,6 +693,21 @@ class RadioController:
                 logger.exception("Unhandled metadata-loop error")
             sleep(self.METADATA_UPDATE_INTERVAL)
 
+    def _start_control_server(self) -> None:
+        """Start the root-owned local playback-control listener."""
+        if self._control_server is not None:
+            return
+        server = PlaybackControlServer(self.handle_playback_action)
+        server.start()
+        self._control_server = server
+
+    def _stop_control_server(self) -> None:
+        """Stop the playback-control listener during orderly shutdown."""
+        server = self._control_server
+        self._control_server = None
+        if server is not None:
+            server.close()
+
     def start(self) -> None:
         """
         Start the main loop of the radio controller, managing the power switch state and metadata updates.
@@ -632,6 +724,7 @@ class RadioController:
             self.adc_controller.start_monitoring()
             self.power_switch = self.adc_controller.read_adc_switch()
             self.handle_switch_state_change(1, self.power_switch)
+            self._start_control_server()
             # Establish the default MPD state before source arbitration starts.
             # If an already-connected USB host is active, the first metadata
             # poll then sees MPD and USB together and the documented service
@@ -645,6 +738,7 @@ class RadioController:
         except KeyboardInterrupt:
             logger.info("Shutting down...")
         finally:
+            self._stop_control_server()
             GPIO.cleanup()
 
 

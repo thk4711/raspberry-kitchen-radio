@@ -21,6 +21,37 @@ class TestRoutes:
         assert "text/html" in ctype
         assert "PiSonic" in body
 
+    def test_dashboard_route_projects_the_public_player_schema(self, monkeypatch):
+        monkeypatch.setattr(
+            routes.system_status,
+            "collect",
+            lambda: {
+                "player": {
+                    "available": True,
+                    "stale": False,
+                    "power": True,
+                    "active_source": "spotify",
+                    "now_playing": {
+                        "name": "Artist",
+                        "title": "Track",
+                        "state": True,
+                        "cover": "/tmp/private.jpg",
+                        "artwork": {"id": "spotify", "version": "abc"},
+                    },
+                    "sources": {"spotify": {"playing": True, "private": "value"}},
+                },
+                "source_labels": [("spotify", "Spotify")],
+            },
+        )
+
+        status, _ctype, body, _headers = routes.resolve(_req("GET", "/"))
+
+        assert status == 200
+        assert "Artist" in body
+        assert "data-player-name" in body
+        assert "/tmp/private.jpg" not in body
+        assert 'data-player-source-state="spotify"' in body
+
     def test_healthz_route(self):
         status, ctype, body, _hdrs = routes.resolve(_req("GET", "/healthz"))
         assert status == 200
@@ -86,7 +117,8 @@ class TestTemplates:
                 "stale": False,
                 "power": True,
                 "active_source": "mpd",
-                "now_playing": {"name": "DLF", "title": "News", "state": True},
+                "playing": True,
+                "metadata": {"name": "DLF", "title": "News", "artwork": {}},
                 "sources": {"mpd": {"playing": True}},
             },
             "bluetooth": {
@@ -111,7 +143,7 @@ class TestTemplates:
         assert 'class="dashboard-grid"' in html
         assert 'class="admin-links"' not in html
         assert 'id="now-playing"' in html
-        assert 'src="/static/app.js?v=1"' in html
+        assert 'src="/static/app.js?v=4"' in html
         assert "Playing" in html
 
     def test_dashboard_shows_incomplete_provisioning_without_values(self):
@@ -136,11 +168,12 @@ class TestTemplates:
 
     def test_now_playing_indicates_not_playing(self):
         status = self._status()
+        status["player"]["playing"] = False
         status["player"]["sources"]["mpd"]["playing"] = False
         html = templates.dashboard(status)
         assert "Not playing" in html
 
-    def test_now_playing_uses_metadata_state_as_fallback(self):
+    def test_now_playing_uses_public_playing_field(self):
         status = self._status()
         status["player"]["sources"] = {}
         html = templates.dashboard(status)
@@ -148,30 +181,25 @@ class TestTemplates:
 
     def test_now_playing_indicates_unknown_without_state(self):
         status = self._status()
-        status["player"]["sources"] = {}
-        status["player"]["now_playing"].pop("state")
+        status["player"]["playing"] = None
         html = templates.dashboard(status)
         assert "Unknown" in html
 
-    def test_now_playing_fragment_route(self, monkeypatch):
-        monkeypatch.setattr(
-            "radio_web.system_status.player_status", lambda: self._status()["player"]
-        )
+    def test_obsolete_now_playing_fragment_route_is_removed(self):
         status, ctype, body, _headers = routes.resolve(_req("GET", "/dashboard/now-playing"))
-        assert status == 200
+        assert status == 404
         assert "text/html" in ctype
-        assert 'class="card now-playing"' in body
-        assert "Playing" in body
-        assert "<!DOCTYPE html>" not in body
+        assert "Not found" in body
 
     def test_now_playing_renders_artwork(self):
         status = self._status()
-        status["player"]["now_playing"]["artwork"] = {
+        status["player"]["metadata"]["artwork"] = {
             "id": "station:Deutschlandfunk.png",
             "version": "abc123",
+            "url": "/dashboard/artwork?id=station%3ADeutschlandfunk.png&v=abc123",
         }
         html = templates.dashboard(status)
-        assert "/dashboard/artwork?id=station:Deutschlandfunk.png&amp;v=abc123" in html
+        assert "/dashboard/artwork?id=station%3ADeutschlandfunk.png&amp;v=abc123" in html
         assert 'alt="Artwork for DLF"' in html
 
     def test_now_playing_without_artwork_renders_placeholder(self):
@@ -213,14 +241,14 @@ class TestTemplates:
 
     def test_page_uses_shared_application_shell(self):
         html = templates.dashboard(self._status())
-        assert 'href="/static/app.css?v=19"' in html
+        assert 'href="/static/app.css?v=21"' in html
         assert 'href="/static/PiSonic-Logo.svg?v=2"' in html
         assert 'src="/static/PiSonic-Logo.svg?v=2"' in html
         assert 'class="site-header"' in html
         assert 'aria-label="Main navigation"' in html
         assert 'aria-current="page"' in html
         assert 'class="skip-link"' in html
-        assert 'src="/static/app.js?v=1"' in html
+        assert 'src="/static/app.js?v=4"' in html
         assert "<style>" not in html
 
     def test_navigation_highlight_has_square_corners(self):
@@ -242,7 +270,8 @@ class TestTemplates:
                 "stale": False,
                 "power": True,
                 "active_source": "mpd",
-                "now_playing": {"name": "<b>x</b>", "title": "t", "state": True},
+                "playing": True,
+                "metadata": {"name": "<b>x</b>", "title": "t", "artwork": {}},
                 "sources": {},
             }
         )

@@ -118,9 +118,8 @@ class USBAudioService(MusicSource):
 
         Returns True when the helper reported success. Any failure (helper
         missing, host not enumerating the HID interface, timeout) is treated as a
-        no-op so the inhibit marker remains the guaranteed source-switch path.
-        Many hosts map Play/Pause to the foreground media app, but behaviour is
-        not universal, which is exactly why the inhibit fallback is always kept.
+        no-op. Many hosts map these keys to the foreground media app, but
+        behaviour is not universal.
         """
         if not self.hid_helper:
             return False
@@ -141,17 +140,31 @@ class USBAudioService(MusicSource):
         """Enable routing, or inhibit it until the current host stream closes.
 
         On stop, additionally send a best-effort Play/Pause media key so a host
-        that honours HID consumer keys actually pauses its player. The local
-        inhibit marker is always the authoritative fallback, so the source switch
-        happens regardless of whether the host acted on the key.
+        that honours HID consumer keys actually pauses its player. On start,
+        send the same key only if the host has no active capture stream; an
+        already-active inhibited stream needs only its local marker removed.
+        The marker remains the authoritative routing state.
         """
-        if not desired_state:
+        if desired_state:
+            # An inhibited stream is already playing on the host; toggling it
+            # would pause it just as the local route is re-enabled.
+            if self._capture_rate() <= 0:
+                self._send_media_key("playpause")
+        else:
             self._send_media_key("playpause")
         return self._set_inhibited(not desired_state)
 
     def play_index(self, index: int) -> bool:
         """USB Audio has no preset selection operation."""
         return False
+
+    def next_track(self) -> bool:
+        """Send the HID consumer-control Next key to the host."""
+        return self._send_media_key("next")
+
+    def previous_track(self) -> bool:
+        """Send the HID consumer-control Previous key to the host."""
+        return self._send_media_key("previous")
 
     def get_metadata(self) -> Metadata:
         state = self.get_play_state()

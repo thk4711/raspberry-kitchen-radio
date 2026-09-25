@@ -43,6 +43,7 @@ class MPDService(MusicSource):
         self.stations: List[dict] = [
             {"name": item, "url": conf[item]["url"], "logo": conf[item]["logo"]} for item in conf
         ]
+        self._station_lock = threading.RLock()
         self.current_station = 0
         self.desired_play_state = False
         self.metadata = Metadata(name="", title="", cover="", md5="", state=False)
@@ -64,6 +65,7 @@ class MPDService(MusicSource):
             result = subprocess.run(["mpc"] + command.split(), capture_output=True, text=True)
             if result.returncode != 0:
                 logger.error(f"mpc command failed: {result.stderr.strip()}")
+                return None
             return result.stdout.strip()
         except Exception as e:
             logger.exception(f"Error running mpc command: {e}")
@@ -97,16 +99,17 @@ class MPDService(MusicSource):
             should_play (bool): True to start playing, False to stop.
 
         Returns:
-            bool: Always True once the requested state has been applied.
+            bool: True when ``mpc`` accepted the command, False otherwise.
         """
-        self.desired_play_state = should_play
-        if should_play:
-            logger.info("Setting MPD to play state.")
-            self._run_mpc_command("play")
-        else:
-            logger.info("Setting MPD to stop state.")
-            self._run_mpc_command("stop")
-        return True
+        with self._station_lock:
+            self.desired_play_state = should_play
+            if should_play:
+                logger.info("Setting MPD to play state.")
+                result = self._run_mpc_command("play")
+            else:
+                logger.info("Setting MPD to stop state.")
+                result = self._run_mpc_command("stop")
+            return result is not None
 
     def play_index(self, index: int) -> bool:
         """
@@ -118,17 +121,36 @@ class MPDService(MusicSource):
         Returns:
             bool: True if the station started playing, False on error.
         """
-        self.desired_play_state = True
-        try:
+        with self._station_lock:
+            try:
+                station_index = index - 1
+                if station_index < 0:
+                    raise IndexError
+                station = self.stations[station_index]
+            except (IndexError, TypeError):
+                logger.error("Invalid station index: %s", index)
+                return False
+
+            for command in ("clear", f'add {station["url"]}', "play"):
+                if self._run_mpc_command(command) is None:
+                    return False
+            self.current_station = station_index
             self.desired_play_state = True
-            self.current_station = index - 1
-            self._run_mpc_command("clear")
-            self._run_mpc_command(f'add {self.stations[self.current_station]["url"]}')
-            self._run_mpc_command("play")
             return True
-        except Exception as e:
-            logger.error(f"Error playing station {self.current_station}: {e}")
-            return False
+
+    def next_track(self) -> bool:
+        """Play the next configured station, wrapping to the first."""
+        with self._station_lock:
+            if not self.stations:
+                return False
+            return self.play_index((self.current_station + 1) % len(self.stations) + 1)
+
+    def previous_track(self) -> bool:
+        """Play the previous configured station, wrapping to the last."""
+        with self._station_lock:
+            if not self.stations:
+                return False
+            return self.play_index((self.current_station - 1) % len(self.stations) + 1)
 
     def _is_status_line(self, line: str) -> bool:
         """Return True when a line is MPD/mpc status, not stream metadata."""
@@ -150,32 +172,33 @@ class MPDService(MusicSource):
         Returns:
             Metadata: The current stream metadata.
         """
-        self.metadata.title = ""
-        self.metadata.cover = _logo_path(
-            self.module_location, self.stations[self.current_station]["logo"]
-        )
-        self.metadata.name = self.stations[self.current_station]["name"]
-        self.metadata.state = self.get_play_state()
-
-        output = self._run_mpc_command("current -f %title%")
-        if output:
-            # ``mpc current`` prints only current song/stream metadata, unlike
-            # ``mpc status`` which can append status/volume lines while stream
-            # metadata is still unavailable. Still filter defensively so bogus
-            # lines such as "volume: 22% ..." are never shown on the display.
-            title = ""
-            for line in output.split("\n"):
-                stripped = line.strip()
-                if not stripped or self._is_status_line(stripped):
-                    continue
-                title = stripped
-                break
-            self.metadata.title = f"{title} " if title else ""
-        else:
-            # This is expected shortly after changing an internet-radio stream.
-            # Keep the title row blank until real stream metadata arrives.
+        with self._station_lock:
             self.metadata.title = ""
-        return self.metadata
+            self.metadata.cover = _logo_path(
+                self.module_location, self.stations[self.current_station]["logo"]
+            )
+            self.metadata.name = self.stations[self.current_station]["name"]
+            self.metadata.state = self.get_play_state()
+
+            output = self._run_mpc_command("current -f %title%")
+            if output:
+                # ``mpc current`` prints only current song/stream metadata, unlike
+                # ``mpc status`` which can append status/volume lines while stream
+                # metadata is still unavailable. Still filter defensively so bogus
+                # lines such as "volume: 22% ..." are never shown on the display.
+                title = ""
+                for line in output.split("\n"):
+                    stripped = line.strip()
+                    if not stripped or self._is_status_line(stripped):
+                        continue
+                    title = stripped
+                    break
+                self.metadata.title = f"{title} " if title else ""
+            else:
+                # This is expected shortly after changing an internet-radio stream.
+                # Keep the title row blank until real stream metadata arrives.
+                self.metadata.title = ""
+            return self.metadata
 
     def check_state(self, desired_state: bool) -> None:
         """

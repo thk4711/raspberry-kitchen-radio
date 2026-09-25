@@ -7,7 +7,6 @@ from .template_dashboard import (
     forbidden,
     method_not_allowed,
     not_found,
-    now_playing_fragment,
 )
 from .template_device_maintenance import (
     confirm_page,
@@ -39,7 +38,6 @@ __all__ = [
     "method_not_allowed",
     "network_page",
     "not_found",
-    "now_playing_fragment",
     "settings_page",
     "setup_page",
     "sources_page",

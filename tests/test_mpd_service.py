@@ -1,6 +1,7 @@
 """Host-side behavior and recovery tests for the MPD backend."""
 
 import subprocess
+import threading
 from unittest import mock
 
 from mpd_service import mpd_service
@@ -16,18 +17,19 @@ def _service():
         {"name": "News", "url": "https://example.test/news", "logo": "news.png"},
         {"name": "Music", "url": "https://example.test/music", "logo": "music.png"},
     ]
+    service._station_lock = threading.RLock()
     service.current_station = 0
     service.desired_play_state = False
     service.metadata = Metadata(name="", title="", cover="", md5="", state=False)
     return service
 
 
-def test_run_command_returns_output_even_for_nonzero_status(monkeypatch):
+def test_run_command_returns_none_for_nonzero_status(monkeypatch):
     run = mock.Mock(
         return_value=subprocess.CompletedProcess([], 1, stdout=" output\n", stderr="failed\n")
     )
     monkeypatch.setattr(mpd_service.subprocess, "run", run)
-    assert _service()._run_mpc_command("current -f %title%") == "output"
+    assert _service()._run_mpc_command("current -f %title%") is None
     run.assert_called_once_with(["mpc", "current", "-f", "%title%"], capture_output=True, text=True)
 
 
@@ -50,6 +52,9 @@ def test_get_and_set_play_state():
     assert service.set_play_state(False) is True
     assert service._run_mpc_command.call_args_list == [mock.call("play"), mock.call("stop")]
 
+    service._run_mpc_command.return_value = None
+    assert service.set_play_state(True) is False
+
 
 def test_play_index_runs_clear_add_play_and_rejects_invalid_index():
     service = _service()
@@ -62,6 +67,29 @@ def test_play_index_runs_clear_add_play_and_rejects_invalid_index():
         mock.call("play"),
     ]
     assert service.play_index(99) is False
+
+
+def test_station_navigation_wraps_in_both_directions():
+    service = _service()
+    service._run_mpc_command = mock.Mock(return_value="")
+
+    assert service.previous_track() is True
+    assert service.current_station == 1
+    assert service.next_track() is True
+    assert service.current_station == 0
+
+
+def test_play_index_stops_after_failed_mpc_command():
+    service = _service()
+    service._run_mpc_command = mock.Mock(side_effect=["", None])
+
+    assert service.play_index(2) is False
+    assert service.current_station == 0
+    assert service.desired_play_state is False
+    assert service._run_mpc_command.call_args_list == [
+        mock.call("clear"),
+        mock.call("add https://example.test/music"),
+    ]
 
 
 def test_metadata_filters_status_lines_and_uses_station_logo(monkeypatch):

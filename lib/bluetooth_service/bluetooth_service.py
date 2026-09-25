@@ -10,8 +10,10 @@ auto-pairing agent, ``bluealsa`` (the A2DP receiver) and ``bluealsa-aplay``
 is a pure *consumer* of the BlueZ D-Bus API:
 
 * It watches ``org.bluez`` for a connected device exposing the AVRCP
-  ``org.bluez.MediaPlayer1`` interface and reads its ``Status`` (play/pause)
-  and ``Track`` (title/artist/album) properties for the display.
+  ``org.bluez.MediaPlayer1`` interface and reads its ``Track``
+  (title/artist/album) properties for the display. Actual playback state comes
+  from the device's A2DP ``org.bluez.MediaTransport1`` interface; AVRCP status
+  can describe media playing through another output such as AirPlay.
 * ``set_play_state`` issues AVRCP ``Play`` / ``Pause`` so switching sources on
   the radio actually pauses the phone.
 
@@ -38,6 +40,9 @@ BLUEZ_ROOT = "/"
 OBJECT_MANAGER_IFACE = "org.freedesktop.DBus.ObjectManager"
 PROPERTIES_IFACE = "org.freedesktop.DBus.Properties"
 MEDIA_PLAYER_IFACE = "org.bluez.MediaPlayer1"
+MEDIA_TRANSPORT_IFACE = "org.bluez.MediaTransport1"
+A2DP_SINK_UUID = "0000110b-0000-1000-8000-00805f9b34fb"
+PLAYING_TRANSPORT_STATES = frozenset(("pending", "active"))
 
 
 class BluetoothService(MusicSource):
@@ -106,18 +111,41 @@ class BluetoothService(MusicSource):
         """Interruptible wait, split out so retry timing is testable."""
         return self._stop.wait(delay)
 
-    def _find_player_path(self, bus: Any) -> Optional[str]:
-        """Return the object path of a connected ``MediaPlayer1``, if any."""
-        manager = dbus.Interface(bus.get_object(self.service, BLUEZ_ROOT), OBJECT_MANAGER_IFACE)
-        objects = manager.GetManagedObjects()
+    def _transport_is_playing(self, objects: Any, player_path: str) -> bool:
+        """Return whether the player's device has a streaming A2DP transport."""
+        player = objects.get(player_path, {}).get(MEDIA_PLAYER_IFACE, {})
+        device = str(player.get("Device", ""))
+        if not device:
+            return False
+
+        for interfaces in objects.values():
+            transport = interfaces.get(MEDIA_TRANSPORT_IFACE)
+            if transport is None:
+                continue
+            if (
+                str(transport.get("Device", "")) == device
+                and str(transport.get("UUID", "")).lower() == A2DP_SINK_UUID
+                and str(transport.get("State", "")) in PLAYING_TRANSPORT_STATES
+            ):
+                return True
+        return False
+
+    def _find_player_path(self, objects: Any) -> Optional[str]:
+        """Return an AVRCP player path, preferring one whose A2DP stream is active."""
+        paths = []
         for path, interfaces in objects.items():
             if MEDIA_PLAYER_IFACE in interfaces:
-                return str(path)
-        return None
+                paths.append(str(path))
+        return next(
+            (path for path in paths if self._transport_is_playing(objects, path)),
+            paths[0] if paths else None,
+        )
 
     def _refresh(self, bus: Any) -> None:
         """Poll the connected player and update the cached metadata snapshot."""
-        path = self._find_player_path(bus)
+        manager = dbus.Interface(bus.get_object(self.service, BLUEZ_ROOT), OBJECT_MANAGER_IFACE)
+        objects = manager.GetManagedObjects()
+        path = self._find_player_path(objects)
         with self._lock:
             self._player_path = path
         if path is None:
@@ -125,7 +153,6 @@ class BluetoothService(MusicSource):
             return
 
         props = dbus.Interface(bus.get_object(self.service, path), PROPERTIES_IFACE)
-        status = str(props.Get(MEDIA_PLAYER_IFACE, "Status"))
         try:
             track = props.Get(MEDIA_PLAYER_IFACE, "Track")
         except dbus.DBusException:
@@ -135,7 +162,12 @@ class BluetoothService(MusicSource):
         artist = str(track.get("Artist", "")) if track else ""
         album = str(track.get("Album", "")) if track else ""
         track_identity = TrackIdentity.from_metadata(artist, title, album)
-        self._update_track(track_identity, artist, title, status == "playing")
+        self._update_track(
+            track_identity,
+            artist,
+            title,
+            self._transport_is_playing(objects, path),
+        )
 
     def _update_track(
         self,
@@ -210,6 +242,10 @@ class BluetoothService(MusicSource):
         is connected or the call failed (so the controller can log it without
         crashing the metadata loop).
         """
+        return self._send_player_command("Play" if desired_state else "Pause")
+
+    def _send_player_command(self, command: str) -> bool:
+        """Invoke one AVRCP command on the connected BlueZ media player."""
         with self._lock:
             bus = self._bus
             path = self._player_path
@@ -217,13 +253,11 @@ class BluetoothService(MusicSource):
             return False
         try:
             player = dbus.Interface(bus.get_object(self.service, path), MEDIA_PLAYER_IFACE)
-            if desired_state:
-                player.Play()
-            else:
-                player.Pause()
+            method = getattr(player, command)
+            method()
             return True
-        except dbus.DBusException as exc:
-            logger.warning("Bluetooth play-state change failed: %s", exc)
+        except (AttributeError, dbus.DBusException) as exc:
+            logger.warning("Bluetooth %s command failed: %s", command, exc)
             with self._lock:
                 if self._bus is bus:
                     self._player_path = None
@@ -232,6 +266,14 @@ class BluetoothService(MusicSource):
     def play_index(self, index: int) -> bool:
         """Bluetooth has no button-selectable presets."""
         return False
+
+    def next_track(self) -> bool:
+        """Issue AVRCP Next to the connected phone."""
+        return self._send_player_command("Next")
+
+    def previous_track(self) -> bool:
+        """Issue AVRCP Previous to the connected phone."""
+        return self._send_player_command("Previous")
 
     def close(self) -> None:
         """Stop the background D-Bus and artwork workers."""

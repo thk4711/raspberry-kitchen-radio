@@ -45,18 +45,26 @@ from .route_display_audio import (
     _settings_get,
     _settings_post,
 )
+from .route_player import (
+    API_PATHS,
+    _player_get,
+    _player_next_post,
+    _player_pause_post,
+    _player_play_post,
+    _player_previous_post,
+    api_error,
+    public_status,
+)
 from .route_stations_sources import _sources_get, _sources_post, _stations_get, _stations_post
 
 # --- Handlers ---------------------------------------------------------------
 
 
 def _dashboard(_req: Request) -> Response:
-    return _ok(templates.dashboard(system_status.collect()))
-
-
-def _now_playing(_req: Request) -> Response:
-    """Return the live Now Playing fragment used by dashboard polling."""
-    return _ok(templates.now_playing_fragment(system_status.player_status()))
+    status = system_status.collect()
+    player = status.get("player")
+    status["player"] = public_status(player if isinstance(player, dict) else {})
+    return _ok(templates.dashboard(status))
 
 
 def _artwork(req: Request) -> Response:
@@ -161,9 +169,13 @@ def _logout_post(req: Request) -> Response:
 
 ROUTES: Dict[Tuple[str, str], Handler] = {
     ("GET", "/"): _dashboard,
-    ("GET", "/dashboard/now-playing"): _now_playing,
     ("GET", "/dashboard/artwork"): _artwork,
     ("GET", "/healthz"): _healthz,
+    ("GET", "/api/v1/player"): _player_get,
+    ("POST", "/api/v1/player/play"): _player_play_post,
+    ("POST", "/api/v1/player/pause"): _player_pause_post,
+    ("POST", "/api/v1/player/next"): _player_next_post,
+    ("POST", "/api/v1/player/previous"): _player_previous_post,
     ("GET", "/static/app.css"): _static,
     ("GET", "/static/app.js"): _static,
     ("GET", "/static/radio.svg"): _static,
@@ -217,5 +229,9 @@ def resolve(req: Request) -> Response:
     if handler is not None:
         return handler(req)
     if req.path in _KNOWN_PATHS:
+        if req.path in API_PATHS:
+            return api_error(405, "method_not_allowed", "Method not allowed.")
         return 405, _HTML, templates.method_not_allowed(), []
+    if req.path.startswith("/api/"):
+        return api_error(404, "not_found", "API endpoint not found.")
     return 404, _HTML, templates.not_found(), []

@@ -143,17 +143,70 @@ def test_stop_still_inhibits_when_hid_helper_fails(monkeypatch, tmp_path):
     assert inhibit.exists()
 
 
-def test_start_does_not_send_media_key(monkeypatch, tmp_path):
+def test_start_does_not_toggle_host_when_capture_is_active(monkeypatch, tmp_path):
     inhibit = tmp_path / "inhibited"
-    inhibit.touch()
-    run = mock.Mock(return_value=_result())
+    run = mock.Mock(return_value=_result(_amixer_output(48000)))
     monkeypatch.setattr(subprocess, "run", run)
     service = USBAudioService(inhibit_file=str(inhibit))
+    inhibit.touch()
     run.reset_mock()
 
     assert service.set_play_state(True) is True
     assert not inhibit.exists()
-    run.assert_not_called()  # starting never presses a media key
+    assert run.call_args_list == [
+        mock.call(
+            [
+                "/usr/bin/amixer",
+                "-c",
+                "UAC1Gadget",
+                "cget",
+                "iface=PCM,name='Capture Rate'",
+            ],
+            check=False,
+            capture_output=True,
+            text=True,
+            timeout=2.0,
+        )
+    ]
+
+
+def test_start_sends_playpause_when_host_is_not_streaming(monkeypatch, tmp_path):
+    inhibit = tmp_path / "inhibited"
+    calls = []
+
+    def run(args, **kwargs):
+        calls.append(args)
+        if args[0] == "/usr/bin/amixer":
+            return _result(_amixer_output(0))
+        return _result()
+
+    monkeypatch.setattr(subprocess, "run", run)
+    service = USBAudioService(inhibit_file=str(inhibit))
+
+    assert service.set_play_state(True) is True
+    assert calls == [
+        [
+            "/usr/bin/amixer",
+            "-c",
+            "UAC1Gadget",
+            "cget",
+            "iface=PCM,name='Capture Rate'",
+        ],
+        ["/usr/bin/radio-usb-audio-hid", "playpause"],
+    ]
+
+
+def test_track_navigation_sends_hid_media_keys(monkeypatch, tmp_path):
+    run = mock.Mock(return_value=_result())
+    monkeypatch.setattr(subprocess, "run", run)
+    service = USBAudioService(inhibit_file=str(tmp_path / "inhibited"))
+
+    assert service.previous_track() is True
+    assert service.next_track() is True
+    assert [call.args[0] for call in run.call_args_list] == [
+        ["/usr/bin/radio-usb-audio-hid", "previous"],
+        ["/usr/bin/radio-usb-audio-hid", "next"],
+    ]
 
 
 def test_empty_hid_helper_disables_media_key(monkeypatch, tmp_path):
@@ -208,6 +261,12 @@ def test_controller_prepares_sources_before_starting_arbitration(monkeypatch):
     controller.mpd = mock.Mock()
     controller.mpd.play_index.side_effect = lambda index: events.append(("mpd", index))
     controller.metadata_loop = mock.Mock()
+    controller._start_control_server = mock.Mock(
+        side_effect=lambda: events.append(("control", "start"))
+    )
+    controller._stop_control_server = mock.Mock(
+        side_effect=lambda: events.append(("control", "stop"))
+    )
 
     class FakeThread:
         def __init__(self, *, target, daemon):
@@ -224,6 +283,8 @@ def test_controller_prepares_sources_before_starting_arbitration(monkeypatch):
 
     assert events == [
         ("switch", True),
+        ("control", "start"),
         ("mpd", 1),
         ("metadata", True),
+        ("control", "stop"),
     ]

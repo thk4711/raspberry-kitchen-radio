@@ -37,6 +37,14 @@ def test_make_request_returns_json(monkeypatch):
     assert UtilityLibrary.make_request("http://x") == {"a": 1}
 
 
+def test_make_request_preserves_successful_json_null(monkeypatch):
+    resp = _Response(
+        json_data=None, content=b"null\n", headers={"Content-Type": "application/json"}
+    )
+    monkeypatch.setattr(requests, "post", lambda *a, **k: resp)
+    assert UtilityLibrary.make_request("http://x", method="POST") == b"null\n"
+
+
 def test_make_request_returns_bytes_for_non_json(monkeypatch):
     resp = _Response(content=b"raw", headers={"Content-Type": "text/plain"})
     monkeypatch.setattr(requests, "post", lambda *a, **k: resp)

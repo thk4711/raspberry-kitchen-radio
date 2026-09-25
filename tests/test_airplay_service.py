@@ -73,17 +73,19 @@ def test_set_play_state_stop_pauses_when_available_and_inhibits(monkeypatch, tmp
     assert marker.exists()  # local fallback always applied
 
 
-def test_set_play_state_stop_inhibits_even_without_remote_control(monkeypatch, tmp_path):
+def test_set_play_state_stop_sends_airplay2_command_when_dacp_unavailable(monkeypatch, tmp_path):
     marker = tmp_path / "airplay-inhibited"
     props = mock.Mock()
     props.Get.return_value = False  # RemoteControl.Available is False (AirPlay 2)
     service = AirplayService.__new__(AirplayService)
     service._lock = __import__("threading").RLock()
     service.properties_interface = props
-    service.remote_control_interface = None
+    remote = mock.Mock()
+    service.remote_control_interface = remote
     service.inhibit_file = marker
 
     assert service.set_play_state(False) is True
+    remote.Pause.assert_called_once_with()
     assert marker.exists()
 
 
@@ -102,6 +104,24 @@ def test_set_play_state_start_clears_marker_and_plays(monkeypatch, tmp_path):
     assert service.set_play_state(True) is True
     assert not marker.exists()
     remote.Play.assert_called_once_with()
+
+
+def test_set_play_state_start_uses_toggle_for_paused_sender(monkeypatch, tmp_path):
+    marker = tmp_path / "airplay-inhibited"
+    marker.touch()
+    props = mock.Mock()
+    props.Get.return_value = "Paused"
+    remote = mock.Mock()
+    service = AirplayService.__new__(AirplayService)
+    service._lock = __import__("threading").RLock()
+    service.properties_interface = props
+    service.remote_control_interface = remote
+    service.inhibit_file = marker
+
+    assert service.set_play_state(True) is True
+    assert not marker.exists()
+    remote.PlayPause.assert_called_once_with()
+    remote.Play.assert_not_called()
 
 
 def test_get_play_state_respects_and_clears_inhibit_marker(monkeypatch, tmp_path):
@@ -144,6 +164,65 @@ def test_send_remote_command_missing_method_is_soft_failure(tmp_path):
 
     assert service.set_play_state(False) is True
     assert marker.exists()
+
+
+def test_track_navigation_uses_sender_remote_control(tmp_path):
+    props = mock.Mock()
+    props.Get.return_value = True
+    remote = mock.Mock()
+    service = AirplayService.__new__(AirplayService)
+    service._lock = __import__("threading").RLock()
+    service.properties_interface = props
+    service.remote_control_interface = remote
+    service.inhibit_file = tmp_path / "airplay-inhibited"
+
+    assert service.previous_track() is True
+    assert service.next_track() is True
+    remote.Previous.assert_called_once_with()
+    remote.Next.assert_called_once_with()
+
+
+def test_track_navigation_works_when_legacy_dacp_is_unavailable(tmp_path):
+    props = mock.Mock()
+    props.Get.return_value = False
+    remote = mock.Mock()
+    service = AirplayService.__new__(AirplayService)
+    service._lock = __import__("threading").RLock()
+    service.properties_interface = props
+    service.remote_control_interface = remote
+    service.inhibit_file = tmp_path / "airplay-inhibited"
+
+    assert service.previous_track() is True
+    assert service.next_track() is True
+    remote.Previous.assert_called_once_with()
+    remote.Next.assert_called_once_with()
+    props.Get.assert_not_called()
+
+
+def test_track_navigation_fails_softly_without_dbus_interface(tmp_path):
+    service = AirplayService.__new__(AirplayService)
+    service._lock = __import__("threading").RLock()
+    service.properties_interface = None
+    service.remote_control_interface = None
+    service.inhibit_file = tmp_path / "airplay-inhibited"
+
+    assert service.previous_track() is False
+    assert service.next_track() is False
+
+
+def test_track_navigation_dbus_failure_is_soft(tmp_path):
+    props = mock.Mock()
+    props.Get.return_value = True
+    remote = mock.Mock()
+    remote.Next.side_effect = dbus.DBusException("sender disconnected")
+    service = AirplayService.__new__(AirplayService)
+    service._lock = __import__("threading").RLock()
+    service.properties_interface = props
+    service.remote_control_interface = remote
+    service.inhibit_file = tmp_path / "airplay-inhibited"
+
+    assert service.next_track() is False
+    assert service.remote_control_interface is None
 
 
 def test_disconnect_clears_interface_for_reconnect(monkeypatch, tmp_path):

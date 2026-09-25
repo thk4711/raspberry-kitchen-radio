@@ -1,6 +1,6 @@
 """Server-rendered templates for dashboard."""
 
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 
 from .template_common import (
     _esc,
@@ -79,57 +79,90 @@ def _bluetooth_card(status: Dict[str, Any]) -> str:
     return f'<div class="card bluetooth-card"><h2>Bluetooth</h2>{body}</div>'
 
 
-def _now_playing_card(player: Dict[str, Any]) -> str:
-    if not player.get("available"):
-        return (
-            '<div class="card now-playing"><div class="now-playing-content">'
-            '<div class="artwork artwork-fallback" aria-hidden="true">♪</div>'
-            '<div class="now-playing-details"><h2>Now playing</h2>'
-            '<p class="warn">Player status unavailable — the radio process may be '
-            "starting or stopped.</p></div></div></div>"
+def _playback_controls(*, available: bool, power_on: bool, is_playing: Optional[bool]) -> str:
+    controls_enabled = available and power_on
+    if not available:
+        default_message = "Playback controls unavailable."
+    elif not power_on:
+        default_message = "Playback controls disabled while power is off."
+    else:
+        default_message = ""
+
+    buttons = []
+    for action, label, symbol in (
+        ("previous", "Previous", "&#9198;"),
+        ("play", "Play", "&#9654;"),
+        ("pause", "Pause", "&#10074;&#10074;"),
+        ("next", "Next", "&#9197;"),
+    ):
+        enabled = controls_enabled
+        if action == "play" and is_playing is True:
+            enabled = False
+        elif action == "pause" and is_playing is False:
+            enabled = False
+        disabled = "" if enabled else " disabled"
+        buttons.append(
+            f'<button type="button" class="playback-control" data-playback-action="{action}" '
+            f'data-playback-enabled="{str(enabled).lower()}" aria-label="{label}" '
+            f'title="{label}"{disabled}><span aria-hidden="true">{symbol}</span></button>'
         )
-    now = player.get("now_playing", {}) or {}
-    stale = '<span class="badge off">stale</span>' if player.get("stale") else ""
+
+    return (
+        '<div class="playback-controls" role="group" aria-label="Playback controls">'
+        f"{''.join(buttons)}</div>"
+        '<p class="playback-control-status" role="status" aria-live="polite" '
+        f'aria-atomic="true" data-default-message="{_esc(default_message)}">'
+        f"{_esc(default_message)}</p>"
+    )
+
+
+def _now_playing_card(player: Dict[str, Any]) -> str:
+    available = player.get("available") is True
+    raw_metadata = player.get("metadata")
+    metadata = raw_metadata if isinstance(raw_metadata, dict) else {}
+    stale_hidden = "" if available and player.get("stale") else " hidden"
     power_on = bool(player.get("power"))
     power_badge = (
-        '<span class="badge on">on</span>' if power_on else '<span class="badge off">off</span>'
+        '<span class="badge on" data-player-power>on</span>'
+        if power_on
+        else '<span class="badge off" data-player-power>off</span>'
     )
     active_source = player.get("active_source")
-    active_entry = (player.get("sources", {}) or {}).get(active_source, {})
-    if isinstance(active_entry, dict) and "playing" in active_entry:
-        is_playing = bool(active_entry.get("playing"))
-    elif "state" in now:
-        is_playing = bool(now.get("state"))
-    else:
-        is_playing = None
+    is_playing = player.get("playing") if isinstance(player.get("playing"), bool) else None
     if is_playing is True:
-        playback_badge = '<span class="badge on">Playing</span>'
+        playback_badge = '<span class="badge on" data-player-playing>Playing</span>'
     elif is_playing is False:
-        playback_badge = '<span class="badge off">Not playing</span>'
+        playback_badge = '<span class="badge off" data-player-playing>Not playing</span>'
     else:
-        playback_badge = '<span class="badge off">Unknown</span>'
-    artwork = now.get("artwork", {})
-    art_id = artwork.get("id") if isinstance(artwork, dict) else None
-    art_version = artwork.get("version") if isinstance(artwork, dict) else None
-    if art_id:
-        artwork_html = (
-            '<div class="artwork">'
-            f'<img src="/dashboard/artwork?id={_esc(art_id)}&amp;v={_esc(art_version or "1")}" '
-            f'alt="Artwork for {_esc(now.get("name") or "now playing")}" '
-            'width="176" height="176">'
-            "</div>"
-        )
-    else:
-        artwork_html = '<div class="artwork artwork-fallback" aria-hidden="true">♪</div>'
+        playback_badge = '<span class="badge off" data-player-playing>Unknown</span>'
+    artwork = metadata.get("artwork", {})
+    art_url = artwork.get("url") if isinstance(artwork, dict) else ""
+    image_hidden = "" if art_url else " hidden"
+    fallback_hidden = " hidden" if art_url else ""
+    image_source = f' src="{_esc(art_url)}"' if art_url else ""
+    unavailable_hidden = " hidden" if available else ""
+    details_hidden = "" if available else " hidden"
     return (
         '<div class="card now-playing"><div class="now-playing-content">'
-        f"{artwork_html}"
-        f'<div class="now-playing-details"><h2>Now playing {stale}</h2><dl>'
+        '<div class="now-playing-media">'
+        f'<div class="artwork" data-player-artwork{image_hidden}>'
+        f'<img data-player-artwork-image{image_source} '
+        f'alt="Artwork for {_esc(metadata.get("name") or "now playing")}" '
+        'width="176" height="176"></div>'
+        f'<div class="artwork artwork-fallback" data-player-artwork-fallback '
+        f'aria-hidden="true"{fallback_hidden}>♪</div>'
+        f"{_playback_controls(available=available, power_on=power_on, is_playing=is_playing)}"
+        "</div>"
+        '<div class="now-playing-details"><h2>Now playing '
+        f'<span class="badge off" data-player-stale{stale_hidden}>stale</span></h2>'
+        f'<p class="warn" data-player-unavailable{unavailable_hidden}>'
+        "Player status unavailable — the radio process may be starting or stopped.</p>"
+        f'<dl data-player-details{details_hidden}>'
         f"<dt>Power</dt><dd>{power_badge}</dd>"
         f"<dt>Playback</dt><dd>{playback_badge}</dd>"
-        f"<dt>Active source</dt><dd>{_esc(active_source)}</dd>"
-        f"<dt>Station / app</dt><dd>{_esc(now.get('name'))}</dd>"
-        f"<dt>Track</dt><dd>{_esc(now.get('title'))}</dd>"
+        f'<dt>Active source</dt><dd data-player-source>{_esc(active_source)}</dd>'
+        f'<dt>Station / app</dt><dd data-player-name>{_esc(metadata.get("name"))}</dd>'
+        f'<dt>Track</dt><dd data-player-title>{_esc(metadata.get("title"))}</dd>'
         "</dl></div></div></div>"
     )
 
@@ -143,16 +176,23 @@ def _sources_card(status: Dict[str, Any]) -> str:
     for key, label in status.get("source_labels", []):
         if not available:
             state = "&mdash;"
+            badge_class = ""
         else:
             entry = sources.get(key, {}) or {}
             playing = bool(entry.get("playing"))
             if key == active and playing:
-                state = '<span class="badge on">Active</span>'
+                state = "Active"
+                badge_class = "badge on"
             elif playing:
-                state = '<span class="badge on">Playing</span>'
+                state = "Playing"
+                badge_class = "badge on"
             else:
-                state = '<span class="badge off">Ready</span>'
-        rows.append(f"<tr><td>{_esc(label)}</td><td>{state}</td></tr>")
+                state = "Ready"
+                badge_class = "badge off"
+        rows.append(
+            f'<tr><td>{_esc(label)}</td><td><span class="{badge_class}" '
+            f'data-player-source-state="{_esc(key)}">{state}</span></td></tr>'
+        )
     return (
         '<div class="card sources-card"><h2>Sources</h2><table>'
         "<tr><th>Source</th><th>State</th></tr>"
@@ -161,10 +201,10 @@ def _sources_card(status: Dict[str, Any]) -> str:
 
 
 def dashboard(status: Dict[str, Any]) -> str:
-    """Render the read-only dashboard page from a :func:`system_status.collect`.
+    """Render the public dashboard page from sanitized status values.
 
-    Every dynamic value is HTML-escaped. No auth and no mutating controls are
-    present in Phase 3.
+    Every dynamic value is HTML-escaped. Playback metadata and controls use the
+    passwordless public player API; administration remains authenticated separately.
     """
     host = _esc(status.get("hostname") or "PiSonic")
     incomplete = status.get("provisioning", [])
@@ -179,10 +219,10 @@ def dashboard(status: Dict[str, Any]) -> str:
         )
     body = (
         f"<h1>{host}</h1>"
-        '<p class="sub">Read-only dashboard</p>'
+        '<p class="sub">Playback dashboard</p>'
         f"{setup_warning}"
         '<div class="dashboard-grid">'
-        '<div id="now-playing" class="now-playing-region" aria-live="polite">'
+        '<div id="now-playing" class="now-playing-region">'
         f"{_now_playing_card(status.get('player', {}))}"
         "</div>"
         f"{_sources_card(status)}"
@@ -192,12 +232,7 @@ def dashboard(status: Dict[str, Any]) -> str:
         '<p class="note">Logs and this status are stored in volatile memory '
         "(tmpfs) and are cleared on reboot.</p>"
     )
-    return _page("PiSonic", body, script="/static/app.js?v=1")
-
-
-def now_playing_fragment(player: Dict[str, Any]) -> str:
-    """Render the replaceable dashboard Now Playing region."""
-    return _now_playing_card(player)
+    return _page("PiSonic", body, script="/static/app.js?v=4")
 
 
 def not_found() -> str:

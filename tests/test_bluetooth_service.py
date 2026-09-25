@@ -4,7 +4,9 @@ from unittest import mock
 
 import dbus
 from bluetooth_service.bluetooth_service import (
+    A2DP_SINK_UUID,
     MEDIA_PLAYER_IFACE,
+    MEDIA_TRANSPORT_IFACE,
     BluetoothService,
 )
 from music_source import Metadata
@@ -69,15 +71,22 @@ def test_constructor_does_not_wait_for_absent_dbus(monkeypatch):
 
 def test_reads_metadata_from_connected_player(monkeypatch):
     # ObjectManager reports one object exposing MediaPlayer1.
+    device_path = "/org/bluez/hci0/dev_AA"
+    player_path = f"{device_path}/player0"
     manager = mock.Mock()
     manager.GetManagedObjects.return_value = {
-        "/org/bluez/hci0/dev_AA/player0": {MEDIA_PLAYER_IFACE: {}},
+        player_path: {MEDIA_PLAYER_IFACE: {"Device": device_path}},
+        f"{device_path}/fd0": {
+            MEDIA_TRANSPORT_IFACE: {
+                "Device": device_path,
+                "UUID": A2DP_SINK_UUID,
+                "State": "active",
+            }
+        },
     }
 
     def _get(iface, prop):
         assert iface == MEDIA_PLAYER_IFACE
-        if prop == "Status":
-            return "playing"
         if prop == "Track":
             return {"Title": "Song", "Artist": "Band", "Album": "LP"}
         raise AssertionError(f"unexpected property {prop}")
@@ -105,6 +114,68 @@ def test_reads_metadata_from_connected_player(monkeypatch):
         service.close()
 
 
+def test_avrcp_playing_does_not_claim_source_when_a2dp_is_idle(monkeypatch):
+    device_path = "/org/bluez/hci0/dev_AA"
+    player_path = f"{device_path}/player0"
+    manager = mock.Mock()
+    manager.GetManagedObjects.return_value = {
+        player_path: {MEDIA_PLAYER_IFACE: {"Device": device_path, "Status": "playing"}},
+        f"{device_path}/fd0": {
+            MEDIA_TRANSPORT_IFACE: {
+                "Device": device_path,
+                "UUID": A2DP_SINK_UUID,
+                "State": "idle",
+            }
+        },
+    }
+    props = mock.Mock()
+    props.Get.return_value = {"Title": "AirPlay track", "Artist": "Band"}
+    monkeypatch.setattr(
+        dbus,
+        "Interface",
+        lambda _object, interface: manager if interface.endswith("ObjectManager") else props,
+    )
+    service = _service_with_resolver(None)
+    service.service = "org.bluez"
+
+    service._refresh(mock.Mock())
+
+    assert service.get_play_state() is False
+    assert service.get_metadata().title == "AirPlay track"
+    props.Get.assert_called_once_with(MEDIA_PLAYER_IFACE, "Track")
+
+
+def test_a2dp_transport_must_belong_to_player_device(monkeypatch):
+    player_device = "/org/bluez/hci0/dev_AA"
+    other_device = "/org/bluez/hci0/dev_BB"
+    manager = mock.Mock()
+    manager.GetManagedObjects.return_value = {
+        f"{player_device}/player0": {
+            MEDIA_PLAYER_IFACE: {"Device": player_device, "Status": "playing"}
+        },
+        f"{other_device}/fd0": {
+            MEDIA_TRANSPORT_IFACE: {
+                "Device": other_device,
+                "UUID": A2DP_SINK_UUID,
+                "State": "active",
+            }
+        },
+    }
+    props = mock.Mock()
+    props.Get.return_value = {}
+    monkeypatch.setattr(
+        dbus,
+        "Interface",
+        lambda _object, interface: manager if interface.endswith("ObjectManager") else props,
+    )
+    service = _service_with_resolver(None)
+    service.service = "org.bluez"
+
+    service._refresh(mock.Mock())
+
+    assert service.get_play_state() is False
+
+
 def test_dbus_refresh_does_not_block_on_artwork_provider(monkeypatch, tmp_path):
     search_started = threading.Event()
     release_search = threading.Event()
@@ -130,14 +201,20 @@ def test_dbus_refresh_does_not_block_on_artwork_provider(monkeypatch, tmp_path):
     )
     service = _service_with_resolver(resolver)
     service.service = "org.bluez"
+    device_path = "/org/bluez/hci0/dev_AA"
     manager = mock.Mock()
     manager.GetManagedObjects.return_value = {
-        "/org/bluez/hci0/dev_AA/player0": {MEDIA_PLAYER_IFACE: {}},
+        f"{device_path}/player0": {MEDIA_PLAYER_IFACE: {"Device": device_path}},
+        f"{device_path}/fd0": {
+            MEDIA_TRANSPORT_IFACE: {
+                "Device": device_path,
+                "UUID": A2DP_SINK_UUID,
+                "State": "active",
+            }
+        },
     }
     props = mock.Mock()
-    props.Get.side_effect = lambda _iface, prop: (
-        "playing" if prop == "Status" else {"Title": "Song", "Artist": "Band"}
-    )
+    props.Get.return_value = {"Title": "Song", "Artist": "Band"}
     monkeypatch.setattr(
         dbus,
         "Interface",
@@ -193,6 +270,36 @@ def test_set_play_state_issues_avrcp_command(monkeypatch):
     player.Play.assert_called_once()
     assert service.set_play_state(False) is True
     player.Pause.assert_called_once()
+
+
+def test_track_navigation_issues_avrcp_commands(monkeypatch):
+    player = mock.Mock()
+    monkeypatch.setattr(dbus, "Interface", mock.Mock(return_value=player))
+    service = BluetoothService.__new__(BluetoothService)
+    service._lock = threading.RLock()
+    service.service = "org.bluez"
+    service._bus = mock.Mock()
+    service._player_path = "/org/bluez/hci0/dev_AA/player0"
+
+    assert service.previous_track() is True
+    assert service.next_track() is True
+    player.Previous.assert_called_once_with()
+    player.Next.assert_called_once_with()
+
+
+def test_track_navigation_disconnect_is_soft_failure(monkeypatch):
+    player = mock.Mock()
+    player.Next.side_effect = dbus.DBusException("disconnected")
+    monkeypatch.setattr(dbus, "Interface", mock.Mock(return_value=player))
+    service = BluetoothService.__new__(BluetoothService)
+    service._lock = threading.RLock()
+    service.service = "org.bluez"
+    service._bus = mock.Mock()
+    service._player_path = "/org/bluez/hci0/dev_AA/player0"
+
+    assert service.next_track() is False
+    assert service._player_path is None
+    assert service.previous_track() is False
 
 
 def test_play_index_unsupported():
