@@ -20,6 +20,7 @@ Project documentation index.
 | [display-test.md](display-test.md) | SPI display smoke test and wiring troubleshooting (ST7789 and GC9A01). |
 | [stations.md](stations.md) | Adding and editing the internet-radio preset stations. |
 | [web-interface.md](web-interface.md) | The web administration interface: login, dashboard and settings pages, firmware management, and recovery. |
+| [public-api.md](public-api.md) | Passwordless trusted-LAN JSON API for playback controls and now-playing metadata. |
 | [bluetooth.md](bluetooth.md) | The Bluetooth (A2DP) source: connecting a phone, connection-gated pairing, playback/display behavior, and troubleshooting. |
 | [airplay.md](airplay.md) | The AirPlay source: the pinned shairport-sync development branch, layered source switching (remote pause + inhibit fallback), and on-target validation. |
 | [usb-audio.md](usb-audio.md) | The USB Audio Class source: profile, source switching, and troubleshooting. Wiring and the no-VBUS requirement are in `hardware.md`. |

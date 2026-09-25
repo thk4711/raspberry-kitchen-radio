@@ -242,7 +242,7 @@ when you need to debug.
 - **Python app log level is `ERROR`.** `S90radio` exports
   `RADIO_LOG_LEVEL=ERROR`; the app's own log lines go to the tty the supervisor
   runs under, not to a file.
-- **WiFi (`S41wlan`) → `/dev/null`** by default.
+- **WiFi (`S41wlan`) → `/tmp/S41wlan.log`** by default; the file disappears on reboot.
 - **Bluetooth (`S42bluetooth`) → `/dev/null`** by default (override with
   `S42BLUETOOTH_LOG=/tmp/S42bluetooth.log` to watch pairing-mode transitions).
   `bluetoothd` (`S40bluetoothd`) and `bluealsa` write nothing persistent.
@@ -290,7 +290,7 @@ These are read by the Python app / `lib/utilities.py`:
 | `RADIO_LOG_LEVEL` | `ERROR` | Python app log level (`DEBUG`/`INFO`/`WARNING`/`ERROR`). Also settable via a `[logging] level` entry in `radio.conf`; the env var wins. |
 | `RADIO_PROCESS_LOG_DIR` | *(unset → `/dev/null`)* | When set to a directory, each media backend logs to `<dir>/<name>.log`. `none` (or unset) discards to `/dev/null`. |
 | `RADIO_PROCESS_LOG_MAX_BYTES` | `262144` (256 KiB) | Per-backend log size cap. The file is **truncated on each (re)start** and re-truncated when it exceeds this size, so it can never exhaust tmpfs/RAM. |
-| `S41WLAN_LOG` | `/dev/null` | Point WiFi bring-up logging at a file (e.g. `/tmp/S41wlan.log`) to debug association/DHCP. |
+| `S41WLAN_LOG` | `/tmp/S41wlan.log` | Point WiFi bring-up logging at another tmpfs path, or use `/dev/null` to disable it. |
 | `S42BLUETOOTH_LOG` | `/dev/null` | Point Bluetooth bring-up logging at a file (e.g. `/tmp/S42bluetooth.log`) to watch pairing-mode transitions and daemon startup. |
 
 ### Enable logging temporarily (run the app in the foreground)
@@ -524,9 +524,9 @@ BusyBox init -> /etc/inittab
   S39usb-audio         # ConfigFS UAC1 gadget + supervised alsaloop bridge to I2S
   S40network           # brings up lo (WiFi is NOT here — non-blocking)
   S40bluetoothd        # bluetoothd (bluez5_utils); --experimental via /etc/default/bluetoothd
-  S41wlan              # wpa_supplicant + udhcpc (sends hostname) for wlan0, IN THE BACKGROUND
-                       #   (log discarded to /dev/null by default;
-                       #    set S41WLAN_LOG=/tmp/S41wlan.log to debug)
+  S41wlan              # wpa_supplicant + resident udhcpc for wlan0, IN THE BACKGROUND
+                       #   restores the last confirmed lease after association;
+                       #   diagnostics go to /tmp/S41wlan.log
   S42bluetooth         # no-PIN auto-pair agent + connection-gated pairing mode +
                        #   bluealsa (A2DP receiver) + bluealsa-aplay (-> ALSA default)
   S49chronyd           # sets wall clock for HTTPS/TLS clients on the RTC-less Pi
@@ -913,6 +913,16 @@ Keep these to avoid regressing the known-good image:
 - **Keep the validated boot-speed options** (`quiet loglevel=3 logo.nologo`,
   `disable_splash=1`, `boot_delay=0`, `initial_turbo=30`, async `S41wlan`) unless
   a change is shown to regress on hardware.
+- **Keep DHCP lease restoration optimistic and network-bound.** `S41wlan` applies the
+  root-only `/data/network-cache/wlan-last-lease.env` address, route and DNS as
+  soon as WiFi associates, then requests that address from a resident `udhcpc`.
+  The cache includes a hash of the associated SSID and is ignored on another
+  WiFi network.
+  An ACK refreshes the cache, a different lease replaces it, and an explicit NAK
+  removes it. DHCP silence leaves the cached configuration active by design;
+  this improves startup and outage behavior but carries a duplicate-address risk
+  after a sufficiently long disconnection. Saving new WiFi credentials removes
+  the cache before reconnecting.
 - **Only small positive kernel fragments are applied** for I2C, watchdog,
   Bluetooth, and USB Audio. No broad kernel trim is used: the image deliberately keeps
   the framebuffer/DRM console and other drivers so failed boots stay debuggable.
@@ -925,8 +935,8 @@ Keep these to avoid regressing the known-good image:
   `RADIO_PROCESS_LOG_MAX_BYTES`, default 256 KiB) to opt into size-capped,
   truncate-on-restart file logging for debugging. The backends are also quieted
   at the source: MPD → `log_file "/dev/null"`, go-librespot → `log_level:
-  error`, shairport-sync → `log_verbosity = 0`. `S41wlan` defaults its log to
-  `/dev/null` (override with `S41WLAN_LOG=/tmp/S41wlan.log`). chrony and
+  error`, shairport-sync → `log_verbosity = 0`. `S41wlan` writes boot diagnostics
+  to `/tmp/S41wlan.log` (set `S41WLAN_LOG=/dev/null` to disable it). chrony and
   `provision-from-boot` write only to `/tmp` (tmpfs). As a safety net,
   `post-build.sh` makes **`/var/log` a symlink to `/tmp`** (a tmpfs), so any
   future/third-party writer that ignores this policy lands in RAM and vanishes

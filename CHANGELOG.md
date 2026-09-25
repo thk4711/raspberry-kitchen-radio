@@ -7,6 +7,36 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **Public playback API and dashboard transport controls.** Trusted-LAN clients
+  can read a stable now-playing schema and send Play, Pause, Previous, and Next
+  commands without an administrator session. The dashboard uses the same API.
+  See [`doc/public-api.md`](doc/public-api.md).
+- **Persistent, network-bound DHCP lease caching.** PiSonic validates and saves
+  the last WiFi lease under `/data`, applies it optimistically on reconnect, and
+  keeps `udhcpc` resident for renewal while invalidating rejected or stale
+  network state.
+
+### Changed
+- **Music sources now implement Previous and Next transport operations.** The
+  expanded `MusicSource` contract lets the controller expose consistent
+  transport controls across Internet Radio, AirPlay, Bluetooth, Spotify, and
+  USB Audio backends.
+
+### Fixed
+- **Spotify Connect playback controls no longer report successful commands
+  as rejected.** go-librespot returns JSON `null` after accepting a player
+  command; PiSonic now distinguishes that valid response from a request failure.
+- **AirPlay 2 playback controls no longer reject valid commands.** The
+  `RemoteControl.Available` D-Bus property describes only the legacy DACP
+  channel and remains false for AirPlay 2, whose commands use a separate path.
+  PiSonic now dispatches the D-Bus commands directly and uses `PlayPause` to
+  resume a sender that reports itself paused.
+- **AirPlay playback is no longer paused by a false Bluetooth takeover.**
+  Bluetooth source arbitration now follows the matching A2DP transport instead
+  of AVRCP's global media status, which can report playback while a phone sends
+  its audio through AirPlay.
+
 ## [0.4.0] - 2026-09-24
 
 ### Added

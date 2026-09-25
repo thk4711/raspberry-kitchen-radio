@@ -17,6 +17,7 @@ no general-purpose desktop OS.
 - Reversible firmware updates with persisten configuration
 - Support for many Raspberry Pi audio hats
 - Tactile buttons and volume potentiometer support
+- Public playback-control and now-playing API
 - Rectangular or round SPI display support
 - very small memory and storage footprint
 
@@ -36,7 +37,17 @@ A password-protected web interface on port 8080 lets you edit presets and
 enabled sources; configure WiFi, static IP, hostname, device name, time,
 display, audio output, and maximum volume; view player, network, Bluetooth, and
 system status; back up and restore device data; and install or roll back
-firmware.
+firmware. Its public dashboard also provides Previous, Play, Pause, and Next
+controls.
+
+### Public playback API
+
+Clients on the trusted LAN can read now-playing metadata and control playback
+through a small JSON API on port 8080. The API deliberately requires no password,
+session, or CSRF token, so every device that can reach PiSonic can control it.
+Do not expose the web service to an untrusted network or the internet. See the
+[`public API reference`](doc/public-api.md) for endpoints, schemas, examples,
+response codes, and source-specific limitations.
 
 ### Sound tuning
 
@@ -61,6 +72,8 @@ unchanged because USB Audio Class provides no native track metadata.
 ### Appliance reliability
 
 - Persistent configuration and user data on a shared data partition.
+- Fast DHCP reconnect: the last confirmed WiFi address is restored immediately
+  after association while DHCP validates and renews it in the background.
 - Safe A/B firmware updates with health-checked trial boots and automatic
   rollback when a trial firmware is unhealthy.
 - Service restart and watchdog support for unattended use.
@@ -190,6 +203,7 @@ Start here depending on what you want to do:
 | Wire the base hardware | [`doc/hardware.md`](doc/hardware.md) |
 | Choose a DAC / amplifier | [`doc/sound-devices.md`](doc/sound-devices.md) · [color-coded pinout](https://thk4711.github.io/pisonic/sound-devices.html) |
 | Use the web interface | [`doc/web-interface.md`](doc/web-interface.md) |
+| Integrate playback controls or metadata | [`doc/public-api.md`](doc/public-api.md) |
 | Tune the parametric EQ | [`doc/equalizer.md`](doc/equalizer.md) |
 | Edit station presets | [`doc/stations.md`](doc/stations.md) |
 | Use Bluetooth audio | [`doc/bluetooth.md`](doc/bluetooth.md) |

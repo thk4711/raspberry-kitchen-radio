@@ -58,6 +58,18 @@ can update settings without gaining access to root-only state elsewhere in
 The identity, network and Bluetooth trees are root-owned. The web process can
 change network settings only through the privileged helper's fixed operation.
 
+### Regenerable network cache
+
+| Canonical path | Lifetime and purpose |
+| --- | --- |
+| `/data/network-cache/wlan-last-lease.env` | Root-only last confirmed DHCP address, prefix, broadcast address, gateway, DNS configuration and associated-SSID hash. `S41wlan` applies it immediately after association with the same network while `udhcpc` validates and renews the lease. An explicit NAK deletes it. |
+
+`/data/network-cache` uses mode `0700` and the lease file uses mode `0600`.
+It survives normal reboot, firmware update and A/B rollback, but is regenerable
+runtime state rather than user configuration. It is therefore excluded from web
+backup/restore and schema-migration backups. Changing WiFi credentials through
+the web interface or `pisonic-config.txt` removes it before reconnecting.
+
 ### Firmware update, migration and partition state
 
 | Canonical path | Lifetime and purpose |
@@ -98,7 +110,7 @@ Persistence is established at image-build time and checked again on every boot.
 
 `buildroot/external/board/radio/post-image.sh` creates a temporary directory tree
 for the data filesystem. It creates the canonical directories (including the
-root-owned `/data/operations`), seeds
+root-owned `/data/operations` and `/data/network-cache`), seeds
 `schema-version` and an empty `history.json`, and copies initial mutable state
 from the completed root filesystem:
 
@@ -186,8 +198,9 @@ digest for every file. It can therefore retain settings, WiFi, administrator and
 root password hashes, SSH host identity, uploaded logos, and Bluetooth pairings
 across a complete SD-card reflash.
 
-All of `/data/update` is excluded, including staged firmware, installation
-history, migration backups, backup/restore staging, and partition-resize state.
+All of `/data/update` and `/data/network-cache` are excluded, including staged
+firmware, installation history, migration backups, backup/restore staging,
+partition-resize state, and the regenerable last-lease hint.
 Restore accepts regular files and directories only, uses a fixed path allowlist,
 checks compatibility and bounded expanded size before extraction, and keeps a
 temporary rollback copy while the selected trees are replaced.
@@ -207,6 +220,7 @@ data unless it is backed up separately.
 | Path/state | Reason |
 | --- | --- |
 | `/run/firmware-update/*`, `/run/swupdate/*` | Current-boot locks, status, IPC sockets and installer log. Persistent result state is recorded separately. |
+| `/data/network-cache/wlan-last-lease.env` from web backups | The on-device copy persists for fast reconnects, but this network-specific runtime hint is regenerated rather than transferred to another installation. |
 | `/tmp/firmware-health.log`, `/tmp/radio-web.log`, `/tmp/radio-status.json`, `/tmp/radio-adc.json` | Diagnostics and live status are volatile by design. `/tmp` is tmpfs. |
 | `/tmp/pisonic/artwork-cache/<sha256>.jpg` | Opt-in Bluetooth cover cache: normalized images under hashed, metadata-free filenames; at most 32 files and 8 MiB total. |
 | `/tmp/bluetooth_cover.jpg` | Atomically published cover for the current Bluetooth track; replaced as tracks change and removed by reboot. |
@@ -219,7 +233,8 @@ data unless it is backed up separately.
 
 Keeping caches, logs and generated implementation details out of the persistence
 surface avoids carrying stale firmware-owned state into a newer or rolled-back
-slot.
+slot. The DHCP lease is the deliberate cache exception: it remains on `/data`
+for fast boot across A/B switches but is not exported in configuration backups.
 
 Bluetooth's online-artwork preference is persistent in `artwork.ini`, but the
 artwork and lookup history are not. Up to 128 negative lookup results are held

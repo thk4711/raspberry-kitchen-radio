@@ -10,10 +10,15 @@ directory, …). The Bluetooth and USB sources are worked examples; see
 
 ## The `MusicSource` contract
 
-`MusicSource` is a conventional abstract base class with four annotated abstract
+`MusicSource` is a conventional abstract base class with six annotated abstract
 methods. Keep those annotations on overrides. The controller validates backend
 results at its integration boundary and logs an error naming a backend that
 violates the contract, without terminating the worker loop.
+
+Every playback command returns a Boolean with the same meaning: `True` means the
+command was accepted or dispatched, while `False` means it was unsupported or
+failed. In particular, `set_play_state(False)` returns `True` when Pause was
+accepted; the return value is not the requested playback state.
 
 ```python
 class MusicSource(ABC):
@@ -24,11 +29,19 @@ class MusicSource(ABC):
 
     @abstractmethod
     def set_play_state(self, desired_state: bool) -> bool:
-        """Start (True) or stop/pause (False) playback."""
+        """Request Play (True) or Pause (False)."""
 
     @abstractmethod
     def play_index(self, index: int) -> bool:
         """Select/play a preset by index (used by the 1..6 buttons)."""
+
+    @abstractmethod
+    def next_track(self) -> bool:
+        """Request the next track or preset."""
+
+    @abstractmethod
+    def previous_track(self) -> bool:
+        """Request the previous track or preset."""
 
     @abstractmethod
     def get_metadata(self) -> Metadata:
@@ -76,10 +89,18 @@ class MyService(MusicSource):
     def set_play_state(self, desired_state: bool) -> bool:
         self.desired_play_state = desired_state
         # start/stop your backend here
-        return self.desired_play_state
+        return True
 
     def play_index(self, index: int) -> bool:
         # optional: select preset `index` (1..6); return False if unsupported
+        return False
+
+    def next_track(self) -> bool:
+        # dispatch Next; return False if unavailable or unsupported
+        return False
+
+    def previous_track(self) -> bool:
+        # dispatch Previous; return False if unavailable or unsupported
         return False
 
     def get_metadata(self) -> Metadata:
@@ -131,6 +152,13 @@ The shipped services follow a common pattern worth reusing:
 `active_service` (and updates the display) whenever its `get_play_state()`
 flips to `True`, and stops the other services.
 
+The public playback API dispatches Play, Pause, Previous, and Next to this same
+`active_service`. A new source therefore needs useful `set_play_state()`,
+`previous_track()`, and `next_track()` implementations even when it does not
+support preset selection. Return `False` when a command is currently unavailable
+or unsupported; the API converts that result to a bounded `409 command_failed`
+response. Do not raise for normal backend unavailability.
+
 3. (Optional) If your source should be selectable from the hardware buttons,
    wire it into `handle_button_press` the way MPD is (`self.active_service =
    self.myservice; self.myservice.play_index(n)`).
@@ -151,4 +179,22 @@ flips to `True`, and stops the other services.
   — pure D-Bus *consumer* of BlueZ (`org.bluez.MediaPlayer1`): no daemon of its
   own (the `S42bluetooth` init script owns `bluealsa`/`bluealsa-aplay` and the
   auto-pairing agent; `bluetoothd` is owned by `S40bluetoothd`). Reads AVRCP
-  track metadata and issues `Play`/`Pause`. Reconnect loop mirrors AirPlay.
+  track metadata and issues AVRCP playback commands. Reconnect loop mirrors
+  AirPlay.
+
+## Playback-control behavior
+
+Backends may implement the common contract differently because the upstream
+protocols have different capabilities:
+
+- Internet Radio Play resumes the selected live stream rather than a saved
+  position. Previous and Next cycle configured presets with wrap-around.
+- AirPlay remote commands depend on sender support. Pause still uses the local
+  inhibit fallback when remote control is unavailable.
+- Bluetooth commands require a connected AVRCP player.
+- USB Audio sends HID consumer-control keys; behavior depends on the connected
+  host and its foreground media player.
+
+Document any comparable limitation when adding a source, and add backend tests
+for all four playback methods. The external API itself is documented in
+[`public-api.md`](public-api.md).

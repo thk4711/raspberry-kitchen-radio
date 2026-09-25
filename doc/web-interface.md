@@ -51,8 +51,11 @@ never exposed to the internet.
    rate-limited. Use **Log out** to end the session. Sessions are held in memory
    and are cleared on reboot or when PiSonic restarts.
 
-The **Dashboard is public** (read-only status); every editing/maintenance page
-requires login.
+The **Dashboard is public** and includes playback controls; every
+editing/maintenance page requires login. Its live metadata and controls deliberately
+use the passwordless public API without sending the administrator session cookie, so
+normal dashboard use exercises the same interface available to other devices on the
+trusted LAN.
 
 ### Forgot the admin password?
 
@@ -71,14 +74,19 @@ is linked from Maintenance.
 
 ### Dashboard (`/`)
 
-Read-only, no login required. Shows:
+No login required. Shows:
 
-- **Now playing** and the **active source**, from the player's status snapshot.
+- **Now playing** and the **active source**, read through `GET /api/v1/player`.
   The card also indicates whether that source is currently playing and refreshes
-  itself in the background every five seconds without reloading the whole page.
+  itself through the public API in the background every five seconds without
+  reloading the whole page.
   It shows the configured station logo for Internet Radio, locally cached album
   art for Spotify/AirPlay, or an enabled and successfully matched Bluetooth
   cover, with a placeholder when artwork is unavailable.
+- **Playback controls** below the artwork, in Previous, Play, Pause, Next order.
+  They are disabled while player status is unavailable or the physical power
+  switch is off. Commands act on the current source and failures are shown in
+  the card without reloading the page.
 - **Per-source state** (Internet Radio, AirPlay, Spotify, Bluetooth, USB Audio):
   whether each is enabled, running and currently active.
 
@@ -105,6 +113,15 @@ or WiFi interruption.
 
 If the player is down or a metric is unavailable, that field simply shows a
 placeholder — the dashboard always renders.
+
+### Public playback API (`/api/v1/player`)
+
+The JSON API exposes the same now-playing metadata and Previous, Play, Pause,
+and Next controls for local integrations. It does not require the administrator
+password, a session cookie, or a CSRF token. It is plain HTTP and is intended
+only for a trusted LAN; every device that can reach it can control playback.
+See [`public-api.md`](public-api.md) for the endpoint contract, examples,
+response codes, security guidance, and source-specific behavior.
 
 ### Edit stations (`/stations`)
 
@@ -406,8 +423,8 @@ unreachable — see
 
 ## How it runs (services)
 
-Two BusyBox init services provide the interface, following a strict privilege
-split:
+The interface uses two BusyBox init services and a player-owned control socket,
+following a strict privilege split:
 
 - **`S80radio-web`** — the web server itself, running as a dedicated
   **unprivileged** `radio-web` user.
@@ -415,6 +432,9 @@ split:
   performs the few privileged operations (restart services, set hostname,
   reboot/shutdown) over a local unix socket, accepting only a fixed set of
   actions. The web process talks to it and can never run an arbitrary command.
+- **`radio.py` playback socket** — the player owns `/run/radio-control.sock`.
+  The `radio-web` group can send only the fixed Play, Pause, Previous, and Next
+  actions; the web process does not gain access to arbitrary player methods.
 
 See the service layout in [`buildroot.md`](buildroot.md). The interface needs no
 extra Buildroot packages beyond what the image already ships.
@@ -435,3 +455,5 @@ These are intentionally out of scope for the current version:
   provisioning, and the init-service layout.
 - [`firmware-updates.md`](firmware-updates.md) — firmware installation,
   activation, rollback, and unreachable-interface recovery.
+- [`public-api.md`](public-api.md) — public playback controls and metadata for
+  trusted-LAN integrations.

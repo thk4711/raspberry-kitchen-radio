@@ -36,12 +36,16 @@ dir is the fixed `shairport-sync-custom`.
 
 **Why the development branch:** shairport-sync's remote-control commands (Play /
 Pause / volume) over the D-Bus, MPRIS and MQTT interfaces are, on the stable
-branch, available only for **Classic AirPlay (AirPlay 1)** senders — they are
-backed by the sender's DACP remote-control channel, which AirPlay 2 senders do
-not advertise. The development branch adds **experimental** remote-control
-support for **AirPlay 2** clients, which is what lets the appliance pause a modern
-iPhone/Mac stream when another music source takes over — and is the foundation
-for future playback controls in the web now-playing view.
+branch, available only for **Classic AirPlay (AirPlay 1)** senders. The
+development branch routes the same commands over **AirPlay 2**, which lets the
+appliance control a modern iPhone/Mac stream from the web interface and pause it
+when another music source takes over.
+
+The `org.gnome.ShairportSync.RemoteControl.Available` property still reports only
+whether the legacy DACP channel is active. It is normally `false` during an
+AirPlay 2 session even though `PlayPause`, `Pause`, `Next`, and `Previous` work.
+PiSonic therefore invokes the D-Bus methods directly rather than using
+`Available` as a capability check.
 
 **Bumping the pin:** change `SHAIRPORT_SYNC_DEV_COMMIT` in
 [`buildroot/build.sh`](../buildroot/build.sh) to a newer `development` commit
@@ -82,10 +86,10 @@ interface the service already connects to. **Re-verify this after every pin bump
 AirPlay cannot always be stopped by a single remote command, so the app uses a
 **layered stop** in `AirplayService.set_play_state(False)`:
 
-1. **Best-effort remote control.** If shairport-sync reports the RemoteControl
-   interface as `Available` (a DACP channel exists — always for Classic AirPlay,
-   and for AirPlay 2 with the development branch), the app calls the
-   `Pause` method on `org.gnome.ShairportSync.RemoteControl`, pausing the sender.
+1. **Best-effort remote control.** The app calls the `Pause` method on
+   `org.gnome.ShairportSync.RemoteControl`. The pinned development build routes
+   that method through either classic AirPlay's DACP channel or the AirPlay 2
+   command path.
 2. **Guaranteed local inhibit fallback.** The app always creates a local marker
    (`/run/airplay-inhibited`, configurable via `[airplay] inhibit_file` or
    `RADIO_AIRPLAY_INHIBIT_FILE`). While the marker exists, `get_play_state()`
@@ -106,7 +110,7 @@ sources immediately rather than waiting for the next arbitration tick).
 # The RemoteControl interface and its Available/PlayerState properties
 busctl --system introspect org.gnome.ShairportSync /org/gnome/ShairportSync
 
-# While an Apple device is streaming, confirm remote control is offered
+# While an Apple device is streaming, inspect the legacy DACP status and state
 busctl --system get-property org.gnome.ShairportSync /org/gnome/ShairportSync \
     org.gnome.ShairportSync.RemoteControl Available
 busctl --system get-property org.gnome.ShairportSync /org/gnome/ShairportSync \
@@ -116,17 +120,17 @@ busctl --system get-property org.gnome.ShairportSync /org/gnome/ShairportSync \
 cat /run/airplay-inhibited 2>/dev/null
 ```
 
-For an AirPlay 2 sender, verify `Available` becomes `true` on the development
-branch and that pressing a preset (or starting another source) actually pauses
-the phone. If `Available` is `false` for a given sender, the inhibit marker still
-guarantees the source switch — the appliance goes silent for AirPlay even though
-the sender keeps its session open.
+For an AirPlay 2 sender, `Available` may remain `false`; this must not prevent
+commands from being sent. Verify that the web controls change playback and that
+pressing a preset (or starting another source) actually pauses the phone. If the
+sender ignores a command, the inhibit marker still guarantees the source switch.
 
 ## Troubleshooting
 
-- **`Available` is `false` for an AirPlay 2 sender:** remote pause is not offered
-  by that sender/build; the inhibit fallback still stops local AirPlay audio.
-  Confirm the image was built from the pinned `development` commit.
+- **`Available` is `false` for an AirPlay 2 sender:** this reports the absence of
+  legacy DACP and is expected. Do not use it to decide whether the AirPlay 2
+  D-Bus commands can be sent. Confirm command behavior directly and verify the
+  image was built from the pinned `development` commit.
 - **AirPlay resumes immediately after switching away:** ensure the inhibit marker
   is writable (its directory exists) and that `get_play_state()` sees the marker;
   a read-only `/run` would defeat the fallback.

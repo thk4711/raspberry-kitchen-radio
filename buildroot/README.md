@@ -208,7 +208,8 @@ buildroot/
 7. `S40bluetoothd` (bluez5_utils) — `bluetoothd`, augmented with `--experimental`
    via `/etc/default/bluetoothd` so AVRCP metadata is exposed on D-Bus
 8. `S41wlan` — starts `wpa_supplicant` + DHCP for `wlan0` **in the background**,
-   sending the live hostname as DHCP option 12
+   optimistically restores the last confirmed lease after association, and
+   sends the live hostname as DHCP option 12
    directly (no `ifup`/`allow-hotplug` indirection, so errors are logged to
    `/tmp/S41wlan.log`)
 9. `S42bluetooth` — registers a no-PIN auto-pairing agent, keeps the adapter
@@ -239,7 +240,12 @@ buildroot/
 > **Boot-time optimizations.** BusyBox init (no systemd); `quiet loglevel=3` +
 > `console=tty1` in `cmdline.txt`; `boot_delay=0` + `initial_turbo=30`,
 > splash off, `gpu_mem_512=100` in `config.txt`; and **async
-> WiFi** (`S41wlan`) so the display and MPD come up without waiting for DHCP. A
+> WiFi** (`S41wlan`) so the display and MPD come up without waiting for DHCP.
+> After association, the last DHCP address, route and DNS configuration from
+> `/data/network-cache` are applied while a resident `udhcpc` validates and
+> renews the lease. An explicit DHCP NAK removes the optimistic configuration;
+> silence leaves it active so the appliance can remain usable during a DHCP
+> outage. A
 > single DHCP client ships (BusyBox `udhcpc`; the unused `dhcpcd` package was
 > removed). Only small positive kernel fragments are applied for I2C, watchdog,
 > Bluetooth, and USB Audio (no broad kernel trim is used), and `gpu_mem` is kept

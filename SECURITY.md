@@ -30,9 +30,16 @@ that show a way to exploit them beyond the documented scope are welcome:
 
 - **Web administration UI (port 8080)** is served over **plain HTTP** on the
   LAN and protected by a single admin password (PBKDF2-HMAC, sessions +
-  CSRF-protected mutating routes; the dashboard is public read-only). It is not
-  intended to be exposed to the public internet. See
+  CSRF-protected mutating administration routes). It is not intended to be
+  exposed to the public internet. See
   [`doc/web-interface.md`](doc/web-interface.md).
+- **Playback controls and metadata are public on the trusted LAN.** The
+  dashboard and `/api/v1/player` API require no password, session, or CSRF token,
+  so every device that can reach port 8080 can read playback metadata and issue
+  Play, Pause, Previous, and Next. The API sends no CORS permission headers, but
+  CORS is not authentication and does not restrict non-browser clients. Do not
+  port-forward, proxy, or otherwise expose this service to an untrusted network.
+  See [`doc/public-api.md`](doc/public-api.md).
 - **Bluetooth A2DP** is discoverable and **auto-accepts pairing with no PIN**
   whenever nothing is connected — a deliberate home-appliance convenience.
   See [`doc/bluetooth.md`](doc/bluetooth.md).

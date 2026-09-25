@@ -57,12 +57,11 @@ backend (see [`adding-a-music-source.md`](adding-a-music-source.md)).
   `radio_web/static/bluetooth-symbol.svg`, rasterised at build time into a PNG
   under `lib/display/glyphs/` by `scripts/render-source-glyphs.py` and tinted at
   runtime with Pillow (the appliance image ships no SVG rasteriser).
-- **Auto-switching:** PiSonic stops the previously playing source when the
-  phone reports **playback** over AVRCP (`Status == "playing"`). Virtually all
-  mainstream music/video apps do this. If you ever meet an app that streams
-  audio but never reports AVRCP status, PiSonic will not auto-stop the other
-  source — connect, then briefly pause/resume in the app, or select the source
-  manually.
+- **Auto-switching:** PiSonic stops the previously playing source when BlueZ's
+  A2DP transport enters `pending` or `active`. AVRCP status is deliberately not
+  used as the playback signal: phones can report their global media session as
+  playing over AVRCP while sending that audio to AirPlay or another output.
+  Track metadata and the Play/Pause/Previous/Next commands still use AVRCP.
 
 ## Optional online cover art
 
@@ -132,7 +131,7 @@ on the phone side beyond pairing.
 | --- | --- | --- |
 | `bluetoothd` | `/etc/init.d/S40bluetoothd` (bluez5_utils) | BlueZ stack + `org.bluez` D-Bus API. Started with `--experimental` via `/etc/default/bluetoothd` so AVRCP `MediaPlayer1` metadata is exposed. |
 | auto-pairing agent, discoverable/pairable gating, `bluealsa`, `bluealsa-aplay` | `/etc/init.d/S42bluetooth` | Holds **one long-lived `bluetoothctl` session** (fed via the `/run/bluetooth-radio-btctl.fifo` control FIFO) that registers the auto-accept `agent auto` (no PIN, auto-confirms SSP numeric comparison) and sets the adapter alias to the hostname, toggles pairing mode by connection state (only closing once a device is fully **paired + connected**, so it never aborts an in-flight handshake), and receives A2DP + routes it to ALSA `default`. The session must stay alive: in BlueZ the agent and the `Pairable` state are scoped to the D-Bus client that set them, so a short-lived client would drop them the instant it exits. |
-| Metadata + play/pause | `radio.py` / `lib/bluetooth_service` | A pure **D-Bus consumer**: reads `org.bluez.MediaPlayer1` and issues `Play`/`Pause`. It does **not** launch any Bluetooth daemon. |
+| Metadata + playback state/control | `radio.py` / `lib/bluetooth_service` | A pure **D-Bus consumer**: reads A2DP state from `org.bluez.MediaTransport1`, reads metadata from `org.bluez.MediaPlayer1`, and issues AVRCP controls. It does **not** launch any Bluetooth daemon. |
 
 Config files: `/etc/bluetooth/main.conf` (adapter class + timeouts disabled so
 `S42bluetooth` is authoritative over discoverable/pairable; the adapter *name*
@@ -195,8 +194,7 @@ Common checks:
   the firmware note above). Watch `dmesg | grep -icE 'continuation frame|unknown
   connection handle'` while streaming: it should stay ~flat.
 - **No title/artist on the display:** the phone/app may not send AVRCP metadata;
-  audio still plays. This also means PiSonic may not auto-stop the previous
-  source (see the AVRCP note above).
+  audio still plays and A2DP transport state still triggers source switching.
 - **Bluetooth glyph never changes to a cover:** first confirm online artwork is
   enabled on the Display page and the radio was restarted. Check that artist and
   title are present, DNS works (`nslookup musicbrainz.org`), and the clock is
