@@ -107,8 +107,19 @@ def check_documentation_examples(root: Path) -> None:
         )
 
 
-def check_release_consistency(root: Path) -> str:
-    """Validate versions, generated metadata, artifact naming, docs, and Git tag."""
+def check_release_consistency(root: Path, *, validate_tag: bool = True) -> str:
+    """Validate versions, generated metadata, artifact naming, docs, and Git tag.
+
+    ``validate_tag`` gates the Git tag object-type/date validation. It defaults to
+    True so release tooling (``scripts/release.py``) and the dedicated
+    tag-triggered CI job validate the annotated tag. It must be set to False in
+    the always-on CI gate (branch pushes and pull requests), because a CI
+    checkout cannot observe the tag reliably: on a branch push the release tag
+    may not exist yet, and ``actions/checkout`` degrades an annotated tag into a
+    lightweight one when it checks out a tag ref. Those are checkout artifacts,
+    not repository defects, so the everyday gate skips the tag check and the
+    tag is validated only where the annotated tag object is authoritative.
+    """
     version_file = root / "lib" / "_version.py"
     version = project_version(version_file)
     package_version = pyproject_version(root / "pyproject.toml")
@@ -144,7 +155,8 @@ def check_release_consistency(root: Path) -> str:
         raise ConsistencyError("rendered SWUpdate metadata has the wrong version")
 
     check_documentation_examples(root)
-    check_tag(root, version, release_date)
+    if validate_tag:
+        check_tag(root, version, release_date)
     return version
 
 
@@ -153,9 +165,21 @@ def main(argv: Optional[List[str]] = None) -> int:
     parser.add_argument(
         "--root", type=Path, default=Path(__file__).resolve().parents[1], help=argparse.SUPPRESS
     )
+    parser.add_argument(
+        "--skip-tag-check",
+        action="store_true",
+        help=(
+            "skip the Git tag object-type/date validation. Use in the always-on "
+            "CI gate (branch pushes and pull requests), where a checkout cannot "
+            "observe the annotated tag reliably. The tag is validated by "
+            "scripts/release.py and the dedicated tag-triggered CI job instead."
+        ),
+    )
     args = parser.parse_args(argv)
     try:
-        version = check_release_consistency(args.root.resolve())
+        version = check_release_consistency(
+            args.root.resolve(), validate_tag=not args.skip_tag_check
+        )
     except (ConsistencyError, OSError, ValueError) as exc:
         print(f"check-release-consistency.py: ERROR: {exc}", file=sys.stderr)
         return 1

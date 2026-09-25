@@ -25,6 +25,7 @@ already exist.
 - [How it maps to the CHANGELOG checklist](#how-it-maps-to-the-changelog-checklist)
 - [Draft then publish](#draft-then-publish)
 - [Retrying safely](#retrying-safely)
+- [Continuous integration and the tag check](#continuous-integration-and-the-tag-check)
 - [Full worked walkthrough](#full-worked-walkthrough)
 - [Troubleshooting](#troubleshooting)
 
@@ -168,10 +169,15 @@ python3 scripts/release.py <version> --notes FILE.md [options]
    creates one (`git tag -a vX.Y.Z -m "vX.Y.Z"`) if missing; otherwise a missing
    tag is an error that points you back to the checklist.
 
-5. **Consistency gate.** Runs `scripts/check-release-consistency.py`. This is the
-   same check CI enforces, covering versions, changelog date, canonical artifact
-   name, generated firmware metadata, public-doc examples, and the tag
-   type/date.
+5. **Consistency gate.** Runs `scripts/check-release-consistency.py` (with the
+   annotated-tag check enabled), covering versions, changelog date, canonical
+   artifact name, generated firmware metadata, public-doc examples, and the tag
+   type/date. The everyday CI gate runs the *same* script but with
+   `--skip-tag-check`, because a CI checkout cannot observe the annotated tag
+   reliably (see [Continuous integration and the tag
+   check](#continuous-integration-and-the-tag-check)). The tag itself is
+   validated here (on your machine) and again by a dedicated tag-triggered CI
+   job when you push `vX.Y.Z`.
 
 6. **Build.** Unless `--skip-build`, runs
    `python3 scripts/build_image.py --config <config>` plus any passthrough flags.
@@ -328,6 +334,45 @@ release that already exists, so an accidental re-run cannot silently replace
 published artifacts.
 
 
+## Continuous integration and the tag check
+
+`scripts/check-release-consistency.py` validates two kinds of thing:
+
+1. **Repository-internal facts** — that `lib/_version.py`, `pyproject.toml`, and
+   the top `CHANGELOG.md` heading agree; that generated firmware metadata and
+   artifact naming match; and that public docs use `pisonic-<version>.swu`.
+2. **The Git tag** — that `vX.Y.Z` exists, is *annotated* (not lightweight), and
+   its date matches the changelog date.
+
+Only the first kind can be checked reliably in CI. The tag check cannot, for two
+reasons that are properties of the CI checkout, not of the repository:
+
+- On a **branch push** (e.g. pushing the `Release X.Y.Z` commit to `main`), the
+  tag `vX.Y.Z` usually does not exist yet, so the check fails with
+  `Not a valid object name vX.Y.Z`.
+- On a **tag push**, `actions/checkout` checks out the tag ref in a way that
+  leaves only a **lightweight** local tag — the annotated tag object is dropped
+  — so the check fails with `vX.Y.Z is lightweight; release tags must be
+  annotated`, even though the pushed tag is genuinely annotated.
+
+To avoid these false failures the pipeline is split:
+
+- The **always-on gate** (`push`/`pull_request` on any ref) runs
+  `python3 scripts/check-release-consistency.py --skip-tag-check` and the
+  `pytest` suite calls `check_release_consistency(..., validate_tag=False)`. It
+  validates everything except the tag.
+- A **dedicated `release-tag` job** runs only for pushed `refs/tags/v*`. It
+  re-fetches the real annotated tag object
+  (`git fetch --force --tags origin refs/tags/<tag>:refs/tags/<tag>`) and then
+  runs the full `check-release-consistency.py` **with** the tag check.
+- `scripts/release.py` always runs the full check (tag included) on your
+  machine, where the annotated tag is authoritative.
+
+Net effect: the annotated tag is validated in the two places it *can* be
+validated (your machine and the tag-triggered job), and everyday branch/PR CI no
+longer fails on a tag it cannot see.
+
+
 ## Full worked walkthrough
 
 Cutting release `X.Y.Z` from a clean working tree:
@@ -378,6 +423,7 @@ https://github.com/thk4711/pisonic/releases/tag/vX.Y.Z
 | `annotated tag vX.Y.Z does not exist` | Create it per the checklist (`git tag -a vX.Y.Z -m "vX.Y.Z"`), or pass `--create-tag` to let the script create it. |
 | `gh is not authenticated for github.com` | Run `gh auth login` (or `gh auth refresh`) and retry. |
 | `check-release-consistency.py: ERROR: …` | Fix the reported inconsistency (often a tag date not matching the changelog date, or a fixed-version `.swu` example in docs). |
+| CI fails with `vX.Y.Z is lightweight` or `Not a valid object name vX.Y.Z` in `test_repository_release_is_consistent` | A CI checkout cannot see the annotated tag. The everyday gate now runs with `--skip-tag-check`; the tag is validated by the `release-tag` job on tag push and by `release.py` locally. If you still see this, the tag was never pushed, or an old workflow without the split is running — re-check `.github/workflows/ci.yml`. See [Continuous integration and the tag check](#continuous-integration-and-the-tag-check). |
 | `no built SD card image / firmware .swu for X.Y.Z` | The build produced nothing matching the version, or you used `--skip-build` without staged assets. Re-run without `--skip-build`, or check the `build_image.py` output. |
 | `refusing to overwrite existing …; pass --force` | A differing clean asset is already staged. Pass `--force` to replace it. |
 | `a release for vX.Y.Z already exists; pass --force to update it` | A draft/release already exists (e.g. a hand-made draft). Pass `--force` to update it, or delete it first. |

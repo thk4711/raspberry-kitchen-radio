@@ -52,7 +52,24 @@ def _repository(tmp_path, version="1.2.3", release_date="2026-09-15"):
 
 
 def test_repository_release_is_consistent():
-    assert checker.check_release_consistency(ROOT) == "0.4.1"
+    # The always-on gate cannot observe the annotated tag in CI (branch pushes
+    # lack it, and actions/checkout degrades a tag ref to a lightweight tag), so
+    # it validates everything except the tag. The tag object-type/date is
+    # covered by the check_tag unit tests below and by the dedicated
+    # tag-triggered CI job.
+    assert checker.check_release_consistency(ROOT, validate_tag=False) == "0.4.1"
+
+
+def test_validate_tag_flag_gates_the_git_tag_check(monkeypatch):
+    # validate_tag gates whether check_tag runs at all: the everyday CI gate
+    # disables it (checkout cannot observe the annotated tag), while release
+    # tooling and the tag-triggered job keep it enabled.
+    calls = []
+    monkeypatch.setattr(checker, "check_tag", lambda *args: calls.append(args))
+    assert checker.check_release_consistency(ROOT, validate_tag=False) == "0.4.1"
+    assert calls == []
+    assert checker.check_release_consistency(ROOT, validate_tag=True) == "0.4.1"
+    assert len(calls) == 1
 
 
 def test_version_and_changelog_parsers_reject_ambiguity(tmp_path):
