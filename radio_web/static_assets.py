@@ -19,6 +19,8 @@ ASSETS: Dict[str, Tuple[str, str]] = {
     "/static/radio.svg": ("radio.svg", "image/svg+xml"),
     "/static/PiSonic-Logo.svg": ("PiSonic-Logo.svg", "image/svg+xml"),
     "/static/PiSonic-Logo.png": ("PiSonic-Logo.png", "image/png"),
+    "/static/usb-symbol.svg": ("usb-symbol.svg", "image/svg+xml"),
+    "/static/bluetooth-symbol.svg": ("bluetooth-symbol.svg", "image/svg+xml"),
 }
 
 

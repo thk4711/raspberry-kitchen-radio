@@ -10,6 +10,14 @@ from .template_common import (
     _page,
 )
 
+# Sources whose now-playing tile has no native cover art fall back to a source
+# glyph that mirrors the SPI display (see ``lib/display/logo_fallback``) instead
+# of the generic music note.  The URLs point at the allowlisted static SVGs.
+SOURCE_GLYPHS: Dict[str, str] = {
+    "usb": "/static/usb-symbol.svg",
+    "bluetooth": "/static/bluetooth-symbol.svg",
+}
+
 
 def _system_card(status: Dict[str, Any]) -> str:
     mem = status.get("memory", {})
@@ -140,6 +148,14 @@ def _now_playing_card(player: Dict[str, Any]) -> str:
     image_hidden = "" if art_url else " hidden"
     fallback_hidden = " hidden" if art_url else ""
     image_source = f' src="{_esc(art_url)}"' if art_url else ""
+    glyph_url = SOURCE_GLYPHS.get(active_source or "") if not art_url else ""
+    if glyph_url:
+        fallback_inner = (
+            f'<span class="source-glyph" data-source="{_esc(active_source or "")}" '
+            'role="img" aria-label="Audio source"></span>'
+        )
+    else:
+        fallback_inner = "♪"
     unavailable_hidden = " hidden" if available else ""
     details_hidden = "" if available else " hidden"
     return (
@@ -150,7 +166,7 @@ def _now_playing_card(player: Dict[str, Any]) -> str:
         f'alt="Artwork for {_esc(metadata.get("name") or "now playing")}" '
         'width="176" height="176"></div>'
         f'<div class="artwork artwork-fallback" data-player-artwork-fallback '
-        f'aria-hidden="true"{fallback_hidden}>♪</div>'
+        f'aria-hidden="true"{fallback_hidden}>{fallback_inner}</div>'
         f"{_playback_controls(available=available, power_on=power_on, is_playing=is_playing)}"
         "</div>"
         '<div class="now-playing-details"><h2>Now playing '
@@ -232,7 +248,7 @@ def dashboard(status: Dict[str, Any]) -> str:
         '<p class="note">Logs and this status are stored in volatile memory '
         "(tmpfs) and are cleared on reboot.</p>"
     )
-    return _page("PiSonic", body, script="/static/app.js?v=4")
+    return _page("PiSonic", body, script="/static/app.js?v=5")
 
 
 def not_found() -> str:

@@ -49,6 +49,7 @@ class USBAudioService(MusicSource):
         self.inhibit_file = Path(os.environ.get("RADIO_USB_AUDIO_INHIBIT_FILE", inhibit_file))
         self.command_timeout = command_timeout
         self.hid_helper = os.environ.get("RADIO_USB_AUDIO_HID_HELPER", hid_helper)
+        self._host_paused = False
         # Inhibition belongs to the lifetime of the radio controller. Do not
         # carry a marker over a controller restart: if the host still has an
         # active stream, the fresh controller must be able to detect it.
@@ -111,7 +112,12 @@ class USBAudioService(MusicSource):
             if self.inhibit_file.exists():
                 self._set_inhibited(False)
             return False
-        return not self.inhibit_file.exists()
+        inhibited = self.inhibit_file.exists()
+        if not inhibited:
+            # An independently started stream supersedes any pause request for
+            # an earlier stream, so a later Play command must not toggle it.
+            self._host_paused = False
+        return not inhibited
 
     def _send_media_key(self, key: str) -> bool:
         """Best-effort media key to the host over the composite HID gadget.
@@ -141,17 +147,18 @@ class USBAudioService(MusicSource):
 
         On stop, additionally send a best-effort Play/Pause media key so a host
         that honours HID consumer keys actually pauses its player. On start,
-        send the same key only if the host has no active capture stream; an
-        already-active inhibited stream needs only its local marker removed.
-        The marker remains the authoritative routing state.
+        balance a pause key sent by this service, even if the host keeps its
+        capture stream open while paused. Otherwise, send the key only when the
+        host has no active capture stream. The marker remains the authoritative
+        routing state.
         """
         if desired_state:
-            # An inhibited stream is already playing on the host; toggling it
-            # would pause it just as the local route is re-enabled.
-            if self._capture_rate() <= 0:
+            if self._host_paused or self._capture_rate() <= 0:
                 self._send_media_key("playpause")
+            self._host_paused = False
         else:
-            self._send_media_key("playpause")
+            if not self._host_paused:
+                self._host_paused = self._send_media_key("playpause")
         return self._set_inhibited(not desired_state)
 
     def play_index(self, index: int) -> bool:

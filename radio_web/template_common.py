@@ -82,7 +82,7 @@ def _page(title: str, body: str, *, script: Optional[str] = None) -> str:
         '<meta name="theme-color" content="#132238">'
         f"<title>{_esc(title)}</title>"
         '<link rel="icon" href="/static/PiSonic-Logo.svg?v=2" type="image/svg+xml">'
-        '<link rel="stylesheet" href="/static/app.css?v=21">'
+        '<link rel="stylesheet" href="/static/app.css?v=22">'
         f"{script_tag}"
         '</head><body><a class="skip-link" href="#content">Skip to content</a>'
         '<header class="site-header"><div class="header-inner">'

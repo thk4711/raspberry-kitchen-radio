@@ -81,6 +81,16 @@ class TestRoutes:
         assert ctype.startswith("text/javascript")
         assert b"setInterval(refreshNowPlaying, 5000)" in body
 
+        status, ctype, body, _headers = routes.resolve(_req("GET", "/static/usb-symbol.svg"))
+        assert status == 200
+        assert ctype == "image/svg+xml"
+        assert b"<svg" in body
+
+        status, ctype, body, _headers = routes.resolve(_req("GET", "/static/bluetooth-symbol.svg"))
+        assert status == 200
+        assert ctype == "image/svg+xml"
+        assert b"<svg" in body
+
     def test_unknown_static_path_is_not_served(self):
         status, _ctype, _body, _headers = routes.resolve(_req("GET", "/static/../auth.py"))
         assert status == 404
@@ -143,7 +153,7 @@ class TestTemplates:
         assert 'class="dashboard-grid"' in html
         assert 'class="admin-links"' not in html
         assert 'id="now-playing"' in html
-        assert 'src="/static/app.js?v=4"' in html
+        assert 'src="/static/app.js?v=5"' in html
         assert "Playing" in html
 
     def test_dashboard_shows_incomplete_provisioning_without_values(self):
@@ -205,6 +215,34 @@ class TestTemplates:
     def test_now_playing_without_artwork_renders_placeholder(self):
         html = templates.dashboard(self._status())
         assert 'class="artwork artwork-fallback"' in html
+        assert "♪" in html
+
+    def test_now_playing_usb_source_renders_glyph(self):
+        status = self._status()
+        status["player"]["active_source"] = "usb"
+        status["player"]["metadata"]["artwork"] = {}
+        html = templates.dashboard(self._status(**{"player": status["player"]}))
+        assert 'data-source="usb"' in html
+        assert 'class="source-glyph"' in html
+
+    def test_now_playing_bluetooth_source_without_cover_renders_glyph(self):
+        status = self._status()
+        status["player"]["active_source"] = "bluetooth"
+        status["player"]["metadata"]["artwork"] = {}
+        html = templates.dashboard(self._status(**{"player": status["player"]}))
+        assert 'data-source="bluetooth"' in html
+
+    def test_now_playing_bluetooth_with_cover_prefers_image(self):
+        status = self._status()
+        status["player"]["active_source"] = "bluetooth"
+        status["player"]["metadata"]["artwork"] = {
+            "id": "bluetooth",
+            "version": "abc123",
+            "url": "/dashboard/artwork?id=bluetooth&v=abc123",
+        }
+        html = templates.dashboard(self._status(**{"player": status["player"]}))
+        assert "/dashboard/artwork?id=bluetooth&amp;v=abc123" in html
+        assert 'data-source="bluetooth"' not in html
 
     def test_artwork_route_serves_validated_image(self, monkeypatch, tmp_path):
         image = tmp_path / "logo.png"
@@ -241,14 +279,14 @@ class TestTemplates:
 
     def test_page_uses_shared_application_shell(self):
         html = templates.dashboard(self._status())
-        assert 'href="/static/app.css?v=21"' in html
+        assert 'href="/static/app.css?v=22"' in html
         assert 'href="/static/PiSonic-Logo.svg?v=2"' in html
         assert 'src="/static/PiSonic-Logo.svg?v=2"' in html
         assert 'class="site-header"' in html
         assert 'aria-label="Main navigation"' in html
         assert 'aria-current="page"' in html
         assert 'class="skip-link"' in html
-        assert 'src="/static/app.js?v=4"' in html
+        assert 'src="/static/app.js?v=5"' in html
         assert "<style>" not in html
 
     def test_navigation_highlight_has_square_corners(self):

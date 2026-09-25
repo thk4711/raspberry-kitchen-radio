@@ -181,6 +181,8 @@ ROUTES: Dict[Tuple[str, str], Handler] = {
     ("GET", "/static/radio.svg"): _static,
     ("GET", "/static/PiSonic-Logo.svg"): _static,
     ("GET", "/static/PiSonic-Logo.png"): _static,
+    ("GET", "/static/usb-symbol.svg"): _static,
+    ("GET", "/static/bluetooth-symbol.svg"): _static,
     ("GET", "/login"): _login_get,
     ("POST", "/login"): _login_post,
     ("GET", "/setup"): _setup_get,

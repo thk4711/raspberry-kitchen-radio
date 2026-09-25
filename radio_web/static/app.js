@@ -33,6 +33,31 @@
     element.className = `badge ${enabled ? "on" : "off"}`;
   }
 
+  // Sources without native cover art fall back to a source glyph that mirrors
+  // the SPI display instead of the generic music note. URLs are allowlisted.
+  const SOURCE_GLYPHS = {
+    usb: "/static/usb-symbol.svg",
+    bluetooth: "/static/bluetooth-symbol.svg",
+  };
+
+  function renderArtworkFallback(element, source) {
+    const glyphUrl = typeof source === "string" ? SOURCE_GLYPHS[source] : undefined;
+    if (glyphUrl) {
+      let glyph = element.querySelector(".source-glyph");
+      if (!glyph) {
+        element.textContent = "";
+        glyph = document.createElement("span");
+        glyph.className = "source-glyph";
+        glyph.setAttribute("role", "img");
+        glyph.setAttribute("aria-label", "Audio source");
+        element.appendChild(glyph);
+      }
+      glyph.dataset.source = source;
+    } else if (element.textContent !== "♪") {
+      element.textContent = "♪";
+    }
+  }
+
   function renderPlayer(player, unavailableMessage = "") {
     if (!region) return;
     const available = player.available === true;
@@ -78,7 +103,10 @@
     const artworkImage = region.querySelector("[data-player-artwork-image]");
     const artworkFallback = region.querySelector("[data-player-artwork-fallback]");
     if (artworkContainer) artworkContainer.hidden = !available || !artworkUrl;
-    if (artworkFallback) artworkFallback.hidden = available && Boolean(artworkUrl);
+    if (artworkFallback) {
+      artworkFallback.hidden = available && Boolean(artworkUrl);
+      if (!artworkUrl) renderArtworkFallback(artworkFallback, player.active_source);
+    }
     if (artworkImage) {
       if (available && artworkUrl) {
         artworkImage.setAttribute("src", artworkUrl);

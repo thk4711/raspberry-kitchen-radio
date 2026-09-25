@@ -196,6 +196,71 @@ def test_start_sends_playpause_when_host_is_not_streaming(monkeypatch, tmp_path)
     ]
 
 
+def test_start_balances_pause_when_host_keeps_capture_active(monkeypatch, tmp_path):
+    inhibit = tmp_path / "inhibited"
+    calls = []
+
+    def run(args, **kwargs):
+        calls.append(args)
+        if args[0] == "/usr/bin/amixer":
+            return _result(_amixer_output(48000))
+        return _result()
+
+    monkeypatch.setattr(subprocess, "run", run)
+    service = USBAudioService(inhibit_file=str(inhibit))
+
+    assert service.set_play_state(False) is True
+    assert inhibit.exists()
+    assert service.get_play_state() is False
+    assert service.set_play_state(True) is True
+    assert not inhibit.exists()
+    assert calls == [
+        ["/usr/bin/radio-usb-audio-hid", "playpause"],
+        [
+            "/usr/bin/amixer",
+            "-c",
+            "UAC1Gadget",
+            "cget",
+            "iface=PCM,name='Capture Rate'",
+        ],
+        ["/usr/bin/radio-usb-audio-hid", "playpause"],
+    ]
+
+
+def test_fresh_stream_clears_pending_host_resume(monkeypatch, tmp_path):
+    inhibit = tmp_path / "inhibited"
+    state = {"rate": 48000}
+    calls = []
+
+    def run(args, **kwargs):
+        calls.append(args)
+        if args[0] == "/usr/bin/amixer":
+            return _result(_amixer_output(state["rate"]))
+        return _result()
+
+    monkeypatch.setattr(subprocess, "run", run)
+    service = USBAudioService(inhibit_file=str(inhibit))
+
+    assert service.set_play_state(False) is True
+    state["rate"] = 0
+    assert service.get_play_state() is False
+    assert not inhibit.exists()
+
+    state["rate"] = 48000
+    assert service.get_play_state() is True
+    calls.clear()
+    assert service.set_play_state(True) is True
+    assert calls == [
+        [
+            "/usr/bin/amixer",
+            "-c",
+            "UAC1Gadget",
+            "cget",
+            "iface=PCM,name='Capture Rate'",
+        ]
+    ]
+
+
 def test_track_navigation_sends_hid_media_keys(monkeypatch, tmp_path):
     run = mock.Mock(return_value=_result())
     monkeypatch.setattr(subprocess, "run", run)

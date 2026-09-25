@@ -238,6 +238,21 @@ a:hover { color: var(--brand-strong); }
   font-size: 4rem;
   font-weight: 750;
 }
+.artwork-fallback .source-glyph {
+  width: 50%;
+  height: 50%;
+  /* The source SVGs are black; recolour them to the brand accent via a mask
+     so both the filled (USB) and stroked (Bluetooth) glyphs tint uniformly. */
+  background-color: var(--brand);
+  -webkit-mask: var(--glyph-mask) center / contain no-repeat;
+  mask: var(--glyph-mask) center / contain no-repeat;
+}
+.artwork-fallback .source-glyph[data-source="usb"] {
+  --glyph-mask: url("/static/usb-symbol.svg");
+}
+.artwork-fallback .source-glyph[data-source="bluetooth"] {
+  --glyph-mask: url("/static/bluetooth-symbol.svg");
+}
 .playback-controls {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
